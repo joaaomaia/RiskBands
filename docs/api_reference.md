@@ -2,10 +2,11 @@
 
 ## Superficie publica do pacote
 
-Os imports principais hoje sao:
+Os imports principais recomendados hoje sao:
 
 ```python
-from nasabinning import (
+from riskbands import (
+    RiskBandsBinner,
     NASABinner,
     BinComparator,
     temporal_separability_score,
@@ -18,9 +19,10 @@ Versao atual do pacote:
 
 - `0.6.0b0`
 
-## `NASABinner`
+## `RiskBandsBinner`
 
-Construtor principal da biblioteca.
+Construtor principal recomendado da biblioteca. `NASABinner` continua disponivel
+como alias compativel durante a transicao.
 
 Parametros mais usados:
 
@@ -59,7 +61,7 @@ Atributos principais apos `fit`:
 - `iv_by_variable_`
 - `best_params_` quando `use_optuna=True`
 - `objective_summary_` nos binners treinados diretamente com `optimize_bins(...)`
-- `objective_summaries_` no `NASABinner` multi-feature quando `use_optuna=True`
+- `objective_summaries_` no `RiskBandsBinner` multi-feature quando `use_optuna=True`
 
 ## Camada de diagnostico temporal
 
@@ -119,7 +121,8 @@ O resumo final do melhor candidato fica disponivel em `objective_summary_`.
 
 ## `BinComparator`
 
-`BinComparator` continua em `nasabinning.compare` e expoe:
+`BinComparator` continua disponivel em `riskbands.compare` e, durante a
+transicao, tambem em `nasabinning.compare`.
 
 - `fit_compare(...)`
 - `candidate_audit_report()`

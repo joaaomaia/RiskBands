@@ -1,4 +1,4 @@
-# nasabinning/utils/dtypes.py
+# riskbands/utils/dtypes.py
 from __future__ import annotations
 import warnings, pandas as pd
 from typing import List, Optional, Tuple

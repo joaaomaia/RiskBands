@@ -1,7 +1,7 @@
 """
-Credit-oriented Optuna objective for NASABinning.
+Credit-oriented Optuna objective for RiskBands.
 
-The optimizer remains focused on the NASABinning core: selecting binnings that
+The optimizer remains focused on the RiskBands core: selecting binnings that
 balance static discrimination with temporal stability, structural robustness,
 and interpretability signals that matter in PD workflows.
 """

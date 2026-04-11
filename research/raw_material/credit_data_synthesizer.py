@@ -385,16 +385,16 @@ def default_group_profiles(
     return profiles
 
 
-def build_nasabinning_pd_example_frame(
+def build_riskbands_pd_example_frame(
     *,
     random_seed: int = 73,
     periods: list[int] | None = None,
     samples_per_period: int = 180,
     n_groups: int = 4,
 ) -> pd.DataFrame:
-    """Build a lightweight credit-risk frame for NASABinning examples.
+    """Build a lightweight credit-risk frame for RiskBands examples.
 
-    This helper intentionally keeps the output small and focused on the NASABinning
+    This helper intentionally keeps the output small and focused on the RiskBands
     use case: one main risk variable with multiple vintages, local instability in
     later periods, and a homogeneous-group label that can be reused by sampling
     or explanation layers.
@@ -445,6 +445,22 @@ def build_nasabinning_pd_example_frame(
             )
 
     return pd.DataFrame(rows)
+
+
+def build_nasabinning_pd_example_frame(
+    *,
+    random_seed: int = 73,
+    periods: list[int] | None = None,
+    samples_per_period: int = 180,
+    n_groups: int = 4,
+) -> pd.DataFrame:
+    """Compatibility wrapper for the former NASABinning example helper."""
+    return build_riskbands_pd_example_frame(
+        random_seed=random_seed,
+        periods=periods,
+        samples_per_period=samples_per_period,
+        n_groups=n_groups,
+    )
 
 # =============================================================================
 # CreditDataSynthesizer

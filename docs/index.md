@@ -1,10 +1,10 @@
-# NASABinning Docs
+# RiskBands Docs
 
 Este e o ponto de entrada da documentacao do projeto.
 
 ## Fluxo recomendado
 
-1. Ajustar `NASABinner(...).fit(X, y, time_col=...)`
+1. Ajustar `RiskBandsBinner(...).fit(X, y, time_col=...)`
 2. Transformar os dados com `transform(...)`
 3. Gerar o pivot temporal com `stability_over_time(...)`
 4. Abrir a tabela detalhada com `temporal_bin_diagnostics(...)`
@@ -19,6 +19,9 @@ Este e o ponto de entrada da documentacao do projeto.
 
 - [docs/api_reference.md](api_reference.md)
   Contrato principal da API e superficie publica do pacote.
+
+- [docs/migration.md](migration.md)
+  Nota de migracao do rename de `NASABinning` para `RiskBands`.
 
 - [examples/README.md](../examples/README.md)
   Mapa dos exemplos principais.

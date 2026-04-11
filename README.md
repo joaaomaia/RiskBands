@@ -1,14 +1,16 @@
-# NASABinning
+# RiskBands
 
 <p align="center">
-  <img src="./imgs/social_preview.png" alt="NASABinning Banner" width="600"/>
+  <img src="./imgs/social_preview.png" alt="RiskBands Banner" width="600"/>
 </p>
 
 Biblioteca para binning interpretavel com foco em estabilidade temporal, pensada para cenarios de risco de credito, PD e scorecards.
 
+`RiskBands` e o novo nome oficial do projeto anteriormente chamado `NASABinning`.
+
 ## O que o projeto faz
 
-O NASABinning ajuda a escolher bins que nao so separam bem no treino, mas continuam defensaveis quando olhamos safras posteriores. O foco do projeto permanece estritamente no seu nucleo:
+O RiskBands ajuda a escolher bins que nao so separam bem no treino, mas continuam defensaveis quando olhamos safras posteriores. O foco do projeto permanece estritamente no seu nucleo:
 
 - binning numerico supervisionado e nao supervisionado
 - binning categorico com rare-merge e fallback
@@ -21,7 +23,7 @@ Ele nao tenta substituir um pipeline completo de PD nem competir com o papel de 
 
 ## Quando usar
 
-O NASABinning faz mais sentido quando a pergunta principal e:
+O RiskBands faz mais sentido quando a pergunta principal e:
 
 - quais bins continuam defensaveis quando saio do treino e olho outras safras
 - como comparar uma solucao mais agressiva em IV com outra mais robusta no tempo
@@ -38,8 +40,8 @@ pip install .
 Uso para desenvolvimento:
 
 ```bash
-git clone https://github.com/joaaomaia/NASABinning.git
-cd NASABinning
+git clone https://github.com/joaaomaia/RiskBands.git
+cd RiskBands
 pip install -e .[dev]
 ```
 
@@ -61,7 +63,7 @@ O fluxo mais importante hoje e:
 import numpy as np
 import pandas as pd
 
-from nasabinning import NASABinner
+from riskbands import RiskBandsBinner
 
 rng = np.random.default_rng(0)
 n = 800
@@ -73,7 +75,7 @@ proba = 0.20 + 0.15 * X["score"] + 0.02 * (X["AnoMesReferencia"] - 202301)
 proba = np.clip(proba, 0.01, 0.99)
 y = pd.Series((rng.random(n) < proba).astype(int), name="target")
 
-binner = NASABinner(
+binner = RiskBandsBinner(
     strategy="supervised",
     min_event_rate_diff=0.03,
     check_stability=True,
@@ -133,12 +135,44 @@ O champion/challenger principal continua rodando sobre o painel bruto para prese
 
 Isso ajuda a mostrar um ponto central em credito: melhor treino nem sempre e o melhor binning para PD.
 
+## Migracao de nome
+
+O projeto foi renomeado de `NASABinning` para `RiskBands`.
+
+O que mudou:
+
+- o nome de distribuicao do pacote passa a ser `riskbands`
+- o import principal recomendado passa a ser `riskbands`
+- a classe principal recomendada para novos usos passa a ser `RiskBandsBinner`
+- URLs e instrucoes passam a assumir o repositorio `RiskBands`
+
+O que continua compativel por enquanto:
+
+- `import nasabinning`
+- `from nasabinning import NASABinner`
+- submodulos antigos como `nasabinning.compare` e `nasabinning.reporting`
+
+Como migrar:
+
+```python
+# antes
+from nasabinning import NASABinner
+
+# agora
+from riskbands import RiskBandsBinner
+```
+
+Se voce mantiver o namespace antigo por algum tempo, ele continua funcional como camada de compatibilidade.
+
+Para mais detalhes, veja [docs/migration.md](docs/migration.md).
+
 ## Superficie publica principal
 
 O pacote agora expõe diretamente:
 
 ```python
-from nasabinning import (
+from riskbands import (
+    RiskBandsBinner,
     NASABinner,
     BinComparator,
     temporal_separability_score,

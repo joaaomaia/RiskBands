@@ -1,8 +1,9 @@
 """
-Core orchestration for NASABinning.
+Core orchestration for RiskBands.
 
 This module coordinates the binning strategy, post-processing, and temporal
-stability utilities exposed by ``NASABinner``.
+stability utilities exposed by ``NASABinner`` and its ``RiskBandsBinner``
+alias.
 """
 
 from __future__ import annotations
@@ -345,7 +346,7 @@ class NASABinner(BaseEstimator, TransformerMixin):
     # ------------------------------------------------------------------
     def plot_event_rate_stability(self, pivot: pd.DataFrame | None = None, **kwargs):
         """
-        Thin wrapper around ``nasabinning.visualizations.plot_event_rate_stability``.
+        Thin wrapper around ``riskbands.visualizations.plot_event_rate_stability``.
         """
         from .visualizations import plot_event_rate_stability
 
@@ -468,3 +469,6 @@ class NASABinner(BaseEstimator, TransformerMixin):
         from .reporting import save_binner_report
 
         save_binner_report(self, path)
+
+
+RiskBandsBinner = NASABinner

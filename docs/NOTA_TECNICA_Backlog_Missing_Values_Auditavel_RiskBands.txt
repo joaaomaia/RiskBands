@@ -1,10 +1,10 @@
-NOTA_TECNICA_Backlog_Missing_Values_Auditavel_NASABinning.txt
+NOTA_TECNICA_Backlog_Missing_Values_Auditavel_RiskBands.txt
 
 Tema
-Tratamento auditável de valores ausentes (missing values) no NASABinning com foco em risco de crédito, PD, IFRS 9, Resolução 4966 e eventual escrutínio regulatório.
+Tratamento auditável de valores ausentes (missing values) no RiskBands com foco em risco de crédito, PD, IFRS 9, Resolução 4966 e eventual escrutínio regulatório.
 
 Objetivo desta nota
-Registrar, de forma estruturada e cuidadosa, uma linha de pensamento para eventual desenvolvimento futuro de uma política de tratamento de missing values no NASABinning que:
+Registrar, de forma estruturada e cuidadosa, uma linha de pensamento para eventual desenvolvimento futuro de uma política de tratamento de missing values no RiskBands que:
 - faça sentido tecnicamente
 - preserve interpretabilidade
 - seja auditável
@@ -20,7 +20,7 @@ Surgiu a hipótese de que poderia ser interessante aplicar algo vagamente semelh
 A intuição por trás da hipótese é válida:
 em risco de crédito, missing muitas vezes carrega informação própria e não deve ser tratado de forma descuidada.
 
-No entanto, para o NASABinning, o ponto mais importante não é reproduzir “algo sofisticado” a qualquer custo, e sim construir uma política:
+No entanto, para o RiskBands, o ponto mais importante não é reproduzir “algo sofisticado” a qualquer custo, e sim construir uma política:
 - clara
 - determinística
 - observável
@@ -28,7 +28,7 @@ No entanto, para o NASABinning, o ponto mais importante não é reproduzir “al
 - fácil de explicar para validação, auditoria e eventual Bacen
 
 Conclusão principal
-Sim, faz sentido estudar uma abordagem mais cuidadosa para missing values dentro do NASABinning.
+Sim, faz sentido estudar uma abordagem mais cuidadosa para missing values dentro do RiskBands.
 
 Mas a implementação recomendada não deve começar por uma imputação “inteligente” opaca do tipo:
 “descobrir automaticamente a categoria mais parecida e jogar o missing para lá”
@@ -37,7 +37,7 @@ sem trilha de auditoria robusta.
 A recomendação mais segura é evoluir por camadas, começando por políticas fortemente auditáveis.
 
 Princípio orientador
-No NASABinning, o tratamento de missing deve ser entendido como parte da lógica de binning e estabilidade temporal, e não como uma imputação mágica isolada.
+No RiskBands, o tratamento de missing deve ser entendido como parte da lógica de binning e estabilidade temporal, e não como uma imputação mágica isolada.
 
 Ou seja:
 o problema não é apenas preencher um vazio.
@@ -70,7 +70,7 @@ Essa política responde bem a perguntas típicas de validação:
 - missing está concentrado em períodos problemáticos?
 
 Conclusão:
-esta deve continuar sendo a política default do NASABinning.
+esta deve continuar sendo a política default do RiskBands.
 
 Camada 2 — Missing bin + regra auditável de fusão
 Depois de criar o missing como bin próprio, pode-se permitir uma etapa opcional e controlada de fusão com outro bin, desde que a regra seja explicitamente registrada e justificável.
@@ -98,7 +98,7 @@ O que precisa ficar registrado:
 - se houve ganho ou perda de estabilidade temporal
 
 Conclusão:
-essa é provavelmente a melhor evolução futura para o NASABinning.
+essa é provavelmente a melhor evolução futura para o RiskBands.
 
 Camada 3 — Atribuição por similaridade
 Esta seria a camada mais sofisticada e mais delicada.
@@ -127,8 +127,8 @@ Se algum dia for desenvolvida, ela deve obedecer exigências fortes:
 - demonstrar ganho robusto e estável
 - não piorar a explicabilidade do projeto
 
-Posicionamento recomendado para o NASABinning
-O NASABinning não deve oferecer “imputação inteligente genérica”.
+Posicionamento recomendado para o RiskBands
+O RiskBands não deve oferecer “imputação inteligente genérica”.
 O projeto deve oferecer, no máximo, políticas auditáveis de tratamento de missing dentro do processo de binning.
 
 Posicionamento recomendado:
@@ -154,7 +154,7 @@ O importante é que qualquer política:
 - apareça no reporting do projeto
 
 Requisitos mínimos para qualquer implementação futura
-Se esse tema entrar no backlog do NASABinning, os requisitos mínimos deveriam ser:
+Se esse tema entrar no backlog do RiskBands, os requisitos mínimos deveriam ser:
 
 1. Auditabilidade
 - regra determinística
@@ -189,7 +189,7 @@ A política precisa responder com clareza:
 
 O que evitar
 Não é recomendável, em um primeiro momento:
-- KNN para imputar missing dentro do NASABinning
+- KNN para imputar missing dentro do RiskBands
 - clustering obscuro para “achar categoria parecida”
 - embeddings ou técnicas difíceis de explicar
 - regras dinâmicas excessivamente complexas
@@ -210,7 +210,7 @@ No contexto de PD, scorecards, IFRS 9 e Resolução 4966, missing pode ser relev
 Por isso, missing não deve ser tratado como simples sujeira estatística.
 Ele pode ser um sinal de risco, de processo ou de mudança estrutural.
 
-A abordagem recomendada para o NASABinning deve refletir isso.
+A abordagem recomendada para o RiskBands deve refletir isso.
 
 Recomendação prática de backlog
 Quando esse tema for desenvolvido com calma, a sequência mais prudente seria:
@@ -238,7 +238,7 @@ Fase 4
 - só então considerar algo mais sofisticado, se ainda houver justificativa forte
 
 Critério de sucesso
-Uma futura funcionalidade de missing no NASABinning só deve ser considerada bem-sucedida se:
+Uma futura funcionalidade de missing no RiskBands só deve ser considerada bem-sucedida se:
 - melhorar ou preservar interpretabilidade
 - melhorar ou preservar estabilidade temporal
 - não piorar auditabilidade
@@ -249,15 +249,16 @@ Resumo executivo
 - A ideia faz sentido.
 - É tecnicamente viável.
 - Mas não deve entrar como “imputação inteligente mágica”.
-- O caminho mais forte para o NASABinning é:
+- O caminho mais forte para o RiskBands é:
   1. missing como bin separado por padrão
   2. política opcional de fusão auditável e supervisionada
   3. só depois, se necessário, avaliar algo mais sofisticado
 - Isso é muito mais alinhado com Bacen, IFRS 9, Resolução 4966, auditabilidade e produtização de modelos de perdas esperadas.
 
 Decisão recomendada neste momento
-Guardar este tema como backlog futuro do NASABinning.
+Guardar este tema como backlog futuro do RiskBands.
 Não interromper a Sprint 4 atual.
 Retomar o assunto em momento próprio, com desenho cuidadoso, testes e foco explícito em auditabilidade.
 
 Fim da nota.
+

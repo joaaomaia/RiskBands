@@ -1,6 +1,6 @@
 """Anchor example for PD binning with vintages and champion/challenger flow.
 
-This example stays strictly inside the NASABinning scope:
+This example stays strictly inside the RiskBands scope:
 - no end-to-end PD model training
 - no portfolio monitoring layer
 - only binning, temporal stability, and candidate comparison
@@ -21,8 +21,8 @@ for candidate_path in (ROOT, RAW_MATERIAL):
         sys.path.insert(0, str(candidate_path))
 
 from credit_data_sampler import TargetSampler
-from credit_data_synthesizer import build_nasabinning_pd_example_frame
-from nasabinning.compare import BinComparator
+from credit_data_synthesizer import build_riskbands_pd_example_frame
+from riskbands.compare import BinComparator
 
 
 def make_pd_vintage_dataset(
@@ -30,7 +30,7 @@ def make_pd_vintage_dataset(
     n_per_period: int = 180,
 ) -> tuple[pd.DataFrame, pd.Series]:
     """Create a small PD-style frame with vintages using the raw-material helpers."""
-    panel = build_nasabinning_pd_example_frame(
+    panel = build_riskbands_pd_example_frame(
         random_seed=seed,
         samples_per_period=n_per_period,
     )
@@ -45,7 +45,7 @@ def build_sampling_preview(
     target_ratio: float = 0.30,
 ) -> pd.DataFrame:
     """Show how the sampler can rebalance vintages without changing the core example."""
-    panel = build_nasabinning_pd_example_frame(
+    panel = build_riskbands_pd_example_frame(
         random_seed=seed,
         samples_per_period=n_per_period,
     )

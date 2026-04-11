@@ -1,1 +1,1 @@
-"""Utility helpers used by NASABinning internals."""
+"""Utility helpers used by RiskBands internals."""

@@ -35,7 +35,7 @@ The examples are organized by folder so a new user can quickly choose between:
 - a Python script for reproducible execution
 - a notebook for a more guided and explanatory read
 
-Both flagship examples stay inside the NASABinning scope:
+Both flagship examples stay inside the RiskBands scope:
 
 - no end-to-end PD pipeline
 - no model monitoring layer

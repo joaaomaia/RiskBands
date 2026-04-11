@@ -1,6 +1,4 @@
-"""
-Auditable report generation for NASABinning objects.
-"""
+"""Auditable report generation for RiskBands objects."""
 
 from __future__ import annotations
 

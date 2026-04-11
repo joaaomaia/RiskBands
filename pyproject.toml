@@ -3,9 +3,9 @@ requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "nasabinning"
+name = "riskbands"
 version = "0.6.0b0"
-description = "Interpretable binning with temporal stability diagnostics for credit risk and PD workflows."
+description = "RiskBands (formerly NASABinning): interpretable binning with temporal stability diagnostics for credit risk and PD workflows."
 readme = "README.md"
 requires-python = ">=3.10"
 license = { file = "LICENSE" }
@@ -50,15 +50,15 @@ dev = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/joaaomaia/NASABinning"
-Repository = "https://github.com/joaaomaia/NASABinning"
-Issues = "https://github.com/joaaomaia/NASABinning/issues"
+Homepage = "https://github.com/joaaomaia/RiskBands"
+Repository = "https://github.com/joaaomaia/RiskBands"
+Issues = "https://github.com/joaaomaia/RiskBands/issues"
 
 [tool.setuptools]
 include-package-data = true
 
 [tool.setuptools.packages.find]
-include = ["nasabinning*"]
+include = ["riskbands*", "nasabinning*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
