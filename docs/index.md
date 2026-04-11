@@ -1,35 +1,52 @@
 # NASABinning Docs
 
-O foco atual da biblioteca esta em consolidar binning interpretavel com estabilidade temporal, diagnostico por safra e comparacao auditavel entre candidatos.
+Este e o ponto de entrada da documentacao do projeto.
 
-Fluxo recomendado:
+## Fluxo recomendado
 
 1. Ajustar `NASABinner(...).fit(X, y, time_col=...)`
-2. Gerar bins transformados com `transform(...)`
-3. Calcular o pivot temporal com `stability_over_time(...)`
-4. Gerar a tabela detalhada com `temporal_bin_diagnostics(...)`
-5. Gerar o sumario agregado com `temporal_variable_summary(...)`
-6. Consolidar a escolha com `variable_audit_report(...)`
-7. Inspecionar graficamente com `plot_event_rate_stability(...)`
-8. Opcionalmente otimizar com `use_optuna=True` e `objective_kwargs`
-9. Comparar candidatos com `BinComparator` quando houver mais de uma estrategia
-10. Exportar um snapshot simples com `save_report(...)`
+2. Transformar os dados com `transform(...)`
+3. Gerar o pivot temporal com `stability_over_time(...)`
+4. Abrir a tabela detalhada com `temporal_bin_diagnostics(...)`
+5. Resumir a estabilidade com `temporal_variable_summary(...)`
+6. Consolidar o racional com `variable_audit_report(...)`
+7. Comparar candidatos com `BinComparator`, quando houver champion/challenger
 
-Para detalhes da API principal, veja `docs/api_reference.md`.
+## Navegacao rapida
 
-## Exemplos recomendados
+- [README.md](../README.md)
+  Visao geral do projeto, instalacao, quickstart e posicionamento.
 
-- `examples/temporal_stability/temporal_stability_example.py`
-  Melhor ponto de entrada para entender o fluxo base de estabilidade temporal.
+- [docs/api_reference.md](api_reference.md)
+  Contrato principal da API e superficie publica do pacote.
 
-- `examples/temporal_stability/temporal_stability_example.ipynb`
-  Versao guiada do quickstart temporal.
+- [examples/README.md](../examples/README.md)
+  Mapa dos exemplos principais.
 
-- `examples/pd_vintage_champion_challenger/pd_vintage_champion_challenger.py`
-  Exemplo ancora para risco de credito / PD com vintages, champion/challenger e leitura auditavel do vencedor.
+- [examples/temporal_stability/temporal_stability_example.py](../examples/temporal_stability/temporal_stability_example.py)
+  Quickstart temporal minimo.
 
-- `examples/pd_vintage_champion_challenger/pd_vintage_champion_challenger.ipynb`
-  Notebook didatico para mostrar por que um binning mais estavel pode vencer um challenger mais agressivo em IV.
+- [examples/pd_vintage_champion_challenger/pd_vintage_champion_challenger.py](../examples/pd_vintage_champion_challenger/pd_vintage_champion_challenger.py)
+  Exemplo ancora de risco de credito / PD com vintages.
 
-- `examples/README.md`
-  Mapa rapido para descobrir qual exemplo abrir primeiro.
+## O que procurar em credito
+
+As pecas mais relevantes para um fluxo de PD e scorecards interpretaveis sao:
+
+- `temporal_separability_score(...)`
+- `temporal_bin_diagnostics(...)`
+- `temporal_variable_summary(...)`
+- `variable_audit_report(...)`
+- `BinComparator` com `candidate_profile_summary()` e `winner_summary()`
+
+## Validacao
+
+Validacao rapida local:
+
+```bash
+pytest -q --basetemp .pytest_tmp
+```
+
+Workflow leve de CI:
+
+- [tests.yml](../.github/workflows/tests.yml)

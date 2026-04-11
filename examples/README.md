@@ -14,6 +14,12 @@
 - `examples/pd_vintage_champion_challenger/pd_vintage_champion_challenger.ipynb`
   More didactic notebook version of the anchor PD example, with narrative focused on credit decisions.
 
+## How To Run
+
+- Script: `python examples/temporal_stability/temporal_stability_example.py`
+- Script: `python examples/pd_vintage_champion_challenger/pd_vintage_champion_challenger.py`
+- Notebook: open the `.ipynb` counterpart in Jupyter or VS Code
+
 ## How To Read Them
 
 - Start with `temporal_stability/` if you want to understand the mechanics of the API before going into credit-specific trade-offs.

@@ -6,22 +6,20 @@
 
 Biblioteca para binning interpretavel com foco em estabilidade temporal, pensada para cenarios de risco de credito, PD e scorecards.
 
-## Visao geral
+## O que o projeto faz
 
-O NASABinning prioriza a qualidade temporal dos bins, e nao apenas a separacao estatica em uma unica amostra. A biblioteca combina:
+O NASABinning ajuda a escolher bins que nao so separam bem no treino, mas continuam defensaveis quando olhamos safras posteriores. O foco do projeto permanece estritamente no seu nucleo:
 
-- binning supervisionado com `OptimalBinning`
-- binning numerico nao supervisionado com `KBinsDiscretizer`
-- binning categorico com rare-merge e fallback seguro
-- metricas classicas como IV e PSI
-- diagnosticos de estabilidade ao longo das safras
-- otimizacao com Optuna para buscar bins mais estaveis no tempo
+- binning numerico supervisionado e nao supervisionado
+- binning categorico com rare-merge e fallback
+- diagnostico temporal por variavel, bin e safra
+- otimizacao de binnings com sinais de estabilidade
 - reporting auditavel do racional de escolha
 - comparacao entre candidatos estaticos, temporais e equilibrados
 
-No fluxo temporal, a ideia central e privilegiar bins que mantenham curvas de `event rate` separadas e consistentes entre safras, abrindo caminho para usos mais robustos em treino, validacao temporal e OOT.
+Ele nao tenta substituir um pipeline completo de PD nem competir com o papel de um framework amplo de risco.
 
-## O que o projeto e, e o que ele nao e
+## Quando usar
 
 O NASABinning faz mais sentido quando a pergunta principal e:
 
@@ -29,48 +27,33 @@ O NASABinning faz mais sentido quando a pergunta principal e:
 - como comparar uma solucao mais agressiva em IV com outra mais robusta no tempo
 - como documentar de forma auditavel por que um binning foi escolhido em um contexto de credito
 
-Ele nao tenta substituir um pipeline completo de PD. O foco continua sendo a escolha, diagnostico, comparacao e explicacao de bins.
+## Instalacao
 
-## Comece por aqui
-
-Se voce esta chegando agora ao projeto:
-
-- veja [examples/README.md](examples/README.md) para o mapa rapido dos exemplos
-- rode [examples/temporal_stability/temporal_stability_example.py](examples/temporal_stability/temporal_stability_example.py) para entender o fluxo base
-- abra [examples/temporal_stability/temporal_stability_example.ipynb](examples/temporal_stability/temporal_stability_example.ipynb) para uma versao mais guiada
-- rode [examples/pd_vintage_champion_challenger/pd_vintage_champion_challenger.py](examples/pd_vintage_champion_challenger/pd_vintage_champion_challenger.py) para o exemplo ancora de credito/PD com vintages
-- abra [examples/pd_vintage_champion_challenger/pd_vintage_champion_challenger.ipynb](examples/pd_vintage_champion_challenger/pd_vintage_champion_challenger.ipynb) para a leitura champion/challenger mais didatica
-
-## Estado atual do core
-
-O core atual cobre:
-
-- `fit -> transform` para variaveis numericas e categoricas
-- `stability_over_time(...)` para gerar o pivot temporal por bin e safra
-- `temporal_bin_diagnostics(...)` para tabela auditavel por variavel/bin/safra
-- `temporal_variable_summary(...)` para resumo agregado com alertas de estabilidade
-- `variable_audit_report(...)` para consolidar cortes, metricas, penalizacoes e racional por variavel
-- `plot_event_rate_stability(...)` para inspecao visual
-- `save_report(...)` para export simples em `.xlsx` ou `.json`
-- `temporal_separability_score(...)` como metrica de separacao temporal robusta a esparsidade
-- objetivo de otimizacao com penalizacoes de estabilidade, rareza e perda de ordenacao
-- comparacao de candidatos com `BinComparator` em perfis estatico, temporal e equilibrado
-
-Importante:
-
-- `time_col` e usada como coluna de safra e fica fora do conjunto de features binadas
-- o caminho com Optuna esta suportado para `strategy="supervised"`
-- a API principal de resumo de bins foi unificada em `bin_summary`
-
-## Instalacao para desenvolvimento
-
-Enquanto o empacotamento do projeto nao e finalizado, use o fluxo abaixo:
+Uso basico da biblioteca:
 
 ```bash
-git clone https://github.com/seu-usuario/NASABinning.git
-cd NASABinning
-pip install -r requirements.txt
+pip install .
 ```
+
+Uso para desenvolvimento:
+
+```bash
+git clone https://github.com/joaaomaia/NASABinning.git
+cd NASABinning
+pip install -e .[dev]
+```
+
+## Fluxo principal
+
+O fluxo mais importante hoje e:
+
+1. `fit(...)` para ajustar os bins
+2. `transform(...)` para obter bins ou WoE
+3. `stability_over_time(...)` para o pivot temporal
+4. `temporal_bin_diagnostics(...)` para a tabela auditavel por bin/safra
+5. `temporal_variable_summary(...)` para o resumo agregado
+6. `variable_audit_report(...)` para consolidar o racional da escolha
+7. `BinComparator` quando houver champion/challenger entre candidatos
 
 ## Exemplo rapido
 
@@ -99,9 +82,7 @@ binner = NASABinner(
 )
 
 binner.fit(X, y, time_col="AnoMesReferencia")
-X_woe = binner.transform(X, return_woe=True)
 
-pivot = binner.stability_over_time(X, y, time_col="AnoMesReferencia")
 diagnostics = binner.temporal_bin_diagnostics(
     X,
     y,
@@ -119,38 +100,18 @@ audit_report = binner.variable_audit_report(
     dataset_name="train",
 )
 
-binner.plot_event_rate_stability(pivot)
-binner.save_report("reports/binning_report.xlsx")
-
-print(binner.bin_summary.head())
-print(diagnostics.head())
 print(summary[["variable", "temporal_score", "alert_flags"]])
-print(audit_report[["variable", "objective_score", "key_penalties", "rationale_summary"]])
-print(binner.iv_)
+print(audit_report[["variable", "objective_score", "rationale_summary"]])
 ```
 
-## Exemplo com Optuna
+## Comece por aqui
 
-```python
-from nasabinning import NASABinner
+Se voce esta chegando agora ao projeto:
 
-binner = NASABinner(
-    strategy="supervised",
-    check_stability=True,
-    use_optuna=True,
-    strategy_kwargs={
-        "n_trials": 20,
-        "objective_kwargs": {
-            "minimums": {"iv": 0.05, "coverage_ratio": 0.75},
-        },
-    },
-)
-
-binner.fit(X, y, time_col="AnoMesReferencia")
-pivot = binner.stability_over_time(X, y, time_col="AnoMesReferencia")
-print(binner.best_params_)
-print(binner.objective_summaries_)
-```
+- veja [docs/index.md](docs/index.md) para a navegacao principal
+- veja [examples/README.md](examples/README.md) para o mapa rapido dos exemplos
+- rode [examples/temporal_stability/temporal_stability_example.py](examples/temporal_stability/temporal_stability_example.py) para entender o fluxo base
+- rode [examples/pd_vintage_champion_challenger/pd_vintage_champion_challenger.py](examples/pd_vintage_champion_challenger/pd_vintage_champion_challenger.py) para o exemplo ancora de credito/PD com vintages
 
 ## Exemplo ancora para credito / PD
 
@@ -159,111 +120,50 @@ O exemplo mais importante do repositorio agora vive em uma pasta propria, com ve
 - [examples/pd_vintage_champion_challenger/pd_vintage_champion_challenger.py](examples/pd_vintage_champion_challenger/pd_vintage_champion_challenger.py)
 - [examples/pd_vintage_champion_challenger/pd_vintage_champion_challenger.ipynb](examples/pd_vintage_champion_challenger/pd_vintage_champion_challenger.ipynb)
 
-Ele usa material de apoio em `research/raw_material/` para montar um fluxo de credito enxuto com `bureau_score`, `month`, `risk_segment` e `target`, comparando um pequeno pool de candidatos. Em particular:
+Ele usa material de apoio em `research/raw_material/` para montar um fluxo de credito enxuto com `bureau_score`, `month`, `risk_segment` e `target`. Em particular:
 
 - `credit_data_synthesizer.py` gera o painel sintetico de vintages
 - `credit_data_sampler.py` entra como preview opcional de rebalanceamento por safra
 
-O champion/challenger principal continua rodando sobre o painel bruto, justamente para preservar a tensao entre discriminacao e estabilidade:
+O champion/challenger principal continua rodando sobre o painel bruto para preservar a tensao entre discriminacao e estabilidade:
 
 - campeao estatico: maior forca em discriminacao
 - campeao temporal: melhor leitura no perfil temporal agregado
 - campeao equilibrado: melhor compromisso entre poder e robustez
 
-O ponto central do exemplo e mostrar que:
+Isso ajuda a mostrar um ponto central em credito: melhor treino nem sempre e o melhor binning para PD.
 
-- bins raros e reversoes podem sinalizar fragilidade
-- melhor treino nem sempre e o melhor binning para credito
-- a decisao final precisa olhar discriminacao junto com estabilidade temporal
-- o campeao equilibrado costuma ser a leitura mais defensavel quando queremos algo util para PD e scorecards
+## Superficie publica principal
 
-Se voce prefere comecar pelo basico antes do exemplo de credito, use:
-
-- [examples/temporal_stability/temporal_stability_example.py](examples/temporal_stability/temporal_stability_example.py)
-- [examples/temporal_stability/temporal_stability_example.ipynb](examples/temporal_stability/temporal_stability_example.ipynb)
-
-## Reporting auditavel e comparacao
-
-O NASABinning agora consegue explicar melhor por que um binning venceu, sem sair do escopo de binning e estabilidade temporal.
-
-O report consolidado por variavel combina:
-
-- cortes finais (`cut_summary`)
-- metricas estaticas como `iv` e `ks`
-- metricas temporais como `temporal_score`, cobertura e volatilidade
-- componentes e penalizacoes do objetivo
-- `alert_flags`, `key_penalties` e `rationale_summary`
-
-Para comparar candidatos, use `BinComparator`:
+O pacote agora expõe diretamente:
 
 ```python
-from nasabinning.compare import BinComparator
-
-configs = [
-    {"name": "static_candidate", "strategy": "supervised", "max_bins": 6},
-    {"name": "stable_candidate", "strategy": "unsupervised", "method": "quantile", "n_bins": 4},
-]
-
-cmp = BinComparator(configs, time_col="AnoMesReferencia")
-cmp.fit_compare(X, y)
-
-candidate_audit = cmp.candidate_audit_report()
-profiles = cmp.candidate_profile_summary()
-winners = cmp.winner_summary()
-
-print(candidate_audit[["candidate_name", "variable", "objective_score", "rationale_summary"]])
-print(winners[["variable", "best_static_candidate", "best_temporal_candidate", "selected_candidate"]])
+from nasabinning import (
+    NASABinner,
+    BinComparator,
+    temporal_separability_score,
+    ks_over_time,
+    psi_over_time,
+)
 ```
 
-## Como ler champion / challenger em credito
+## Validacao rapida
 
-Uma leitura pratica do comparador e:
+Validacao local enxuta:
 
-- `best_static_candidate`: o candidato que mais impressiona em discriminacao
-- `best_temporal_candidate`: o candidato com melhor leitura temporal agregada
-- `best_balanced_candidate`: o candidato que melhor equilibra poder e robustez
-- `selected_candidate`: a recomendacao final dentro daquele conjunto de candidatos
-
-Em um contexto de PD, a escolha final nem sempre deve seguir o campeao estatico. Se a estabilidade temporal virar uma preocupacao material, o challenger temporal pode ser a opcao mais prudente, mesmo com menos brilho no treino.
-
-## Estrutura principal
-
-```text
-nasabinning/
-|-- binning_engine.py
-|-- temporal_stability.py
-|-- temporal_diagnostics.py
-|-- refinement.py
-|-- metrics.py
-|-- reporting.py
-|-- compare.py
-|-- visualizations.py
-`-- strategies/
+```bash
+pytest -q --basetemp .pytest_tmp
 ```
 
-## Proximo foco
+O repositorio agora tambem inclui workflow leve de CI em [tests.yml](.github/workflows/tests.yml).
 
-O proximo passo natural do projeto e consolidar maturidade final de pacote:
+## Mapa do repositorio
 
-- documentacao mais polida e navegavel
-- organizacao final de exemplos e API
-- empacotamento e preparo para uso mais estavel
-- smoke tests e CI mais claros
-
-## Otimizacao orientada a credito
-
-O objetivo atual do Optuna continua estritamente no escopo do NASABinning: ele nao tenta virar um framework de modelagem de risco, mas passa a escolher bins de forma mais alinhada com PD.
-
-A funcao-objetivo agora combina:
-
-- separacao estatica e IV como sinais-base
-- `temporal_score` como sinal positivo de estabilidade
-- penalizacoes por bins raros
-- penalizacoes por baixa cobertura temporal
-- penalizacoes por volatilidade de `event_rate`, `WoE` e `bin_share`
-- penalizacoes por quebra de monotonicidade e reversao de ranking
-
-Isso ajuda a evitar binnings que parecem fortes no treino, mas degradam mais no tempo.
+- [docs/index.md](docs/index.md): ponto de entrada da documentacao
+- [docs/api_reference.md](docs/api_reference.md): contrato principal da API
+- [examples/README.md](examples/README.md): mapa dos exemplos
+- [examples/temporal_stability](examples/temporal_stability): quickstart temporal
+- [examples/pd_vintage_champion_challenger](examples/pd_vintage_champion_challenger): exemplo ancora de credito
 
 ## Licenca
 

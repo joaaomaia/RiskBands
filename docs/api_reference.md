@@ -1,5 +1,23 @@
 # API Reference
 
+## Superficie publica do pacote
+
+Os imports principais hoje sao:
+
+```python
+from nasabinning import (
+    NASABinner,
+    BinComparator,
+    temporal_separability_score,
+    ks_over_time,
+    psi_over_time,
+)
+```
+
+Versao atual do pacote:
+
+- `0.6.0b0`
+
 ## `NASABinner`
 
 Construtor principal da biblioteca.
@@ -79,12 +97,6 @@ Atributos principais apos `fit`:
 - `selection_basis`
 - `rationale_summary`
 
-Quando o binner nao possui `objective_summary_` persistido, o report deriva um resumo consistente a partir:
-
-- do `child_binner` treinado para a variavel
-- das tabelas temporais da Sprint 2
-- da mesma filosofia de score introduzida na Sprint 3
-
 ## Otimizacao orientada a credito
 
 `optimize_bins(...)` utiliza um score composto simples e auditavel:
@@ -105,26 +117,27 @@ Quando o binner nao possui `objective_summary_` persistido, o report deriva um r
 
 O resumo final do melhor candidato fica disponivel em `objective_summary_`.
 
-## Comparacao entre candidatos
+## `BinComparator`
 
-`BinComparator` continua em `nasabinning.compare` e agora expoe:
+`BinComparator` continua em `nasabinning.compare` e expoe:
 
-- `candidate_audit_report()` com o report consolidado por candidato x variavel
-- `candidate_profile_summary()` com scores e ranks em tres perfis:
-  - `static_profile_score`
-  - `temporal_profile_score`
-  - `balanced_profile_score`
-- `winner_summary()` com:
-  - melhor candidato estatico
-  - melhor candidato temporal
-  - melhor candidato equilibrado
-  - racional resumido do vencedor
+- `fit_compare(...)`
+- `candidate_audit_report()`
+- `candidate_profile_summary()`
+- `winner_summary()`
+
+Perfis comparados:
+
+- melhor candidato estatico
+- melhor candidato temporal
+- melhor candidato equilibrado
+- candidato selecionado final
 
 ## Exemplos ancora
 
 Para ver a API aplicada em fluxos de credito com vintages:
 
-- `examples/temporal_stability/temporal_stability_example.py`
-- `examples/temporal_stability/temporal_stability_example.ipynb`
-- `examples/pd_vintage_champion_challenger/pd_vintage_champion_challenger.py`
-- `examples/pd_vintage_champion_challenger/pd_vintage_champion_challenger.ipynb`
+- [examples/temporal_stability/temporal_stability_example.py](../examples/temporal_stability/temporal_stability_example.py)
+- [examples/temporal_stability/temporal_stability_example.ipynb](../examples/temporal_stability/temporal_stability_example.ipynb)
+- [examples/pd_vintage_champion_challenger/pd_vintage_champion_challenger.py](../examples/pd_vintage_champion_challenger/pd_vintage_champion_challenger.py)
+- [examples/pd_vintage_champion_challenger/pd_vintage_champion_challenger.ipynb](../examples/pd_vintage_champion_challenger/pd_vintage_champion_challenger.ipynb)
