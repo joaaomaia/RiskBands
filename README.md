@@ -117,6 +117,11 @@ print(audit_report[["variable", "objective_score", "rationale_summary"]])
 
 ## Exemplos
 
+- [examples/pd_vintage_benchmark/pd_vintage_benchmark.py](examples/pd_vintage_benchmark/pd_vintage_benchmark.py)
+  Benchmark visual comparando `OptimalBinning` puro versus RiskBands em cenarios de credito com drift temporal.
+- [examples/pd_vintage_benchmark/pd_vintage_benchmark.ipynb](examples/pd_vintage_benchmark/pd_vintage_benchmark.ipynb)
+  Notebook premium da vitrine metodologica, com board comparativo, curvas por vintage e heatmaps.
+
 - [examples/temporal_stability/temporal_stability_example.py](examples/temporal_stability/temporal_stability_example.py)
   Quickstart do fluxo temporal.
 - [examples/pd_vintage_champion_challenger/pd_vintage_champion_challenger.py](examples/pd_vintage_champion_challenger/pd_vintage_champion_challenger.py)

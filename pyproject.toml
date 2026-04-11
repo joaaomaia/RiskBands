@@ -43,9 +43,13 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+viz = [
+  "plotly>=6.0"
+]
 dev = [
   "black>=24.4",
   "ipykernel>=6.29",
+  "plotly>=6.0",
   "pytest>=8.2"
 ]
 

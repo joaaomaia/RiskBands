@@ -22,6 +22,10 @@ Entry point for the project documentation.
   Breaking migration guide for users coming from `NASABinning`.
 - [examples/README.md](../examples/README.md)
   Map of the main examples.
+- [examples/pd_vintage_benchmark/pd_vintage_benchmark.py](../examples/pd_vintage_benchmark/pd_vintage_benchmark.py)
+  Premium benchmark for credit risk, comparing pure `OptimalBinning` versus RiskBands under temporal stress.
+- [examples/pd_vintage_benchmark/pd_vintage_benchmark.ipynb](../examples/pd_vintage_benchmark/pd_vintage_benchmark.ipynb)
+  Visual notebook version with benchmark board, vintage heatmaps and penalty breakdown.
 - [examples/temporal_stability/temporal_stability_example.py](../examples/temporal_stability/temporal_stability_example.py)
   Minimal temporal quickstart.
 - [examples/pd_vintage_champion_challenger/pd_vintage_champion_challenger.py](../examples/pd_vintage_champion_challenger/pd_vintage_champion_challenger.py)
@@ -36,6 +40,7 @@ The most relevant components for PD and interpretable scorecard workflows are:
 - `temporal_variable_summary(...)`
 - `variable_audit_report(...)`
 - `BinComparator` with `candidate_profile_summary()` and `winner_summary()`
+- `riskbands.benchmark_plots` when you need reusable Plotly visuals for benchmark demos
 
 ## Local Validation
 

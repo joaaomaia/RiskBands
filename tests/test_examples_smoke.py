@@ -1,5 +1,6 @@
 ﻿from importlib.util import module_from_spec, spec_from_file_location
 from pathlib import Path
+import sys
 
 
 def _load_example_module(relative_path: str):
@@ -8,6 +9,7 @@ def _load_example_module(relative_path: str):
     spec = spec_from_file_location(path.stem, path)
     module = module_from_spec(spec)
     assert spec.loader is not None
+    sys.modules[spec.name] = module
     spec.loader.exec_module(module)
     return module
 
@@ -66,5 +68,52 @@ def test_temporal_stability_example_flow_smoke():
     assert not results["diagnostics"].empty
     assert not results["summary"].empty
     assert not results["audit_report"].empty
+
+
+def test_pd_vintage_benchmark_example_flow_smoke():
+    module = _load_example_module(
+        "examples/pd_vintage_benchmark/pd_vintage_benchmark.py"
+    )
+
+    suite = module.run_benchmark_suite(samples_per_period=180)
+
+    assert {"scenario_summary", "scenarios"} <= set(suite)
+    summary = suite["scenario_summary"].set_index("scenario")
+    assert set(summary.index) == {
+        "stable_credit",
+        "temporal_reversal",
+        "composition_shift",
+    }
+    assert summary.loc["stable_credit", "selected_candidate"] == "riskbands_static"
+    assert summary.loc["temporal_reversal", "selected_candidate"] == "riskbands_temporal_quantile"
+    assert summary.loc["composition_shift", "selected_candidate"] == "riskbands_static"
+
+    anchor = suite["scenarios"]["temporal_reversal"]
+    assert {
+        "approach_board",
+        "candidate_profiles",
+        "winner_summary",
+        "credit_takeaways",
+        "sampling_preview",
+    } <= set(anchor)
+    assert {
+        "external_baseline",
+        "internal_static",
+        "riskbands_selected",
+    } == set(anchor["approach_board"]["benchmark_role"])
+    assert not anchor["sampling_preview"].empty
+    assert len(anchor["credit_takeaways"]) >= 3
+
+    figures = module.build_benchmark_visuals(anchor)
+    assert {
+        "benchmark_board",
+        "metric_comparison",
+        "event_rate_curves",
+        "selected_heatmap",
+        "aggregate_vs_vintage",
+        "penalty_breakdown",
+        "score_distribution",
+        "sampling_preview",
+    } <= set(figures)
 
 
