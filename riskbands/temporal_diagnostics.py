@@ -1,4 +1,4 @@
-"""
+﻿"""
 Detailed temporal diagnostics for binning behaviour across vintages.
 
 This module adds an audit-friendly layer on top of the core temporal stability
@@ -437,3 +437,5 @@ def summarize_temporal_variable_stability(
     summary = pd.DataFrame(summaries).sort_values("variable").reset_index(drop=True)
     summary.attrs["time_col"] = time_col
     return summary
+
+

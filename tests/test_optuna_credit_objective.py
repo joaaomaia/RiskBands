@@ -1,8 +1,8 @@
-import numpy as np
+﻿import numpy as np
 import pandas as pd
 
-from nasabinning import NASABinner
-from nasabinning.optuna_optimizer import (
+from riskbands import Binner
+from riskbands.optuna_optimizer import (
     build_objective_components,
     optimize_bins,
     score_objective_components,
@@ -40,7 +40,7 @@ def _make_credit_vintage_dataset(*, unstable: bool = False):
 
 
 def _fit_reference_binner(X, y):
-    binner = NASABinner(
+    binner = Binner(
         strategy="unsupervised",
         max_bins=3,
         min_event_rate_diff=0.0,
@@ -117,3 +117,5 @@ def test_optimize_bins_exposes_credit_objective_summary():
     assert "penalties" in binner.objective_summary_
     assert "components" in binner.objective_summary_
     assert np.isfinite(binner.objective_summary_["score"])
+
+

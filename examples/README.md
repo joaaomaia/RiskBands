@@ -1,4 +1,4 @@
-# Examples
+﻿# Examples
 
 ## Start Here
 
@@ -45,3 +45,5 @@ The anchor PD example also reuses the synthetic credit helpers under `research/r
 
 - `credit_data_synthesizer.py` for the vintage panel
 - `credit_data_sampler.py` for an optional sampling preview
+
+

@@ -1,55 +1,49 @@
-# RiskBands Docs
+﻿# RiskBands Docs
 
-Este e o ponto de entrada da documentacao do projeto.
+Entry point for the project documentation.
 
-## Fluxo recomendado
+## Recommended Flow
 
-1. Ajustar `RiskBandsBinner(...).fit(X, y, time_col=...)`
-2. Transformar os dados com `transform(...)`
-3. Gerar o pivot temporal com `stability_over_time(...)`
-4. Abrir a tabela detalhada com `temporal_bin_diagnostics(...)`
-5. Resumir a estabilidade com `temporal_variable_summary(...)`
-6. Consolidar o racional com `variable_audit_report(...)`
-7. Comparar candidatos com `BinComparator`, quando houver champion/challenger
+1. Fit `Binner(...).fit(X, y, time_col=...)`.
+2. Transform the data with `transform(...)`.
+3. Generate the temporal pivot with `stability_over_time(...)`.
+4. Inspect the detailed diagnostics with `temporal_bin_diagnostics(...)`.
+5. Summarize stability with `temporal_variable_summary(...)`.
+6. Consolidate the rationale with `variable_audit_report(...)`.
+7. Compare candidates with `BinComparator` when doing champion/challenger.
 
-## Navegacao rapida
+## Quick Navigation
 
 - [README.md](../README.md)
-  Visao geral do projeto, instalacao, quickstart e posicionamento.
-
+  Project overview, installation, quickstart, and positioning.
 - [docs/api_reference.md](api_reference.md)
-  Contrato principal da API e superficie publica do pacote.
-
+  Main API contract and public package surface.
 - [docs/migration.md](migration.md)
-  Nota de migracao do rename de `NASABinning` para `RiskBands`.
-
+  Breaking migration guide for users coming from `NASABinning`.
 - [examples/README.md](../examples/README.md)
-  Mapa dos exemplos principais.
-
+  Map of the main examples.
 - [examples/temporal_stability/temporal_stability_example.py](../examples/temporal_stability/temporal_stability_example.py)
-  Quickstart temporal minimo.
-
+  Minimal temporal quickstart.
 - [examples/pd_vintage_champion_challenger/pd_vintage_champion_challenger.py](../examples/pd_vintage_champion_challenger/pd_vintage_champion_challenger.py)
-  Exemplo ancora de risco de credito / PD com vintages.
+  Credit-risk / PD anchor example with vintages.
 
-## O que procurar em credito
+## What to Look For in Credit Work
 
-As pecas mais relevantes para um fluxo de PD e scorecards interpretaveis sao:
+The most relevant components for PD and interpretable scorecard workflows are:
 
 - `temporal_separability_score(...)`
 - `temporal_bin_diagnostics(...)`
 - `temporal_variable_summary(...)`
 - `variable_audit_report(...)`
-- `BinComparator` com `candidate_profile_summary()` e `winner_summary()`
+- `BinComparator` with `candidate_profile_summary()` and `winner_summary()`
 
-## Validacao
-
-Validacao rapida local:
+## Local Validation
 
 ```bash
 pytest -q --basetemp .pytest_tmp
 ```
 
-Workflow leve de CI:
+Light CI workflow:
 
 - [tests.yml](../.github/workflows/tests.yml)
+

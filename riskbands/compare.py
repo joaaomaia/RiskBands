@@ -1,6 +1,4 @@
-"""
-Utilities to compare multiple NASABinner configurations.
-"""
+﻿"""Utilities to compare multiple Binner configurations."""
 
 from __future__ import annotations
 
@@ -9,7 +7,7 @@ from typing import Any
 
 import pandas as pd
 
-from .binning_engine import NASABinner
+from .binning_engine import Binner
 from .reporting import (
     build_candidate_profile_report,
     build_candidate_winner_report,
@@ -20,7 +18,7 @@ from .temporal_stability import psi_over_time
 
 _BINNER_PARAMS = {
     name
-    for name in inspect.signature(NASABinner.__init__).parameters
+    for name in inspect.signature(Binner.__init__).parameters
     if name != "self"
 }
 
@@ -64,7 +62,7 @@ class BinComparator:
 
         for raw_cfg in self.configs:
             name, cfg = _normalize_config(raw_cfg)
-            binner = NASABinner(**cfg)
+            binner = Binner(**cfg)
             binner.fit(X, y, time_col=self.time_col)
 
             psi = None
@@ -173,3 +171,5 @@ class BinComparator:
         cols = ["strategy", "iv", "n_bins", "psi"]
         optional = [column for column in ["objective_score", "temporal_score", "total_penalty", "alert_flags"] if column in summary.columns]
         return summary[cols + optional]
+
+

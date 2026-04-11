@@ -1,10 +1,10 @@
-import json
+﻿import json
 
 import numpy as np
 import pandas as pd
 
-from nasabinning import NASABinner
-from nasabinning.reporting import save_binner_report
+from riskbands import Binner
+from riskbands.reporting import save_binner_report
 
 
 def _make_vintage_dataset(*, sparse_last_period: bool = False):
@@ -43,7 +43,7 @@ def _make_vintage_dataset(*, sparse_last_period: bool = False):
 
 
 def _fit_diagnostic_binner(X, y):
-    binner = NASABinner(
+    binner = Binner(
         strategy="unsupervised",
         max_bins=3,
         min_event_rate_diff=0.0,
@@ -149,3 +149,5 @@ def test_temporal_report_exports_diagnostics_layers(tmp_path):
     assert "temporal_bin_diagnostics" in payload
     assert "temporal_variable_summary" in payload
     assert len(payload["temporal_variable_summary"]) == len(summary)
+
+

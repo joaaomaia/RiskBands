@@ -1,11 +1,11 @@
-import json
+﻿import json
 
 import numpy as np
 import pandas as pd
 
-from nasabinning import NASABinner
-from nasabinning.compare import BinComparator
-from nasabinning.reporting import (
+from riskbands import Binner
+from riskbands.compare import BinComparator
+from riskbands.reporting import (
     build_candidate_profile_report,
     build_candidate_winner_report,
     save_binner_report,
@@ -48,7 +48,7 @@ def _make_vintage_dataset(*, sparse_last_period: bool = False):
 
 
 def _fit_reference_binner(X, y):
-    binner = NASABinner(
+    binner = Binner(
         strategy="unsupervised",
         max_bins=3,
         min_event_rate_diff=0.0,
@@ -241,3 +241,5 @@ def test_save_report_exports_variable_audit_layer(tmp_path):
 
     assert "variable_audit_report" in payload
     assert len(payload["variable_audit_report"]) == 1
+
+

@@ -1,10 +1,4 @@
-"""
-Core orchestration for RiskBands.
-
-This module coordinates the binning strategy, post-processing, and temporal
-stability utilities exposed by ``NASABinner`` and its ``RiskBandsBinner``
-alias.
-"""
+﻿"""Core orchestration for RiskBands."""
 
 from __future__ import annotations
 
@@ -19,7 +13,7 @@ from .strategies import get_strategy
 from .utils.dtypes import search_dtypes
 
 
-class NASABinner(BaseEstimator, TransformerMixin):
+class Binner(BaseEstimator, TransformerMixin):
     def __init__(
         self,
         strategy: str = "supervised",
@@ -471,4 +465,3 @@ class NASABinner(BaseEstimator, TransformerMixin):
         save_binner_report(self, path)
 
 
-RiskBandsBinner = NASABinner

@@ -1,6 +1,6 @@
-import pandas as pd
+﻿import pandas as pd
 import numpy as np
-from nasabinning.strategies.unsupervised import UnsupervisedBinning
+from riskbands.strategies.unsupervised import UnsupervisedBinning
 
 def test_unsupervised_multi_column():
     rng = np.random.default_rng(0)
@@ -12,3 +12,5 @@ def test_unsupervised_multi_column():
     Xt = ub.fit(X).transform(X)
     assert Xt.shape == X.shape
     assert Xt.nunique().max() <= 4
+
+

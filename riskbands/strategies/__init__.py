@@ -1,4 +1,4 @@
-from .supervised import SupervisedBinning
+﻿from .supervised import SupervisedBinning
 from .unsupervised import UnsupervisedBinning
 from .categorical import CategoricalBinning
 
@@ -11,3 +11,5 @@ def get_strategy(name: str, **kwargs):
         return CategoricalBinning(**kwargs)
     else:
         raise ValueError(f"Unknown strategy '{name}'")
+
+

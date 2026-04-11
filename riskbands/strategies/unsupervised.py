@@ -1,4 +1,4 @@
-"""
+﻿"""
 Unsupervised numeric binning strategies built on top of KBinsDiscretizer.
 """
 
@@ -59,3 +59,5 @@ class UnsupervisedBinning:
             raise NotImplementedError("WoE requer target supervisionado.")
         Xt = self._kbd.transform(X)
         return pd.DataFrame(Xt, columns=X.columns, index=X.index)
+
+

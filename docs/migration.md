@@ -1,59 +1,87 @@
-# Migracao de NASABinning para RiskBands
+# Migration
 
-`RiskBands` e a nova identidade oficial do projeto anteriormente chamado
-`NASABinning`.
+## Breaking Change
 
-## O que mudou
+The rename from `NASABinning` to `RiskBands` is complete in `1.0.0`.
+This same release line also simplifies the main constructor name from `RiskBandsBinner` to `Binner`.
 
-- o nome do projeto e da distribuicao passa a ser `riskbands`
-- o repositorio passa a assumir o nome `RiskBands`
-- o import principal recomendado passa a ser `riskbands`
-- a classe principal recomendada para novos usos passa a ser `RiskBandsBinner`
+## What Changed
 
-## O que continua compativel
+- the project name is now `RiskBands`
+- the distribution name is now `riskbands`
+- the only supported package namespace is `riskbands`
+- the main public class is now `Binner`
+- internal modules now live under `riskbands/`
 
-Durante a transicao, o namespace antigo continua funcional:
+## Old Imports Removed
+
+These imports no longer work:
 
 ```python
 import nasabinning
 from nasabinning import NASABinner
 from nasabinning.compare import BinComparator
+from nasabinning.reporting import save_binner_report
 ```
 
-Esse caminho antigo deve ser tratado como compatibilidade temporaria. Para novos
-codigos, prefira:
+## How to Migrate
+
+If you are coming from the old project name:
 
 ```python
-from riskbands import RiskBandsBinner, BinComparator
-```
-
-## Exemplo de migracao
-
-Antes:
-
-```python
+# before
 from nasabinning import NASABinner
+from nasabinning.compare import BinComparator
 
 binner = NASABinner(check_stability=True)
 ```
 
-Agora:
-
 ```python
-from riskbands import RiskBandsBinner
+# after
+from riskbands import Binner, BinComparator
 
-binner = RiskBandsBinner(check_stability=True)
+binner = Binner(check_stability=True)
 ```
 
-## O que nao mudou
+If you were already using the `riskbands` namespace, apply the class rename too:
 
-- a tese central da biblioteca
-- o foco em binning interpretavel e estabilidade temporal
-- a API funcional de diagnostico, comparacao e reporting
-- os ativos graficos do projeto nesta etapa
+```python
+# before
+from riskbands import RiskBandsBinner
 
-## TODO separado
+# after
+from riskbands import Binner
+```
 
-Itens de identidade visual como logotipo, social preview, banner e screenshots
-promocionais ficaram fora desta etapa de rename e devem ser tratados em um fluxo
-proprio.
+If you imported submodules directly, move them under `riskbands.*`.
+
+Examples:
+
+- `nasabinning.compare` -> `riskbands.compare`
+- `nasabinning.reporting` -> `riskbands.reporting`
+- `nasabinning.temporal_stability` -> `riskbands.temporal_stability`
+
+## Why This Was Done
+
+Keeping the longer class name after the package rename made the public API heavier than necessary. `riskbands.Binner` is shorter, cleaner, and still explicit enough in context.
+
+This keeps the public surface structurally consistent:
+
+- one project name
+- one package namespace
+- one main class name
+- one distribution target
+
+## What Did Not Change
+
+- the focus on interpretable binning
+- the emphasis on temporal stability in credit workflows
+- the diagnostics, comparison, and audit-reporting philosophy
+
+## Upgrade Checklist
+
+1. Replace all `nasabinning` imports with `riskbands`.
+2. Replace `NASABinner` with `Binner`.
+3. Replace `RiskBandsBinner` with `Binner`.
+4. Rebuild notebooks, scripts, and internal examples that used the old namespace or old class names.
+5. Re-run your local tests or validation notebooks after the import update.

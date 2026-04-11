@@ -1,6 +1,6 @@
-"""
+﻿"""
 metrics.py
-Métricas clássicas de modelagem de risco de crédito.
+MÃ©tricas clÃ¡ssicas de modelagem de risco de crÃ©dito.
 IV: Information Value
 PSI: Population Stability Index
 """
@@ -26,10 +26,10 @@ def psi(df_bins: pd.DataFrame,
         by: str | None = None,
         col_event_rate: str = "event_rate") -> float:
     """
-    PSI simples: compara distribuição de event-rate entre dois subconjuntos.
-    Se `by` é None, espera colunas 'expected' e 'actual'.
-    Se `by` é str, assume df com múltiplas linhas por bin (ex: safras) e
-    calcula PSI entre a primeira e a última categoria.
+    PSI simples: compara distribuiÃ§Ã£o de event-rate entre dois subconjuntos.
+    Se `by` Ã© None, espera colunas 'expected' e 'actual'.
+    Se `by` Ã© str, assume df com mÃºltiplas linhas por bin (ex: safras) e
+    calcula PSI entre a primeira e a Ãºltima categoria.
     """
     if by is None:
         exp = df_bins["expected"].values
@@ -45,3 +45,5 @@ def psi(df_bins: pd.DataFrame,
     exp = np.clip(exp, 1e-9, None)
     act = np.clip(act, 1e-9, None)
     return float(np.sum((act - exp) * np.log(act / exp)))
+
+

@@ -1,7 +1,7 @@
-import numpy as np
+﻿import numpy as np
 import pandas as pd
 
-from nasabinning.temporal_stability import (
+from riskbands.temporal_stability import (
     event_rate_by_time,
     psi_over_time,
     stability_table,
@@ -76,3 +76,5 @@ def test_temporal_separability_score_handles_sparse_bins_and_penalties():
     assert np.isfinite(base_score)
     assert np.isfinite(penalized_score)
     assert penalized_score <= base_score
+
+

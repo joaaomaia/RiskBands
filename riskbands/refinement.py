@@ -1,10 +1,10 @@
-"""
+﻿"""
 refinement.py
-Pós-processamento dos cortes:
+PÃ³s-processamento dos cortes:
 1. Normaliza nomes de colunas vindos do OptimalBinning.
-2. Garante diferença mínima de event rate (Δ ER) entre bins vizinhos.
-3. Mantém monotonicidade asc/desc se solicitado.
-4. (opcional) armazena PSI de 1.ª × última safra.
+2. Garante diferenÃ§a mÃ­nima de event rate (Î” ER) entre bins vizinhos.
+3. MantÃ©m monotonicidade asc/desc se solicitado.
+4. (opcional) armazena PSI de 1.Âª Ã— Ãºltima safra.
 """
 
 from __future__ import annotations
@@ -38,22 +38,22 @@ def refine_bins(
 ) -> pd.DataFrame:
     """
     Recebe bin_tbl (output de OptimalBinning.binning_table.build()) e
-    devolve um DataFrame normalizado com possíveis fusões.
+    devolve um DataFrame normalizado com possÃ­veis fusÃµes.
 
     - Normaliza colunas: ["variable", "bin", "count", "event", "non_event", "event_rate"]
-    - Fusão por Δ event-rate mínimo
+    - FusÃ£o por Î” event-rate mÃ­nimo
     - Monotonicidade (se trend definido)
-    - PSI entre primeira e última safra (opcional)
+    - PSI entre primeira e Ãºltima safra (opcional)
 
-    Espera que bin_tbl venha com alguma combinação de:
+    Espera que bin_tbl venha com alguma combinaÃ§Ã£o de:
       "Bin" ou "bin",
       "Count" ou "count",
       "Event" ou "event",
       "Non Event", "Non-Event", "Non-event" ou "non_event",
       "Event Rate" ou "event_rate",
-      além de "variable" e possivelmente time_col.
+      alÃ©m de "variable" e possivelmente time_col.
     """
-    # 1) Copiar e resetar índice
+    # 1) Copiar e resetar Ã­ndice
     tbl = bin_tbl.copy().reset_index(drop=True)
 
     # 2) Normalizar nomes de coluna
@@ -88,14 +88,14 @@ def refine_bins(
     if non_cols:
         tbl["non_event"] = tbl[non_cols[0]]
     else:
-        # Calcula se não existir explicitamente
+        # Calcula se nÃ£o existir explicitamente
         tbl["non_event"] = tbl["count"] - tbl["event"]
 
     # event_rate
     if "Event Rate" in tbl.columns:
         tbl["event_rate"] = tbl["Event Rate"]
     elif "event_rate" not in tbl.columns:
-        # Se não estiver, calcula a partir de event/count
+        # Se nÃ£o estiver, calcula a partir de event/count
         tbl["event_rate"] = tbl["event"] / tbl["count"]
 
     # 3) Selecionar apenas colunas existentes
@@ -106,7 +106,7 @@ def refine_bins(
     tbl = tbl[base_cols]
 
     # -------------------------------------------------- #
-    # 4) Fusão por Δ event rate
+    # 4) FusÃ£o por Î” event rate
     i = 0
     while i < len(tbl) - 1:
         delta = abs(tbl.at[i, "event_rate"] - tbl.at[i + 1, "event_rate"])
@@ -118,7 +118,7 @@ def refine_bins(
     # -------------------------------------------------- #
     # 5) Monotonicidade global (se houver)
     if trend is not None and not _check_monotonic(tbl["event_rate"], trend):
-        # fusão iterativa do par que menos viola monotonicidade
+        # fusÃ£o iterativa do par que menos viola monotonicidade
         while not _check_monotonic(tbl["event_rate"], trend) and len(tbl) > 2:
             diff = tbl["event_rate"].diff().fillna(0)
             bad = diff[diff * (1 if trend == "ascending" else -1) < 0].index
@@ -138,13 +138,13 @@ def refine_bins(
 
 
 def _merge(df: pd.DataFrame, i: int, j: int) -> pd.DataFrame:
-    """Fundir linhas i e j; ajustar rótulo se forem intervalos contíguos."""
+    """Fundir linhas i e j; ajustar rÃ³tulo se forem intervalos contÃ­guos."""
     # somar contagens
     cols = ["count", "non_event", "event"]
     df.loc[i, cols] = df.loc[[i, j], cols].sum()
     df.loc[i, "event_rate"] = df.loc[i, "event"] / df.loc[i, "count"]
 
-    # tentar reconhecer ambos os rótulos como intervalos
+    # tentar reconhecer ambos os rÃ³tulos como intervalos
     m_i = _INTERVAL_RE.match(str(df.at[i, "bin"]))
     m_j = _INTERVAL_RE.match(str(df.at[j, "bin"]))
 
@@ -152,7 +152,7 @@ def _merge(df: pd.DataFrame, i: int, j: int) -> pd.DataFrame:
         # extremos a preservar
         new_left  = m_i.group("left")
         new_right = m_j.group("right")
-        lb = m_i.group("lb")         # parêntese ou colchete esquerdo
+        lb = m_i.group("lb")         # parÃªntese ou colchete esquerdo
         rb = m_j.group("rb")         # direito
         df.at[i, "bin"] = f"{lb}{new_left}, {new_right}{rb}"
 
@@ -163,10 +163,10 @@ def _merge(df: pd.DataFrame, i: int, j: int) -> pd.DataFrame:
 
 # """
 # refinement.py
-# Pós-processamento dos cortes:
-# 1. Garante diferença mínima de event rate (Δ ER) entre bins vizinhos.
-# 2. Mantém monotonicidade asc/desc se solicitado.
-# 3. (opcional) armazena PSI de 1.ª × última safra.
+# PÃ³s-processamento dos cortes:
+# 1. Garante diferenÃ§a mÃ­nima de event rate (Î” ER) entre bins vizinhos.
+# 2. MantÃ©m monotonicidade asc/desc se solicitado.
+# 3. (opcional) armazena PSI de 1.Âª Ã— Ãºltima safra.
 # """
 
 # from __future__ import annotations
@@ -193,7 +193,7 @@ def _merge(df: pd.DataFrame, i: int, j: int) -> pd.DataFrame:
 #     tbl = bin_tbl.copy().reset_index(drop=True)
 
 #     # -------------------------------------------------- #
-#     # 1) Fusão por Δ event rate
+#     # 1) FusÃ£o por Î” event rate
 #     i = 0
 #     while i < len(tbl) - 1:
 #         delta = abs(tbl.at[i, "event_rate"] - tbl.at[i + 1, "event_rate"])
@@ -205,7 +205,7 @@ def _merge(df: pd.DataFrame, i: int, j: int) -> pd.DataFrame:
 #     # -------------------------------------------------- #
 #     # 2) Monotonicidade global (se houver)
 #     if trend is not None and not _check_monotonic(tbl["event_rate"], trend):
-#         # fusão iterativa do par que menos viola monotonicidade
+#         # fusÃ£o iterativa do par que menos viola monotonicidade
 #         while not _check_monotonic(tbl["event_rate"], trend) and len(tbl) > 2:
 #             # encontra virada de sinal
 #             diff = tbl["event_rate"].diff().fillna(0)
@@ -232,3 +232,5 @@ def _merge(df: pd.DataFrame, i: int, j: int) -> pd.DataFrame:
 #     )
 #     df.at[i, "event_rate"] = df.at[i, "event"] / df.at[i, "count"]
 #     return df.drop(index=j).reset_index(drop=True)
+
+

@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 import pandas as pd
 from optbinning import OptimalBinning
 from category_encoders.ordinal import OrdinalEncoder
@@ -81,3 +81,4 @@ class CategoricalBinning:
             return pd.DataFrame({col: codes})
         else:
             return self._encoder[0].transform(X[[col]])
+

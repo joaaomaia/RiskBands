@@ -1,12 +1,12 @@
-import json
+﻿import json
 from unittest.mock import patch
 
 import matplotlib
 import numpy as np
 import pandas as pd
 
-from nasabinning import NASABinner
-from nasabinning.reporting import save_binner_report
+from riskbands import Binner
+from riskbands.reporting import save_binner_report
 
 matplotlib.use("Agg")
 
@@ -24,7 +24,7 @@ def _make_temporal_dataset(seed: int = 7):
 
 def test_stability_over_time_excludes_time_col_without_optuna():
     X, y = _make_temporal_dataset()
-    binner = NASABinner(strategy="supervised", check_stability=True)
+    binner = Binner(strategy="supervised", check_stability=True)
     binner.fit(X, y, time_col="month")
 
     pivot = binner.stability_over_time(X, y, time_col="month")
@@ -36,7 +36,7 @@ def test_stability_over_time_excludes_time_col_without_optuna():
 
 def test_plot_event_rate_stability_smoke():
     X, y = _make_temporal_dataset()
-    binner = NASABinner(strategy="supervised", check_stability=True)
+    binner = Binner(strategy="supervised", check_stability=True)
     binner.fit(X, y, time_col="month")
     pivot = binner.stability_over_time(X, y, time_col="month")
 
@@ -48,7 +48,7 @@ def test_plot_event_rate_stability_smoke():
 
 def test_save_json_report_includes_temporal_pivot(tmp_path):
     X, y = _make_temporal_dataset()
-    binner = NASABinner(strategy="supervised", check_stability=True)
+    binner = Binner(strategy="supervised", check_stability=True)
     binner.fit(X, y, time_col="month")
     binner.stability_over_time(X, y, time_col="month")
 
@@ -66,7 +66,7 @@ def test_optuna_temporal_smoke_handles_sparse_vintages():
     sparse = X.loc[mask].reset_index(drop=True)
     y_sparse = y.loc[mask].reset_index(drop=True)
 
-    binner = NASABinner(
+    binner = Binner(
         strategy="supervised",
         check_stability=True,
         use_optuna=True,
@@ -77,3 +77,5 @@ def test_optuna_temporal_smoke_handles_sparse_vintages():
     pivot = binner.stability_over_time(sparse, y_sparse, time_col="month")
     assert not pivot.empty
     assert set(binner.best_params_.keys()) == {"x"}
+
+

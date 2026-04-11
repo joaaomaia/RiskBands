@@ -1,4 +1,4 @@
-"""Anchor example for PD binning with vintages and champion/challenger flow.
+﻿"""Anchor example for PD binning with vintages and champion/challenger flow.
 
 This example stays strictly inside the RiskBands scope:
 - no end-to-end PD model training
@@ -295,3 +295,5 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
+

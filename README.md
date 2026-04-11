@@ -4,40 +4,40 @@
   <img src="./imgs/social_preview.png" alt="RiskBands Banner" width="600"/>
 </p>
 
-Biblioteca para binning interpretavel com foco em estabilidade temporal, pensada para cenarios de risco de credito, PD e scorecards.
+Interpretable binning for credit risk, PD, and scorecard workflows, with explicit attention to temporal stability.
 
-`RiskBands` e o novo nome oficial do projeto anteriormente chamado `NASABinning`.
+## What RiskBands Solves
 
-## O que o projeto faz
+Static binning can look strong in development and still become hard to defend once vintages shift. RiskBands helps teams evaluate bins not only by discrimination, but also by how stable, auditable, and structurally robust they remain over time.
 
-O RiskBands ajuda a escolher bins que nao so separam bem no treino, mas continuam defensaveis quando olhamos safras posteriores. O foco do projeto permanece estritamente no seu nucleo:
+The library stays intentionally focused on the binning layer:
 
-- binning numerico supervisionado e nao supervisionado
-- binning categorico com rare-merge e fallback
-- diagnostico temporal por variavel, bin e safra
-- otimizacao de binnings com sinais de estabilidade
-- reporting auditavel do racional de escolha
-- comparacao entre candidatos estaticos, temporais e equilibrados
+- supervised and unsupervised numeric binning
+- categorical binning with rare-category handling
+- temporal diagnostics by variable, bin, and period
+- candidate comparison for static, temporal, and balanced profiles
+- auditable reporting of the final selection rationale
 
-Ele nao tenta substituir um pipeline completo de PD nem competir com o papel de um framework amplo de risco.
+It is not a full PD modeling framework. It is the binning and stability layer that can sit inside a broader credit workflow.
 
-## Quando usar
+## Why Temporal Stability Matters
 
-O RiskBands faz mais sentido quando a pergunta principal e:
+A purely static binning process optimizes separation on the development sample. In credit risk, that is often not enough. Period mix, origination strategy, and data quality can drift, so a binning that looks excellent in train may degrade in later vintages.
 
-- quais bins continuam defensaveis quando saio do treino e olho outras safras
-- como comparar uma solucao mais agressiva em IV com outra mais robusta no tempo
-- como documentar de forma auditavel por que um binning foi escolhido em um contexto de credito
+RiskBands is designed for cases where we need to ask:
 
-## Instalacao
+- do the bins keep their ordering over time?
+- do event rates stay separated across periods?
+- are some bins becoming sparse or structurally fragile?
+- can we explain why one candidate won beyond raw IV?
 
-Uso basico da biblioteca:
+## Installation
 
 ```bash
 pip install .
 ```
 
-Uso para desenvolvimento:
+For development:
 
 ```bash
 git clone https://github.com/joaaomaia/RiskBands.git
@@ -45,60 +45,69 @@ cd RiskBands
 pip install -e .[dev]
 ```
 
-## Fluxo principal
+## Main API
 
-O fluxo mais importante hoje e:
+```python
+from riskbands import Binner, BinComparator
+from riskbands.temporal_stability import ks_over_time
+```
 
-1. `fit(...)` para ajustar os bins
-2. `transform(...)` para obter bins ou WoE
-3. `stability_over_time(...)` para o pivot temporal
-4. `temporal_bin_diagnostics(...)` para a tabela auditavel por bin/safra
-5. `temporal_variable_summary(...)` para o resumo agregado
-6. `variable_audit_report(...)` para consolidar o racional da escolha
-7. `BinComparator` quando houver champion/challenger entre candidatos
+The public package now exposes:
 
-## Exemplo rapido
+- package: `riskbands`
+- main class: `Binner`
+
+## Main Workflow
+
+1. Fit the binner with `Binner(...).fit(X, y, time_col=...)`.
+2. Transform the feature set with `transform(...)`.
+3. Build temporal pivots with `stability_over_time(...)`.
+4. Open the detailed diagnostics with `temporal_bin_diagnostics(...)`.
+5. Summarize the variable-level behavior with `temporal_variable_summary(...)`.
+6. Consolidate the audit trail with `variable_audit_report(...)`.
+7. Compare candidates with `BinComparator` when doing champion/challenger analysis.
+
+## Quick Example
 
 ```python
 import numpy as np
 import pandas as pd
 
-from riskbands import RiskBandsBinner
+from riskbands import Binner
 
 rng = np.random.default_rng(0)
 n = 800
 
 X = pd.DataFrame({"score": rng.normal(size=n)})
-X["AnoMesReferencia"] = rng.choice([202301, 202302, 202303, 202304], size=n)
+X["month"] = rng.choice([202301, 202302, 202303, 202304], size=n)
 
-proba = 0.20 + 0.15 * X["score"] + 0.02 * (X["AnoMesReferencia"] - 202301)
+proba = 0.20 + 0.15 * X["score"] + 0.02 * (X["month"] - 202301)
 proba = np.clip(proba, 0.01, 0.99)
 y = pd.Series((rng.random(n) < proba).astype(int), name="target")
 
-binner = RiskBandsBinner(
+binner = Binner(
     strategy="supervised",
-    min_event_rate_diff=0.03,
     check_stability=True,
     monotonic="ascending",
-    use_optuna=False,
+    min_event_rate_diff=0.03,
 )
 
-binner.fit(X, y, time_col="AnoMesReferencia")
+binner.fit(X, y, time_col="month")
 
 diagnostics = binner.temporal_bin_diagnostics(
     X,
     y,
-    time_col="AnoMesReferencia",
+    time_col="month",
     dataset_name="train",
 )
 summary = binner.temporal_variable_summary(
     diagnostics=diagnostics,
-    time_col="AnoMesReferencia",
+    time_col="month",
 )
 audit_report = binner.variable_audit_report(
     X,
     y,
-    time_col="AnoMesReferencia",
+    time_col="month",
     dataset_name="train",
 )
 
@@ -106,99 +115,55 @@ print(summary[["variable", "temporal_score", "alert_flags"]])
 print(audit_report[["variable", "objective_score", "rationale_summary"]])
 ```
 
-## Comece por aqui
+## Examples
 
-Se voce esta chegando agora ao projeto:
-
-- veja [docs/index.md](docs/index.md) para a navegacao principal
-- veja [examples/README.md](examples/README.md) para o mapa rapido dos exemplos
-- rode [examples/temporal_stability/temporal_stability_example.py](examples/temporal_stability/temporal_stability_example.py) para entender o fluxo base
-- rode [examples/pd_vintage_champion_challenger/pd_vintage_champion_challenger.py](examples/pd_vintage_champion_challenger/pd_vintage_champion_challenger.py) para o exemplo ancora de credito/PD com vintages
-
-## Exemplo ancora para credito / PD
-
-O exemplo mais importante do repositorio agora vive em uma pasta propria, com versao Python e notebook:
-
+- [examples/temporal_stability/temporal_stability_example.py](examples/temporal_stability/temporal_stability_example.py)
+  Quickstart for the temporal workflow.
 - [examples/pd_vintage_champion_challenger/pd_vintage_champion_challenger.py](examples/pd_vintage_champion_challenger/pd_vintage_champion_challenger.py)
-- [examples/pd_vintage_champion_challenger/pd_vintage_champion_challenger.ipynb](examples/pd_vintage_champion_challenger/pd_vintage_champion_challenger.ipynb)
+  Credit-oriented champion/challenger example with vintages.
+- [examples/README.md](examples/README.md)
+  Map of the example set.
 
-Ele usa material de apoio em `research/raw_material/` para montar um fluxo de credito enxuto com `bureau_score`, `month`, `risk_segment` e `target`. Em particular:
+## Breaking Change History
 
-- `credit_data_synthesizer.py` gera o painel sintetico de vintages
-- `credit_data_sampler.py` entra como preview opcional de rebalanceamento por safra
+This codebase has gone through two deliberate API simplifications:
 
-O champion/challenger principal continua rodando sobre o painel bruto para preservar a tensao entre discriminacao e estabilidade:
+- `NASABinning` -> `RiskBands`
+- `RiskBandsBinner` -> `Binner`
 
-- campeao estatico: maior forca em discriminacao
-- campeao temporal: melhor leitura no perfil temporal agregado
-- campeao equilibrado: melhor compromisso entre poder e robustez
+The current official constructor is `Binner`.
 
-Isso ajuda a mostrar um ponto central em credito: melhor treino nem sempre e o melhor binning para PD.
+## Migration
 
-## Migracao de nome
-
-O projeto foi renomeado de `NASABinning` para `RiskBands`.
-
-O que mudou:
-
-- o nome de distribuicao do pacote passa a ser `riskbands`
-- o import principal recomendado passa a ser `riskbands`
-- a classe principal recomendada para novos usos passa a ser `RiskBandsBinner`
-- URLs e instrucoes passam a assumir o repositorio `RiskBands`
-
-O que continua compativel por enquanto:
-
-- `import nasabinning`
-- `from nasabinning import NASABinner`
-- submodulos antigos como `nasabinning.compare` e `nasabinning.reporting`
-
-Como migrar:
+If you were already on the `riskbands` namespace but still used the longer class name:
 
 ```python
-# antes
-from nasabinning import NASABinner
-
-# agora
+# before
 from riskbands import RiskBandsBinner
+
+# now
+from riskbands import Binner
 ```
 
-Se voce mantiver o namespace antigo por algum tempo, ele continua funcional como camada de compatibilidade.
+If you still import `nasabinning`, you also need to migrate to `riskbands`.
 
-Para mais detalhes, veja [docs/migration.md](docs/migration.md).
+See [docs/migration.md](docs/migration.md) for the full migration notes.
 
-## Superficie publica principal
+## Documentation
 
-O pacote agora expõe diretamente:
+- [docs/index.md](docs/index.md)
+- [docs/api_reference.md](docs/api_reference.md)
+- [docs/migration.md](docs/migration.md)
 
-```python
-from riskbands import (
-    RiskBandsBinner,
-    NASABinner,
-    BinComparator,
-    temporal_separability_score,
-    ks_over_time,
-    psi_over_time,
-)
-```
-
-## Validacao rapida
-
-Validacao local enxuta:
+## Validation
 
 ```bash
 pytest -q --basetemp .pytest_tmp
+python -m build
 ```
 
-O repositorio agora tambem inclui workflow leve de CI em [tests.yml](.github/workflows/tests.yml).
+CI is defined in [tests.yml](.github/workflows/tests.yml).
 
-## Mapa do repositorio
+## License
 
-- [docs/index.md](docs/index.md): ponto de entrada da documentacao
-- [docs/api_reference.md](docs/api_reference.md): contrato principal da API
-- [examples/README.md](examples/README.md): mapa dos exemplos
-- [examples/temporal_stability](examples/temporal_stability): quickstart temporal
-- [examples/pd_vintage_champion_challenger](examples/pd_vintage_champion_challenger): exemplo ancora de credito
-
-## Licenca
-
-Distribuido sob a licenca MIT. Veja [LICENSE](LICENSE).
+MIT. See [LICENSE](LICENSE).

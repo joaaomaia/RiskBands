@@ -1,13 +1,10 @@
-# API Reference
+﻿# API Reference
 
-## Superficie publica do pacote
-
-Os imports principais recomendados hoje sao:
+## Public Surface
 
 ```python
 from riskbands import (
-    RiskBandsBinner,
-    NASABinner,
+    Binner,
     BinComparator,
     temporal_separability_score,
     ks_over_time,
@@ -15,32 +12,26 @@ from riskbands import (
 )
 ```
 
-Versao atual do pacote:
+Current version:
 
-- `0.6.0b0`
+- `1.0.0`
 
-## `RiskBandsBinner`
+## `Binner`
 
-Construtor principal recomendado da biblioteca. `NASABinner` continua disponivel
-como alias compativel durante a transicao.
+Primary constructor of the library.
 
-Parametros mais usados:
+Common parameters:
 
-- `strategy`: `"supervised"` ou `"unsupervised"` para variaveis numericas
-- `max_bins`: limite padrao de bins
-- `min_event_rate_diff`: fusao minima por diferenca de event rate
-- `monotonic`: `"ascending"`, `"descending"` ou `None`
-- `check_stability`: habilita verificacoes de estabilidade no fluxo
-- `use_optuna`: ativa busca de hiperparametros para `strategy="supervised"`
-- `time_col`: coluna de safra usada no diagnostico temporal
-- `strategy_kwargs`: parametros especificos da estrategia
+- `strategy`: `"supervised"` or `"unsupervised"` for numeric variables
+- `max_bins`: default upper limit for bins
+- `min_event_rate_diff`: minimum event-rate gap used during refinement
+- `monotonic`: `"ascending"`, `"descending"`, or `None`
+- `check_stability`: enables temporal checks in the flow
+- `use_optuna`: enables hyperparameter search for `strategy="supervised"`
+- `time_col`: period column used by temporal diagnostics
+- `strategy_kwargs`: strategy-specific parameters
 
-Quando `use_optuna=True`, `strategy_kwargs` tambem pode receber:
-
-- `n_trials`
-- `objective_kwargs`
-
-Metodos principais:
+Common methods:
 
 - `fit(X, y, time_col=None)`
 - `transform(X, return_woe=False)`
@@ -54,18 +45,18 @@ Metodos principais:
 - `describe_schema()`
 - `get_bin_mapping(column)`
 
-Atributos principais apos `fit`:
+Main attributes after `fit`:
 
 - `bin_summary`
 - `iv_`
 - `iv_by_variable_`
-- `best_params_` quando `use_optuna=True`
-- `objective_summary_` nos binners treinados diretamente com `optimize_bins(...)`
-- `objective_summaries_` no `RiskBandsBinner` multi-feature quando `use_optuna=True`
+- `best_params_` when `use_optuna=True`
+- `objective_summary_` on binners trained directly with `optimize_bins(...)`
+- `objective_summaries_` on multi-feature `Binner` runs with `use_optuna=True`
 
-## Camada de diagnostico temporal
+## Temporal Diagnostics
 
-`temporal_bin_diagnostics(...)` retorna um DataFrame detalhado por variavel x bin x safra, incluindo:
+`temporal_bin_diagnostics(...)` returns an auditable table by variable x bin x period, including:
 
 - `total_count`
 - `event_count`
@@ -75,40 +66,40 @@ Atributos principais apos `fit`:
 - `woe`
 - `iv_contribution`
 - `coverage_flag`
-- flags de rareza, cobertura, monotonicidade e reversao de ranking
+- rarity, coverage, monotonicity, and ranking-reversal flags
 
-`temporal_variable_summary(...)` agrega essas informacoes por variavel e expoe:
+`temporal_variable_summary(...)` aggregates that information by variable and exposes:
 
-- cobertura temporal media e minima
-- contagem de bins raros
-- volatilidade de `event_rate`, `woe` e `bin_share`
-- contagem de quebras de monotonicidade por safra
-- contagem de reversoes de ranking
+- mean and minimum temporal coverage
+- rare-bin counts
+- `event_rate`, `woe`, and `bin_share` volatility
+- monotonic-break counts by period
+- ranking-reversal counts
 - `temporal_score`
 - `alert_flags`
 
-## Reporting auditavel
+## Auditable Reporting
 
-`variable_audit_report(...)` retorna um DataFrame consolidado por variavel com:
+`variable_audit_report(...)` returns a variable-level consolidated table with:
 
 - `cut_summary`
-- `iv`, `ks`, `separability` e `temporal_score`
-- cobertura temporal e sinais de bins raros
-- componentes-base e penalizacoes do objetivo
+- `iv`, `ks`, `separability`, and `temporal_score`
+- temporal coverage and rare-bin signals
+- objective components and penalties
 - `key_drivers`, `key_penalties`
 - `selection_basis`
 - `rationale_summary`
 
-## Otimizacao orientada a credito
+## Credit-Oriented Optimization
 
-`optimize_bins(...)` utiliza um score composto simples e auditavel:
+`optimize_bins(...)` uses a simple auditable score composed of:
 
-- componentes-base:
+- base components:
   - `separability`
   - `iv`
   - `ks`
   - `temporal_score`
-- penalizacoes:
+- penalties:
   - `rare_bin_count`
   - `coverage_ratio_min`
   - `event_rate_std_max`
@@ -117,30 +108,30 @@ Atributos principais apos `fit`:
   - `monotonic_break_period_count`
   - `ranking_reversal_period_count`
 
-O resumo final do melhor candidato fica disponivel em `objective_summary_`.
+The final winner summary is stored in `objective_summary_`.
 
 ## `BinComparator`
 
-`BinComparator` continua disponivel em `riskbands.compare` e, durante a
-transicao, tambem em `nasabinning.compare`.
+Available from `riskbands.compare`.
+
+Core methods:
 
 - `fit_compare(...)`
 - `candidate_audit_report()`
 - `candidate_profile_summary()`
 - `winner_summary()`
 
-Perfis comparados:
+Compared profiles:
 
-- melhor candidato estatico
-- melhor candidato temporal
-- melhor candidato equilibrado
-- candidato selecionado final
+- best static candidate
+- best temporal candidate
+- best balanced candidate
+- final selected candidate
 
-## Exemplos ancora
-
-Para ver a API aplicada em fluxos de credito com vintages:
+## Examples
 
 - [examples/temporal_stability/temporal_stability_example.py](../examples/temporal_stability/temporal_stability_example.py)
 - [examples/temporal_stability/temporal_stability_example.ipynb](../examples/temporal_stability/temporal_stability_example.ipynb)
 - [examples/pd_vintage_champion_challenger/pd_vintage_champion_challenger.py](../examples/pd_vintage_champion_challenger/pd_vintage_champion_challenger.py)
 - [examples/pd_vintage_champion_challenger/pd_vintage_champion_challenger.ipynb](../examples/pd_vintage_champion_challenger/pd_vintage_champion_challenger.ipynb)
+

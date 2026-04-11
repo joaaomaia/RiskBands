@@ -1,6 +1,6 @@
-import pandas as pd
+﻿import pandas as pd
 import numpy as np
-from nasabinning.compare import BinComparator
+from riskbands.compare import BinComparator
 
 def test_compare_two_strategies():
     rng = np.random.default_rng(1)
@@ -14,3 +14,5 @@ def test_compare_two_strategies():
     res = cmp.fit_compare(X, y)
     assert {"sup", "unsup"} <= set(res.index)
     assert res.loc["sup", "iv"] > 0            # supervised tem IV calculado
+
+

@@ -1,4 +1,4 @@
-"""
+﻿"""
 Visualization helpers for temporal stability plots.
 """
 
@@ -136,3 +136,5 @@ def plot_event_rate_stability(
         figures.append(fig)
 
     return figures
+
+

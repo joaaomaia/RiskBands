@@ -1,4 +1,4 @@
-"""
+﻿"""
 Credit-oriented Optuna objective for RiskBands.
 
 The optimizer remains focused on the RiskBands core: selecting binnings that
@@ -16,7 +16,7 @@ import numpy as np
 import optuna
 import pandas as pd
 
-from .binning_engine import NASABinner
+from .binning_engine import Binner
 from .temporal_stability import event_rate_by_time, ks_over_time, temporal_separability_score
 
 logger = logging.getLogger(__name__)
@@ -83,7 +83,7 @@ def _safe_float(value: Any) -> float:
 
 
 def build_objective_components(
-    binner: NASABinner,
+    binner: Binner,
     X: pd.DataFrame,
     y: pd.Series,
     *,
@@ -297,7 +297,7 @@ def _objective(
     cfg.pop("min_event_rate_diff", None)
     cfg.pop("strategy_kwargs", None)
 
-    binner = NASABinner(
+    binner = Binner(
         **cfg,
         max_bins=params["max_bins"],
         min_event_rate_diff=params["min_event_rate_diff"],
@@ -343,7 +343,7 @@ def optimize_bins(
     n_trials: int = 20,
     objective_kwargs: dict[str, Any] | None = None,
     **base_kwargs,
-) -> tuple[dict[str, Any], NASABinner]:
+) -> tuple[dict[str, Any], Binner]:
     """
     Execute Optuna and return the best parameters and fitted binner.
 
@@ -385,7 +385,7 @@ def optimize_bins(
     if time_col and time_values is not None:
         df_final[time_col] = time_values
 
-    final_binner = NASABinner(
+    final_binner = Binner(
         **cfg,
         max_bins=best_params["max_bins"],
         min_event_rate_diff=best_params["min_event_rate_diff"],
@@ -408,3 +408,5 @@ def optimize_bins(
     final_binner.objective_config_ = resolve_objective_config(objective_kwargs)
 
     return best_params, final_binner
+
+

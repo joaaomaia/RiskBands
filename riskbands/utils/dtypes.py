@@ -1,4 +1,4 @@
-# riskbands/utils/dtypes.py
+﻿# riskbands/utils/dtypes.py
 from __future__ import annotations
 import warnings, pandas as pd
 from typing import List, Optional, Tuple
@@ -14,31 +14,31 @@ def search_dtypes(
     id_patterns: Optional[List[str]] = None
 ) -> Tuple[List[str], List[str]]:
     """
-    Identifica e classifica colunas numéricas e categóricas em um DataFrame.
+    Identifica e classifica colunas numÃ©ricas e categÃ³ricas em um DataFrame.
 
     Funcionalidades:
     - Valida entradas e trata erros de forma robusta
-    - Força colunas específicas como categóricas
+    - ForÃ§a colunas especÃ­ficas como categÃ³ricas
     - Classifica automaticamente por tipo de dados e cardinalidade
     - Remove colunas de ID opcionalmente
-    - Suporte a padrões customizados para identificação de IDs
+    - Suporte a padrÃµes customizados para identificaÃ§Ã£o de IDs
 
-    Parâmetros:
+    ParÃ¢metros:
     -----------
     df : pd.DataFrame
-        DataFrame de entrada para análise
+        DataFrame de entrada para anÃ¡lise
     target_col : str, default 'target'
-        Nome da coluna target a ser excluída da análise
+        Nome da coluna target a ser excluÃ­da da anÃ¡lise
     limite_categorico : int, default 50
-        Máximo de valores únicos para considerar coluna object como categórica
+        MÃ¡ximo de valores Ãºnicos para considerar coluna object como categÃ³rica
     force_categorical : List[str], optional
-        Lista de colunas que devem ser forçadas como categóricas
+        Lista de colunas que devem ser forÃ§adas como categÃ³ricas
     verbose : bool, default True
-        Se True, imprime detalhes das decisões tomadas
+        Se True, imprime detalhes das decisÃµes tomadas
     remove_ids : bool, default False
         Se True, remove colunas identificadas como IDs
     id_patterns : List[str], optional
-        Padrões para identificar colunas de ID (ex: ['_id', 'id_', 'codigo'])
+        PadrÃµes para identificar colunas de ID (ex: ['_id', 'id_', 'codigo'])
 
     Retorna:
     --------
@@ -48,51 +48,51 @@ def search_dtypes(
     Raises:
     -------
     ValueError
-        Se o DataFrame estiver vazio ou se target_col não existir
+        Se o DataFrame estiver vazio ou se target_col nÃ£o existir
     TypeError
-        Se os tipos dos parâmetros estiverem incorretos
+        Se os tipos dos parÃ¢metros estiverem incorretos
     """
     
-    # Validações iniciais
+    # ValidaÃ§Ãµes iniciais
     if not isinstance(df, pd.DataFrame):
-        raise TypeError("O parâmetro 'df' deve ser um pandas DataFrame")
+        raise TypeError("O parÃ¢metro 'df' deve ser um pandas DataFrame")
     
     if df.empty:
-        raise ValueError("O DataFrame não pode estar vazio")
+        raise ValueError("O DataFrame nÃ£o pode estar vazio")
     
     if not isinstance(target_col, str):
-        raise TypeError("O parâmetro 'target_col' deve ser uma string")
+        raise TypeError("O parÃ¢metro 'target_col' deve ser uma string")
     
     if not isinstance(limite_categorico, int) or limite_categorico <= 0:
-        raise ValueError("O parâmetro 'limite_categorico' deve ser um inteiro positivo")
+        raise ValueError("O parÃ¢metro 'limite_categorico' deve ser um inteiro positivo")
     
     # Verifica se target_col existe no DataFrame
     if target_col not in df.columns:
         available_cols = ", ".join(df.columns.tolist()[:10])  # Mostra apenas primeiras 10
         suffix = "..." if len(df.columns) > 10 else ""
         raise ValueError(
-            f"Coluna target '{target_col}' não encontrada no DataFrame. "
-            f"Colunas disponíveis: {available_cols}{suffix}"
+            f"Coluna target '{target_col}' nÃ£o encontrada no DataFrame. "
+            f"Colunas disponÃ­veis: {available_cols}{suffix}"
         )
     
-    # Inicialização de variáveis
+    # InicializaÃ§Ã£o de variÃ¡veis
     num_cols = []
     cat_cols = []
     ignored_cols = []
     
-    # Tratamento de parâmetros opcionais
+    # Tratamento de parÃ¢metros opcionais
     force_categorical = force_categorical or []
     id_patterns = id_patterns or ['client_id', '_id', 'id_', 'codigo', 'key']
     
-    # Validação do force_categorical
+    # ValidaÃ§Ã£o do force_categorical
     if not isinstance(force_categorical, list):
-        raise TypeError("O parâmetro 'force_categorical' deve ser uma lista de strings")
+        raise TypeError("O parÃ¢metro 'force_categorical' deve ser uma lista de strings")
     
     # Verifica se colunas em force_categorical existem
     missing_forced = [col for col in force_categorical if col not in df.columns]
     if missing_forced:
         warnings.warn(
-            f"Colunas em force_categorical não encontradas: {missing_forced}",
+            f"Colunas em force_categorical nÃ£o encontradas: {missing_forced}",
             UserWarning
         )
         force_categorical = [col for col in force_categorical if col in df.columns]
@@ -107,48 +107,48 @@ def search_dtypes(
         print(f"Analisando {len(df_work.columns)} colunas (excluindo target '{target_col}')...")
         print("-" * 60)
     
-    # Análise das colunas
+    # AnÃ¡lise das colunas
     for col in df_work.columns:
         try:
-            # Obter informações básicas da coluna
+            # Obter informaÃ§Ãµes bÃ¡sicas da coluna
             tipo = df_work[col].dtype
             non_null_count = df_work[col].count()
             total_count = len(df_work)
             missing_pct = ((total_count - non_null_count) / total_count) * 100
             
-            # Força colunas explicitamente marcadas como categóricas
+            # ForÃ§a colunas explicitamente marcadas como categÃ³ricas
             if col in force_categorical:
                 cat_cols.append(col)
                 if verbose:
-                    print(f"✓ '{col}' -> CATEGÓRICA (forçada)")
+                    print(f"âœ“ '{col}' -> CATEGÃ“RICA (forÃ§ada)")
                 continue
             
-            # Verifica se é coluna com muitos valores missing
+            # Verifica se Ã© coluna com muitos valores missing
             if missing_pct > 90:
                 ignored_cols.append(col)
                 if verbose:
-                    print(f"⚠ '{col}' -> IGNORADA ({missing_pct:.1f}% valores ausentes)")
+                    print(f"âš  '{col}' -> IGNORADA ({missing_pct:.1f}% valores ausentes)")
                 continue
             
-            # Classificação por tipo de dados
+            # ClassificaÃ§Ã£o por tipo de dados
             if pd.api.types.is_numeric_dtype(tipo):
-                # Verifica se é uma coluna ID numérica
+                # Verifica se Ã© uma coluna ID numÃ©rica
                 if remove_ids and _is_id_column(col, df_work[col], id_patterns):
                     ignored_cols.append(col)
                     if verbose:
-                        print(f"🗑 '{col}' -> REMOVIDA (identificada como ID)")
+                        print(f"ðŸ—‘ '{col}' -> REMOVIDA (identificada como ID)")
                 else:
                     num_cols.append(col)
                     if verbose:
                         unique_count = df_work[col].nunique(dropna=True)
-                        print(f"📊 '{col}' -> NUMÉRICA ({unique_count} valores únicos)")
+                        print(f"ðŸ“Š '{col}' -> NUMÃ‰RICA ({unique_count} valores Ãºnicos)")
             
             elif tipo == 'object' or pd.api.types.is_string_dtype(tipo):
                 # Remove IDs textuais se solicitado
                 if remove_ids and _is_id_column(col, df_work[col], id_patterns):
                     ignored_cols.append(col)
                     if verbose:
-                        print(f"🗑 '{col}' -> REMOVIDA (identificada como ID)")
+                        print(f"ðŸ—‘ '{col}' -> REMOVIDA (identificada como ID)")
                     continue
                 
                 unique_count = df_work[col].nunique(dropna=True)
@@ -156,84 +156,84 @@ def search_dtypes(
                 if unique_count <= limite_categorico:
                     cat_cols.append(col)
                     if verbose:
-                        print(f"🏷 '{col}' -> CATEGÓRICA ({unique_count} categorias)")
+                        print(f"ðŸ· '{col}' -> CATEGÃ“RICA ({unique_count} categorias)")
                 else:
                     ignored_cols.append(col)
                     if verbose:
-                        print(f"⚠ '{col}' -> IGNORADA (muitas categorias: {unique_count})")
+                        print(f"âš  '{col}' -> IGNORADA (muitas categorias: {unique_count})")
             
             elif pd.api.types.is_bool_dtype(tipo):
                 cat_cols.append(col)
                 if verbose:
-                    print(f"☑ '{col}' -> CATEGÓRICA (booleana)")
+                    print(f"â˜‘ '{col}' -> CATEGÃ“RICA (booleana)")
             
             elif pd.api.types.is_datetime64_any_dtype(tipo):
                 ignored_cols.append(col)
                 if verbose:
-                    print(f"📅 '{col}' -> IGNORADA (datetime)")
+                    print(f"ðŸ“… '{col}' -> IGNORADA (datetime)")
             
             else:
                 ignored_cols.append(col)
                 if verbose:
-                    print(f"❓ '{col}' -> IGNORADA (tipo não suportado: {tipo})")
+                    print(f"â“ '{col}' -> IGNORADA (tipo nÃ£o suportado: {tipo})")
         
         except Exception as e:
             ignored_cols.append(col)
             if verbose:
-                print(f"❌ '{col}' -> ERRO ao processar: {str(e)}")
+                print(f"âŒ '{col}' -> ERRO ao processar: {str(e)}")
             warnings.warn(f"Erro ao processar coluna '{col}': {str(e)}", UserWarning)
     
-    # Remoção adicional de IDs se solicitado
+    # RemoÃ§Ã£o adicional de IDs se solicitado
     if remove_ids:
         num_cols, cat_cols = _remove_id_columns(num_cols, cat_cols, id_patterns, verbose)
     
-    # Relatório final
+    # RelatÃ³rio final
     if verbose:
         print("\n" + "="*60)
-        print("RESUMO DA CLASSIFICAÇÃO:")
+        print("RESUMO DA CLASSIFICAÃ‡ÃƒO:")
         print("="*60)
         
-        print(f"\n📊 VARIÁVEIS NUMÉRICAS ({len(num_cols)}):")
+        print(f"\nðŸ“Š VARIÃVEIS NUMÃ‰RICAS ({len(num_cols)}):")
         if num_cols:
             for col in sorted(num_cols):
-                print(f"   • {col}")
+                print(f"   â€¢ {col}")
         else:
             print("   (nenhuma encontrada)")
         
-        print(f"\n🏷 VARIÁVEIS CATEGÓRICAS ({len(cat_cols)}):")
+        print(f"\nðŸ· VARIÃVEIS CATEGÃ“RICAS ({len(cat_cols)}):")
         if cat_cols:
             for col in sorted(cat_cols):
-                print(f"   • {col}")
+                print(f"   â€¢ {col}")
         else:
             print("   (nenhuma encontrada)")
         
         if ignored_cols:
-            print(f"\n⚠ COLUNAS IGNORADAS ({len(ignored_cols)}):")
+            print(f"\nâš  COLUNAS IGNORADAS ({len(ignored_cols)}):")
             for col in sorted(ignored_cols):
-                print(f"   • {col}")
+                print(f"   â€¢ {col}")
         
-        print(f"\n📈 ESTATÍSTICAS:")
-        print(f"   • Total de colunas analisadas: {len(df_work.columns)}")
-        print(f"   • Colunas numéricas: {len(num_cols)}")
-        print(f"   • Colunas categóricas: {len(cat_cols)}")
-        print(f"   • Colunas ignoradas: {len(ignored_cols)}")
-        print(f"   • Taxa de utilização: {((len(num_cols) + len(cat_cols)) / len(df_work.columns) * 100):.1f}%")
+        print(f"\nðŸ“ˆ ESTATÃSTICAS:")
+        print(f"   â€¢ Total de colunas analisadas: {len(df_work.columns)}")
+        print(f"   â€¢ Colunas numÃ©ricas: {len(num_cols)}")
+        print(f"   â€¢ Colunas categÃ³ricas: {len(cat_cols)}")
+        print(f"   â€¢ Colunas ignoradas: {len(ignored_cols)}")
+        print(f"   â€¢ Taxa de utilizaÃ§Ã£o: {((len(num_cols) + len(cat_cols)) / len(df_work.columns) * 100):.1f}%")
     
     return num_cols, cat_cols
 
 
 def _is_id_column(col_name: str, col_data: pd.Series, id_patterns: List[str]) -> bool:
     """
-    Verifica se uma coluna é provavelmente um ID baseado no nome e características.
+    Verifica se uma coluna Ã© provavelmente um ID baseado no nome e caracterÃ­sticas.
     
-    Parâmetros:
+    ParÃ¢metros:
     -----------
     col_name : str
         Nome da coluna
     col_data : pd.Series
         Dados da coluna
     id_patterns : List[str]
-        Padrões para identificar IDs
+        PadrÃµes para identificar IDs
     
     Retorna:
     --------
@@ -242,12 +242,12 @@ def _is_id_column(col_name: str, col_data: pd.Series, id_patterns: List[str]) ->
     """
     col_lower = col_name.lower()
     
-    # Verifica padrões no nome
+    # Verifica padrÃµes no nome
     name_match = any(pattern.lower() in col_lower for pattern in id_patterns)
     
-    # Verifica características dos dados
+    # Verifica caracterÃ­sticas dos dados
     unique_ratio = col_data.nunique() / len(col_data) if len(col_data) > 0 else 0
-    high_uniqueness = unique_ratio > 0.95  # Mais de 95% de valores únicos
+    high_uniqueness = unique_ratio > 0.95  # Mais de 95% de valores Ãºnicos
     
     return name_match or high_uniqueness
 
@@ -255,18 +255,18 @@ def _is_id_column(col_name: str, col_data: pd.Series, id_patterns: List[str]) ->
 def _remove_id_columns(num_cols: List[str], cat_cols: List[str], 
                       id_patterns: List[str], verbose: bool) -> Tuple[List[str], List[str]]:
     """
-    Remove colunas identificadas como IDs das listas de colunas numéricas e categóricas.
+    Remove colunas identificadas como IDs das listas de colunas numÃ©ricas e categÃ³ricas.
     
-    Parâmetros:
+    ParÃ¢metros:
     -----------
     num_cols : List[str]
-        Lista de colunas numéricas
+        Lista de colunas numÃ©ricas
     cat_cols : List[str]
-        Lista de colunas categóricas
+        Lista de colunas categÃ³ricas
     id_patterns : List[str]
-        Padrões para identificar IDs
+        PadrÃµes para identificar IDs
     verbose : bool
-        Se True, imprime remoções
+        Se True, imprime remoÃ§Ãµes
     
     Retorna:
     --------
@@ -276,24 +276,26 @@ def _remove_id_columns(num_cols: List[str], cat_cols: List[str],
     original_num = len(num_cols)
     original_cat = len(cat_cols)
     
-    # Remove IDs das colunas numéricas
+    # Remove IDs das colunas numÃ©ricas
     num_cols_filtered = []
     for col in num_cols:
         if not any(pattern.lower() in col.lower() for pattern in id_patterns):
             num_cols_filtered.append(col)
         elif verbose:
-            print(f"🗑 Removendo '{col}' das numéricas (padrão ID detectado)")
+            print(f"ðŸ—‘ Removendo '{col}' das numÃ©ricas (padrÃ£o ID detectado)")
     
-    # Remove IDs das colunas categóricas
+    # Remove IDs das colunas categÃ³ricas
     cat_cols_filtered = []
     for col in cat_cols:
         if not any(pattern.lower() in col.lower() for pattern in id_patterns):
             cat_cols_filtered.append(col)
         elif verbose:
-            print(f"🗑 Removendo '{col}' das categóricas (padrão ID detectado)")
+            print(f"ðŸ—‘ Removendo '{col}' das categÃ³ricas (padrÃ£o ID detectado)")
     
     removed_count = (original_num + original_cat) - (len(num_cols_filtered) + len(cat_cols_filtered))
     if verbose and removed_count > 0:
-        print(f"📋 Total de colunas ID removidas: {removed_count}")
+        print(f"ðŸ“‹ Total de colunas ID removidas: {removed_count}")
     
     return num_cols_filtered, cat_cols_filtered
+
+

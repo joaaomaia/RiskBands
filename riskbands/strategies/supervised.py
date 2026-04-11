@@ -1,12 +1,12 @@
-"""
-Wrapper de OptimalBinning — apenas binagem supervisionada.
+﻿"""
+Wrapper de OptimalBinning â€” apenas binagem supervisionada.
 """
 from optbinning import OptimalBinning
 import pandas as pd
 
 
 class SupervisedBinning:
-    """Aplica OptimalBinning em **cada** coluna numérica do DataFrame."""
+    """Aplica OptimalBinning em **cada** coluna numÃ©rica do DataFrame."""
 
     def __init__(self, max_bins: int = 10, min_bin_size: float = 0.05):
         self.max_bins = max_bins
@@ -44,3 +44,5 @@ class SupervisedBinning:
                 tr = ob.transform(X[col].values)
             dfs.append(pd.DataFrame({col: tr}, index=X.index))
         return pd.concat(dfs, axis=1)
+
+

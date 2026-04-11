@@ -1,4 +1,4 @@
-"""Quickstart example demonstrating temporal stability with RiskBands.
+﻿"""Quickstart example demonstrating temporal stability with RiskBands.
 
 For a more credit-oriented champion/challenger narrative, see
 ``examples/pd_vintage_champion_challenger/pd_vintage_champion_challenger.py``.
@@ -16,7 +16,7 @@ ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from riskbands import RiskBandsBinner
+from riskbands import Binner
 from riskbands.temporal_stability import ks_over_time, temporal_separability_score
 
 
@@ -37,7 +37,7 @@ def run_temporal_stability_demo(seed: int = 0, n: int = 800) -> dict[str, object
     """Run the temporal quickstart and return the main artifacts."""
     X, y = make_temporal_toy_data(seed=seed, n=n)
 
-    binner = RiskBandsBinner(
+    binner = Binner(
         strategy="supervised",
         check_stability=True,
         use_optuna=True,
@@ -113,3 +113,5 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
+

@@ -1,4 +1,4 @@
-"""
+﻿"""
 Temporal stability utilities for bin diagnostics.
 
 The main indicator is ``temporal_separability_score``, which measures how
@@ -158,3 +158,5 @@ def temporal_separability_score(
     if not np.isfinite(score):
         return 0.0
     return float(score)
+
+

@@ -1,4 +1,4 @@
-"""Auditable report generation for RiskBands objects."""
+﻿"""Auditable report generation for RiskBands objects."""
 
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ from typing import Any, Union
 import numpy as np
 import pandas as pd
 
-from .binning_engine import NASABinner
+from .binning_engine import Binner
 from .optuna_optimizer import score_objective_components
 from .temporal_stability import event_rate_by_time, ks_over_time, temporal_separability_score
 
@@ -46,7 +46,7 @@ TEMPORAL_PROFILE_PENALTIES = [
 ]
 
 
-def _require_bin_summary(binner: NASABinner) -> pd.DataFrame:
+def _require_bin_summary(binner: Binner) -> pd.DataFrame:
     bin_summary = getattr(binner, "bin_summary", None)
     if bin_summary is None:
         raise RuntimeError("Binner ainda nao foi treinado.")
@@ -79,7 +79,9 @@ def _candidate_name(candidate_name: str | None) -> str:
     return candidate_name or "selected_candidate"
 
 
-def _resolve_child_binner(binner: NASABinner, variable: str) -> NASABinner:
+def _resolve_child_binner(
+    binner: Binner, variable: str
+) -> Binner:
     if hasattr(binner, "_per_feature_binners") and variable in getattr(binner, "_per_feature_binners", {}):
         return binner._per_feature_binners[variable]
     return binner
@@ -169,7 +171,7 @@ def _json_ready_records(df: pd.DataFrame) -> list[dict[str, Any]]:
 
 
 def _resolve_temporal_sources(
-    binner: NASABinner,
+    binner: Binner,
     X: pd.DataFrame | None,
     y: pd.Series | None,
     *,
@@ -205,7 +207,7 @@ def _resolve_temporal_sources(
 
 
 def _objective_summary_for_variable(
-    binner: NASABinner,
+    binner: Binner,
     variable: str,
     X: pd.DataFrame | None,
     y: pd.Series | None,
@@ -291,7 +293,7 @@ def _objective_summary_for_variable(
 
 
 def build_variable_audit_report(
-    binner: NASABinner,
+    binner: Binner,
     X: pd.DataFrame | None = None,
     y: pd.Series | None = None,
     *,
@@ -590,7 +592,7 @@ def build_candidate_winner_report(candidate_profiles: pd.DataFrame) -> pd.DataFr
     return pd.DataFrame(records).sort_values(group_cols).reset_index(drop=True)
 
 
-def _resolve_variable_audit_report(binner: NASABinner) -> pd.DataFrame | None:
+def _resolve_variable_audit_report(binner: Binner) -> pd.DataFrame | None:
     audit = getattr(binner, "_variable_audit_report_", None)
     if audit is not None:
         return audit
@@ -603,7 +605,7 @@ def _resolve_variable_audit_report(binner: NASABinner) -> pd.DataFrame | None:
 
 
 # ------------------------------------------------------------------ #
-def save_binner_report(binner: NASABinner, path: PathLike) -> None:
+def save_binner_report(binner: Binner, path: PathLike) -> None:
     """
     Save bin table, summary metrics and optional temporal diagnostics.
     """
@@ -615,7 +617,7 @@ def save_binner_report(binner: NASABinner, path: PathLike) -> None:
         _save_excel(binner, p.with_suffix(".xlsx"))
 
 
-def _save_excel(binner: NASABinner, path: Path) -> None:
+def _save_excel(binner: Binner, path: Path) -> None:
     bin_summary = _require_bin_summary(binner)
     with pd.ExcelWriter(path) as writer:
         bin_summary.to_excel(writer, sheet_name="bin_table", index=False)
@@ -650,7 +652,7 @@ def _save_excel(binner: NASABinner, path: Path) -> None:
 
 
 # ------------------------------------------------------------------ #
-def _save_json(binner: NASABinner, path: Path) -> None:
+def _save_json(binner: Binner, path: Path) -> None:
     bin_summary = _require_bin_summary(binner)
     info = {
         "iv": binner.iv_,
@@ -672,3 +674,5 @@ def _save_json(binner: NASABinner, path: Path) -> None:
     if audit is not None:
         info["variable_audit_report"] = _json_ready_records(audit)
     path.write_text(json.dumps(info, indent=2, ensure_ascii=False), encoding="utf-8")
+
+

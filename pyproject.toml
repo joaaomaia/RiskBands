@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "riskbands"
-version = "0.6.0b0"
-description = "RiskBands (formerly NASABinning): interpretable binning with temporal stability diagnostics for credit risk and PD workflows."
+version = "1.0.0"
+description = "Interpretable binning with temporal stability diagnostics for credit risk, PD, and scorecard workflows."
 readme = "README.md"
 requires-python = ">=3.10"
 license = { file = "LICENSE" }
@@ -19,7 +19,7 @@ keywords = [
   "vintages"
 ]
 classifiers = [
-  "Development Status :: 4 - Beta",
+  "Development Status :: 5 - Production/Stable",
   "Intended Audience :: Science/Research",
   "Intended Audience :: Financial and Insurance Industry",
   "License :: OSI Approved :: MIT License",
@@ -58,7 +58,7 @@ Issues = "https://github.com/joaaomaia/RiskBands/issues"
 include-package-data = true
 
 [tool.setuptools.packages.find]
-include = ["riskbands*", "nasabinning*"]
+include = ["riskbands*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
