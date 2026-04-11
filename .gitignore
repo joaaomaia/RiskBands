@@ -59,6 +59,11 @@ pytest_cache/
 .tox/
 .nox/
 
+# Docs site
+docs-site/node_modules/
+docs-site/.astro/
+docs-site/dist/
+
 # Models and outputs
 models/
 outputs/

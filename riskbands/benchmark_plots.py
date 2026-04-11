@@ -442,6 +442,17 @@ def export_figure_pack(figures: dict[str, Any], output_dir: str | Path, *, prefi
         if figure is None:
             continue
         target = target_dir / f"{prefix}_{name}.html"
-        figure.write_html(target, include_plotlyjs="cdn", full_html=True)
+        html = figure.to_html(include_plotlyjs="cdn", full_html=True)
+        html = html.replace(
+            "<head>",
+            '<head>\n<meta name="robots" content="noindex" />',
+            1,
+        )
+        html = html.replace(
+            "<body>",
+            '<body data-pagefind-ignore="all">',
+            1,
+        )
+        target.write_text(html, encoding="utf-8")
         written.append(str(target))
     return written
