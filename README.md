@@ -1,43 +1,43 @@
 # RiskBands
 
 <p align="center">
-  <img src="./imgs/social_preview.png" alt="RiskBands Banner" width="600"/>
+  <img src="./imgs/social_preview.png" alt="Banner do RiskBands" width="600"/>
 </p>
 
-Interpretable binning for credit risk, PD, and scorecard workflows, with explicit attention to temporal stability.
+Binning interpretável para risco de crédito, PD e fluxos de scorecard, com atenção explícita à estabilidade temporal.
 
-## What RiskBands Solves
+## O que o RiskBands resolve
 
-Static binning can look strong in development and still become hard to defend once vintages shift. RiskBands helps teams evaluate bins not only by discrimination, but also by how stable, auditable, and structurally robust they remain over time.
+Um binning estático pode parecer forte em desenvolvimento e, ainda assim, se tornar difícil de defender quando as vintages mudam. O RiskBands ajuda equipes a avaliar os bins não apenas pela discriminação, mas também por quão estáveis, auditáveis e estruturalmente robustos eles permanecem ao longo do tempo.
 
-The library stays intentionally focused on the binning layer:
+A biblioteca permanece intencionalmente focada na camada de binning:
 
-- supervised and unsupervised numeric binning
-- categorical binning with rare-category handling
-- temporal diagnostics by variable, bin, and period
-- candidate comparison for static, temporal, and balanced profiles
-- auditable reporting of the final selection rationale
+- binning numérico supervisionado e não supervisionado
+- binning categórico com tratamento de categorias raras
+- diagnósticos temporais por variável, bin e período
+- comparação de candidatos para perfis estáticos, temporais e balanceados
+- reporte auditável da justificativa da seleção final
 
-It is not a full PD modeling framework. It is the binning and stability layer that can sit inside a broader credit workflow.
+Não é um framework completo de modelagem de PD. É a camada de binning e estabilidade que pode se encaixar dentro de um fluxo mais amplo de crédito.
 
-## Why Temporal Stability Matters
+## Por que a estabilidade temporal importa
 
-A purely static binning process optimizes separation on the development sample. In credit risk, that is often not enough. Period mix, origination strategy, and data quality can drift, so a binning that looks excellent in train may degrade in later vintages.
+Um processo de binning puramente estático otimiza a separação na amostra de desenvolvimento. Em risco de crédito, isso muitas vezes não é suficiente. A composição dos períodos, a estratégia de originação e a qualidade dos dados podem mudar, então um binning que parece excelente no treino pode se degradar em vintages posteriores.
 
-RiskBands is designed for cases where we need to ask:
+O RiskBands foi projetado para cenários em que precisamos perguntar:
 
-- do the bins keep their ordering over time?
-- do event rates stay separated across periods?
-- are some bins becoming sparse or structurally fragile?
-- can we explain why one candidate won beyond raw IV?
+- os bins mantêm sua ordenação ao longo do tempo?
+- as taxas de evento permanecem separadas entre os períodos?
+- alguns bins estão ficando esparsos ou estruturalmente frágeis?
+- conseguimos explicar por que um candidato venceu para além do IV bruto?
 
-## Installation
+## Instalação
 
 ```bash
 pip install .
 ```
 
-For development:
+Para desenvolvimento:
 
 ```bash
 git clone https://github.com/joaaomaia/RiskBands.git
@@ -45,29 +45,29 @@ cd RiskBands
 pip install -e .[dev]
 ```
 
-## Main API
+## API principal
 
 ```python
 from riskbands import Binner, BinComparator
 from riskbands.temporal_stability import ks_over_time
 ```
 
-The public package now exposes:
+O pacote público agora expõe:
 
-- package: `riskbands`
-- main class: `Binner`
+- pacote: `riskbands`
+- classe principal: `Binner`
 
-## Main Workflow
+## Fluxo principal
 
-1. Fit the binner with `Binner(...).fit(X, y, time_col=...)`.
-2. Transform the feature set with `transform(...)`.
-3. Build temporal pivots with `stability_over_time(...)`.
-4. Open the detailed diagnostics with `temporal_bin_diagnostics(...)`.
-5. Summarize the variable-level behavior with `temporal_variable_summary(...)`.
-6. Consolidate the audit trail with `variable_audit_report(...)`.
-7. Compare candidates with `BinComparator` when doing champion/challenger analysis.
+1. Ajuste o binner com `Binner(...).fit(X, y, time_col=...)`.
+2. Transforme o conjunto de features com `transform(...)`.
+3. Construa pivôs temporais com `stability_over_time(...)`.
+4. Abra os diagnósticos detalhados com `temporal_bin_diagnostics(...)`.
+5. Resuma o comportamento no nível da variável com `temporal_variable_summary(...)`.
+6. Consolide a trilha de auditoria com `variable_audit_report(...)`.
+7. Compare candidatos com `BinComparator` ao fazer análises champion/challenger.
 
-## Quick Example
+## Exemplo rápido
 
 ```python
 import numpy as np
@@ -115,55 +115,55 @@ print(summary[["variable", "temporal_score", "alert_flags"]])
 print(audit_report[["variable", "objective_score", "rationale_summary"]])
 ```
 
-## Examples
+## Exemplos
 
 - [examples/temporal_stability/temporal_stability_example.py](examples/temporal_stability/temporal_stability_example.py)
-  Quickstart for the temporal workflow.
+  Quickstart do fluxo temporal.
 - [examples/pd_vintage_champion_challenger/pd_vintage_champion_challenger.py](examples/pd_vintage_champion_challenger/pd_vintage_champion_challenger.py)
-  Credit-oriented champion/challenger example with vintages.
+  Exemplo orientado a crédito com análise champion/challenger por vintages.
 - [examples/README.md](examples/README.md)
-  Map of the example set.
+  Mapa do conjunto de exemplos.
 
-## Breaking Change History
+## Histórico de breaking changes
 
-This codebase has gone through two deliberate API simplifications:
+Este código passou por duas simplificações deliberadas de API:
 
 - `NASABinning` -> `RiskBands`
 - `RiskBandsBinner` -> `Binner`
 
-The current official constructor is `Binner`.
+O construtor oficial atual é `Binner`.
 
-## Migration
+## Migração
 
-If you were already on the `riskbands` namespace but still used the longer class name:
+Se você já estava no namespace `riskbands`, mas ainda usava o nome mais longo da classe:
 
 ```python
-# before
+# antes
 from riskbands import RiskBandsBinner
 
-# now
+# agora
 from riskbands import Binner
 ```
 
-If you still import `nasabinning`, you also need to migrate to `riskbands`.
+Se você ainda importa `nasabinning`, também precisa migrar para `riskbands`.
 
-See [docs/migration.md](docs/migration.md) for the full migration notes.
+Veja [docs/migration.md](docs/migration.md) para as notas completas de migração.
 
-## Documentation
+## Documentação
 
 - [docs/index.md](docs/index.md)
 - [docs/api_reference.md](docs/api_reference.md)
 - [docs/migration.md](docs/migration.md)
 
-## Validation
+## Validação
 
 ```bash
 pytest -q --basetemp .pytest_tmp
 python -m build
 ```
 
-CI is defined in [tests.yml](.github/workflows/tests.yml).
+O CI está definido em [tests.yml](.github/workflows/tests.yml).
 
-## License
+## Licença
 
-MIT. See [LICENSE](LICENSE).
+MIT. Veja [LICENSE](LICENSE).
