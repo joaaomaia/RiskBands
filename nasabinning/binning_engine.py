@@ -434,6 +434,36 @@ class NASABinner(BaseEstimator, TransformerMixin):
         return summary
 
     # ------------------------------------------------------------------
+    def variable_audit_report(
+        self,
+        X: pd.DataFrame | None = None,
+        y: pd.Series | None = None,
+        *,
+        time_col: str | None = None,
+        dataset_name: str | None = None,
+        diagnostics: pd.DataFrame | None = None,
+        summary: pd.DataFrame | None = None,
+        candidate_name: str | None = None,
+        objective_kwargs: dict | None = None,
+    ) -> pd.DataFrame:
+        """
+        Build a consolidated, auditable report of the selected bins by variable.
+        """
+        from .reporting import build_variable_audit_report
+
+        return build_variable_audit_report(
+            self,
+            X,
+            y,
+            time_col=time_col,
+            dataset_name=dataset_name,
+            diagnostics=diagnostics,
+            summary=summary,
+            candidate_name=candidate_name,
+            objective_kwargs=objective_kwargs,
+        )
+
+    # ------------------------------------------------------------------
     def save_report(self, path: str) -> None:
         from .reporting import save_binner_report
 
