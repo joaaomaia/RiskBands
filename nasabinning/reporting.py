@@ -55,6 +55,14 @@ def _save_excel(binner: NASABinner, path: Path) -> None:
         if pivot is not None:
             pivot.to_excel(writer, sheet_name="pivot_event_rate")
 
+        diagnostics = getattr(binner, "_temporal_bin_diagnostics_", None)
+        if diagnostics is not None:
+            diagnostics.to_excel(writer, sheet_name="temporal_diag", index=False)
+
+        summary = getattr(binner, "_temporal_variable_summary_", None)
+        if summary is not None:
+            summary.to_excel(writer, sheet_name="temporal_summary", index=False)
+
 
 # ------------------------------------------------------------------ #
 def _save_json(binner: NASABinner, path: Path) -> None:
@@ -69,4 +77,10 @@ def _save_json(binner: NASABinner, path: Path) -> None:
     pivot = getattr(binner, "_pivot_", None)
     if pivot is not None:
         info["pivot_event_rate"] = pivot.reset_index().to_dict(orient="records")
+    diagnostics = getattr(binner, "_temporal_bin_diagnostics_", None)
+    if diagnostics is not None:
+        info["temporal_bin_diagnostics"] = diagnostics.to_dict(orient="records")
+    summary = getattr(binner, "_temporal_variable_summary_", None)
+    if summary is not None:
+        info["temporal_variable_summary"] = summary.to_dict(orient="records")
     path.write_text(json.dumps(info, indent=2), encoding="utf-8")

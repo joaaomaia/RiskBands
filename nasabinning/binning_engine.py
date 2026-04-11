@@ -353,6 +353,82 @@ class NASABinner(BaseEstimator, TransformerMixin):
         return plot_event_rate_stability(pivot, binner=self, **kwargs)
 
     # ------------------------------------------------------------------
+    def temporal_bin_diagnostics(
+        self,
+        X: pd.DataFrame,
+        y: pd.Series,
+        *,
+        time_col: str,
+        dataset_name: str | None = None,
+        min_bin_count: int = 30,
+        min_bin_share: float = 0.05,
+        min_time_coverage: float = 0.75,
+    ) -> pd.DataFrame:
+        """
+        Build a detailed variable/bin/time diagnostics table for temporal analysis.
+        """
+        from .temporal_diagnostics import build_temporal_bin_diagnostics
+
+        diagnostics = build_temporal_bin_diagnostics(
+            self,
+            X,
+            y,
+            time_col=time_col,
+            dataset_name=dataset_name,
+            min_bin_count=min_bin_count,
+            min_bin_share=min_bin_share,
+            min_time_coverage=min_time_coverage,
+        )
+        self._temporal_bin_diagnostics_ = diagnostics
+        return diagnostics
+
+    # ------------------------------------------------------------------
+    def temporal_variable_summary(
+        self,
+        X: pd.DataFrame | None = None,
+        y: pd.Series | None = None,
+        *,
+        diagnostics: pd.DataFrame | None = None,
+        time_col: str | None = None,
+        dataset_name: str | None = None,
+        min_bin_count: int = 30,
+        min_bin_share: float = 0.05,
+        min_time_coverage: float = 0.75,
+        event_rate_std_threshold: float = 0.05,
+        woe_std_threshold: float = 0.5,
+        bin_share_std_threshold: float = 0.05,
+    ) -> pd.DataFrame:
+        """
+        Summarize temporal diagnostics at the variable level.
+        """
+        from .temporal_diagnostics import summarize_temporal_variable_stability
+
+        if diagnostics is None:
+            if X is None or y is None or time_col is None:
+                raise ValueError(
+                    "Passe diagnostics ou informe X, y e time_col para montar o sumario."
+                )
+            diagnostics = self.temporal_bin_diagnostics(
+                X,
+                y,
+                time_col=time_col,
+                dataset_name=dataset_name,
+                min_bin_count=min_bin_count,
+                min_bin_share=min_bin_share,
+                min_time_coverage=min_time_coverage,
+            )
+
+        summary = summarize_temporal_variable_stability(
+            diagnostics,
+            time_col=time_col,
+            event_rate_std_threshold=event_rate_std_threshold,
+            woe_std_threshold=woe_std_threshold,
+            bin_share_std_threshold=bin_share_std_threshold,
+        )
+        self._temporal_variable_summary_ = summary
+        return summary
+
+    # ------------------------------------------------------------------
     def save_report(self, path: str) -> None:
         from .reporting import save_binner_report
 
