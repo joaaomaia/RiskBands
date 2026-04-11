@@ -1,4 +1,4 @@
-﻿"""Anchor example for PD binning with vintages and champion/challenger flow.
+"""Anchor example for PD binning with vintages and champion/challenger flow.
 
 This example stays strictly inside the RiskBands scope:
 - no end-to-end PD model training
@@ -14,6 +14,27 @@ import sys
 
 import pandas as pd
 
+
+def _patch_pandas_settingwithcopywarning() -> None:
+    """Provide compatibility for raw-material modules under pandas 3.x.
+
+    In pandas 3.0+, ``pd.errors.SettingWithCopyWarning`` was removed because
+    Copy-on-Write became the default behaviour. Some legacy helper modules in
+    the RiskBands raw-material area still reference that attribute directly.
+
+    This shim restores a compatible placeholder before those modules are
+    imported, preventing an AttributeError during import time.
+    """
+    if not hasattr(pd.errors, "SettingWithCopyWarning"):
+        class SettingWithCopyWarning(Warning):
+            """Compatibility placeholder for pandas >= 3.0."""
+            pass
+
+        pd.errors.SettingWithCopyWarning = SettingWithCopyWarning  # type: ignore[attr-defined]
+
+
+_patch_pandas_settingwithcopywarning()
+
 ROOT = Path(__file__).resolve().parents[2]
 RAW_MATERIAL = ROOT / "research" / "raw_material"
 for candidate_path in (ROOT, RAW_MATERIAL):
@@ -23,6 +44,7 @@ for candidate_path in (ROOT, RAW_MATERIAL):
 from credit_data_sampler import TargetSampler
 from credit_data_synthesizer import build_riskbands_pd_example_frame
 from riskbands.compare import BinComparator
+
 
 
 def make_pd_vintage_dataset(
@@ -37,6 +59,7 @@ def make_pd_vintage_dataset(
     X = panel[["bureau_score", "month"]].reset_index(drop=True)
     y = panel["target"].reset_index(drop=True)
     return X, y
+
 
 
 def build_sampling_preview(
@@ -80,6 +103,7 @@ def build_sampling_preview(
         }
     )
     return preview.reset_index(drop=True)
+
 
 
 def build_candidate_configs() -> list[dict]:
@@ -131,6 +155,7 @@ def build_candidate_configs() -> list[dict]:
     ]
 
 
+
 def build_champion_challenger_board(
     candidate_audit: pd.DataFrame,
     winner_summary: pd.DataFrame,
@@ -177,6 +202,7 @@ def build_champion_challenger_board(
     return pd.DataFrame(records)
 
 
+
 def build_credit_takeaways(
     champion_board: pd.DataFrame,
     winner_summary: pd.DataFrame,
@@ -208,6 +234,7 @@ def build_credit_takeaways(
             f"Os principais sinais do vencedor foram: {balanced_row['rationale_summary']}"
         ),
     ]
+
 
 
 def run_pd_vintage_champion_challenger_demo(
@@ -244,6 +271,7 @@ def run_pd_vintage_champion_challenger_demo(
         "sampling_preview": sampling_preview,
         "credit_takeaways": takeaways,
     }
+
 
 
 def main() -> None:
@@ -295,5 +323,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-
-
