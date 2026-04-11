@@ -1,10 +1,14 @@
-# Init file
-"""
-NASABinning: binning auditável com foco em estabilidade e separação temporal das curvas.
+"""Public package surface for NASABinning."""
 
-A biblioteca expõe a classe principal `NASABinner`.
-"""
 from .binning_engine import NASABinner
+from .compare import BinComparator
+from .temporal_stability import ks_over_time, psi_over_time, temporal_separability_score
 
-__all__ = ["NASABinner"]
-__version__ = "0.1.0"
+__all__ = [
+    "NASABinner",
+    "BinComparator",
+    "ks_over_time",
+    "psi_over_time",
+    "temporal_separability_score",
+]
+__version__ = "0.6.0b0"

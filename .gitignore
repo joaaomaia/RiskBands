@@ -25,7 +25,7 @@ venv/
 # Logs
 *.log
 
-# Jupyter Notebook Checkpoints
+# Jupyter Notebook checkpoints
 **/.ipynb_checkpoints
 
 # MacOS
@@ -42,22 +42,24 @@ venv/
 *.pkl
 *.json
 
-# Images (exclui apenas subpasta olds dentro de img/)
+# Images
 imgs/olds/
 
-# Arquivos temporários
+# Temporary files
 *.bak
 *.tmp
 ~$*
 
-# Testes e relatórios
+# Test and report artifacts
 htmlcov/
 coverage.xml
 pytest_cache/
+.pytest_cache/
+.pytest_tmp/
 .tox/
 .nox/
 
-# Modelos e artefatos
+# Models and outputs
 models/
 outputs/
 runs/
