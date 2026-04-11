@@ -114,7 +114,9 @@ class NASABinner(BaseEstimator, TransformerMixin):
 
             from .optuna_optimizer import optimize_bins
 
-            n_trials = self.strategy_kwargs.pop("n_trials", 20)
+            optuna_kwargs = dict(self.strategy_kwargs)
+            n_trials = optuna_kwargs.pop("n_trials", 20)
+            objective_kwargs = optuna_kwargs.pop("objective_kwargs", None)
             base_kwargs = dict(
                 strategy=self.strategy,
                 min_event_rate_diff=self.min_event_rate_diff,
@@ -123,6 +125,7 @@ class NASABinner(BaseEstimator, TransformerMixin):
             )
             self._per_feature_binners = {}
             self.best_params_ = {}
+            self.objective_summaries_ = {}
 
             for col in num_cols + cat_cols:
                 time_values = X[time_col] if time_col else None
@@ -132,10 +135,12 @@ class NASABinner(BaseEstimator, TransformerMixin):
                     time_col=time_col,
                     time_values=time_values,
                     n_trials=n_trials,
+                    objective_kwargs=objective_kwargs,
                     **base_kwargs,
                 )
                 self._per_feature_binners[col] = fitted_binner
                 self.best_params_[col] = best
+                self.objective_summaries_[col] = getattr(fitted_binner, "objective_summary_", None)
 
             self.bin_summary = pd.concat(
                 [binner.bin_summary for binner in self._per_feature_binners.values()],
