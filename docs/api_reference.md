@@ -45,6 +45,10 @@ Common methods:
 - `describe_schema()`
 - `get_bin_mapping(column)`
 
+Notes:
+
+- `save_report("...xlsx")` requires an XLSX writer engine such as `openpyxl` or `xlsxwriter`.
+
 Main attributes after `fit`:
 
 - `bin_summary`

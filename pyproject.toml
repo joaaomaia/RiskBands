@@ -49,6 +49,7 @@ viz = [
 dev = [
   "black>=24.4",
   "ipykernel>=6.29",
+  "openpyxl>=3.1",
   "plotly>=6.0",
   "pytest>=8.2"
 ]

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from importlib.util import find_spec
 from pathlib import Path
 from typing import Any, Union
 
@@ -617,9 +618,19 @@ def save_binner_report(binner: Binner, path: PathLike) -> None:
         _save_excel(binner, p.with_suffix(".xlsx"))
 
 
+def _resolve_excel_writer_engine() -> str:
+    for engine in ("openpyxl", "xlsxwriter"):
+        if find_spec(engine) is not None:
+            return engine
+    raise ImportError(
+        "Excel export requires an XLSX writer engine. "
+        "Install `openpyxl` or `xlsxwriter` to use save_report(..., '.xlsx')."
+    )
+
+
 def _save_excel(binner: Binner, path: Path) -> None:
     bin_summary = _require_bin_summary(binner)
-    with pd.ExcelWriter(path) as writer:
+    with pd.ExcelWriter(path, engine=_resolve_excel_writer_engine()) as writer:
         bin_summary.to_excel(writer, sheet_name="bin_table", index=False)
         meta = pd.DataFrame(
             {
