@@ -9,8 +9,10 @@ Fluxo recomendado:
 3. Calcular o pivot temporal com `stability_over_time(...)`
 4. Gerar a tabela detalhada com `temporal_bin_diagnostics(...)`
 5. Gerar o sumario agregado com `temporal_variable_summary(...)`
-6. Inspecionar graficamente com `plot_event_rate_stability(...)`
-7. Opcionalmente otimizar com `use_optuna=True` e `objective_kwargs`
-8. Exportar um snapshot simples com `save_report(...)`
+6. Consolidar a escolha com `variable_audit_report(...)`
+7. Inspecionar graficamente com `plot_event_rate_stability(...)`
+8. Opcionalmente otimizar com `use_optuna=True` e `objective_kwargs`
+9. Comparar candidatos com `BinComparator` quando houver mais de uma estrategia
+10. Exportar um snapshot simples com `save_report(...)`
 
 Para detalhes da API principal, veja `docs/api_reference.md`.

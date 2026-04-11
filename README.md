@@ -27,10 +27,12 @@ O core atual cobre:
 - `stability_over_time(...)` para gerar o pivot temporal por bin e safra
 - `temporal_bin_diagnostics(...)` para tabela auditavel por variavel/bin/safra
 - `temporal_variable_summary(...)` para resumo agregado com alertas de estabilidade
+- `variable_audit_report(...)` para consolidar cortes, metricas, penalizacoes e racional por variavel
 - `plot_event_rate_stability(...)` para inspecao visual
 - `save_report(...)` para export simples em `.xlsx` ou `.json`
 - `temporal_separability_score(...)` como metrica de separacao temporal robusta a esparsidade
 - objetivo de otimizacao com penalizacoes de estabilidade, rareza e perda de ordenacao
+- comparacao de candidatos com `BinComparator` em perfis estatico, temporal e equilibrado
 
 Importante:
 
@@ -88,6 +90,12 @@ summary = binner.temporal_variable_summary(
     diagnostics=diagnostics,
     time_col="AnoMesReferencia",
 )
+audit_report = binner.variable_audit_report(
+    X,
+    y,
+    time_col="AnoMesReferencia",
+    dataset_name="train",
+)
 
 binner.plot_event_rate_stability(pivot)
 binner.save_report("reports/binning_report.xlsx")
@@ -95,6 +103,7 @@ binner.save_report("reports/binning_report.xlsx")
 print(binner.bin_summary.head())
 print(diagnostics.head())
 print(summary[["variable", "temporal_score", "alert_flags"]])
+print(audit_report[["variable", "objective_score", "key_penalties", "rationale_summary"]])
 print(binner.iv_)
 ```
 
@@ -121,6 +130,40 @@ print(binner.best_params_)
 print(binner.objective_summaries_)
 ```
 
+## Reporting auditavel e comparacao
+
+O NASABinning agora consegue explicar melhor por que um binning venceu, sem sair do
+escopo de binning e estabilidade temporal.
+
+O report consolidado por variavel combina:
+
+- cortes finais (`cut_summary`)
+- metricas estaticas como `iv` e `ks`
+- metricas temporais como `temporal_score`, cobertura e volatilidade
+- componentes e penalizacoes do objetivo
+- `alert_flags`, `key_penalties` e `rationale_summary`
+
+Para comparar candidatos, use `BinComparator`:
+
+```python
+from nasabinning.compare import BinComparator
+
+configs = [
+    {"name": "static_candidate", "strategy": "supervised", "max_bins": 6},
+    {"name": "stable_candidate", "strategy": "unsupervised", "method": "quantile", "n_bins": 4},
+]
+
+cmp = BinComparator(configs, time_col="AnoMesReferencia")
+cmp.fit_compare(X, y)
+
+candidate_audit = cmp.candidate_audit_report()
+profiles = cmp.candidate_profile_summary()
+winners = cmp.winner_summary()
+
+print(candidate_audit[["candidate_name", "variable", "objective_score", "rationale_summary"]])
+print(winners[["variable", "best_static_candidate", "best_temporal_candidate", "selected_candidate"]])
+```
+
 ## Estrutura principal
 
 ```text
@@ -138,20 +181,13 @@ nasabinning/
 
 ## Proximo foco
 
-O proximo passo natural do projeto e a camada de diagnostico por safra, com metricas por variavel e por bin, voltadas a:
+O proximo passo natural do projeto e fortalecer exemplos reais de PD e champion/challenger entre:
 
-- event rate por safra
-- share do bin no tempo
-- volatilidade temporal
-- WoE e contribuicao de IV por periodo
-- sinais de degradacao e reversao de ranking
+- melhor discriminacao estatica
+- melhor estabilidade temporal
+- melhor equilibrio entre ambas
 
-Na versao atual essa camada ja existe em formato tabular e pode ser usada para:
-
-- identificar bins ausentes ou raros em determinadas safras
-- monitorar volatilidade de `event_rate`, `WoE` e `bin_share`
-- sinalizar quebra de monotonicidade e reversao de ranking
-- preparar insumos para comparacao treino vs validacao temporal vs OOT
+Com isso, a camada de reporting auditavel desta sprint vira base para exemplos mais fortes e narrativas mais proximas do uso real em credito.
 
 ## Otimizacao orientada a credito
 

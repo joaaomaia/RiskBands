@@ -45,6 +45,12 @@ diagnostics = binner.temporal_bin_diagnostics(
     dataset_name="train",
 )
 summary = binner.temporal_variable_summary(diagnostics=diagnostics, time_col="month")
+audit_report = binner.variable_audit_report(
+    X,
+    y,
+    time_col="month",
+    dataset_name="train",
+)
 ks = ks_over_time(pivot)
 
 bins = binner.transform(X)["x"]
@@ -63,6 +69,7 @@ print("Best params:", binner.best_params_)
 print("Objective summaries:", binner.objective_summaries_)
 print(diagnostics.head())
 print(summary[["variable", "temporal_score", "alert_flags"]])
+print(audit_report[["variable", "objective_score", "key_penalties", "rationale_summary"]])
 
 
 # optional export ---------------------------------------------------------

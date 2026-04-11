@@ -28,6 +28,7 @@ Metodos principais:
 - `stability_over_time(X, y, time_col, fill_value=None)`
 - `temporal_bin_diagnostics(X, y, time_col, dataset_name=None, ...)`
 - `temporal_variable_summary(X=None, y=None, diagnostics=None, time_col=None, ...)`
+- `variable_audit_report(X=None, y=None, time_col=None, diagnostics=None, summary=None, ...)`
 - `plot_event_rate_stability(pivot=None, **kwargs)`
 - `save_report(path)`
 - `describe_schema()`
@@ -66,6 +67,24 @@ Atributos principais apos `fit`:
 - `temporal_score`
 - `alert_flags`
 
+## Reporting auditavel
+
+`variable_audit_report(...)` retorna um DataFrame consolidado por variavel com:
+
+- `cut_summary`
+- `iv`, `ks`, `separability` e `temporal_score`
+- cobertura temporal e sinais de bins raros
+- componentes-base e penalizacoes do objetivo
+- `key_drivers`, `key_penalties`
+- `selection_basis`
+- `rationale_summary`
+
+Quando o binner nao possui `objective_summary_` persistido, o report deriva um resumo consistente a partir:
+
+- do `child_binner` treinado para a variavel
+- das tabelas temporais da Sprint 2
+- da mesma filosofia de score introduzida na Sprint 3
+
 ## Otimizacao orientada a credito
 
 `optimize_bins(...)` agora utiliza um score composto simples e auditavel:
@@ -85,3 +104,18 @@ Atributos principais apos `fit`:
   - `ranking_reversal_period_count`
 
 O resumo final do melhor candidato fica disponivel em `objective_summary_`.
+
+## Comparacao entre candidatos
+
+`BinComparator` continua em `nasabinning.compare` e agora expÃµe:
+
+- `candidate_audit_report()` com o report consolidado por candidato x variavel
+- `candidate_profile_summary()` com scores e ranks em tres perfis:
+  - `static_profile_score`
+  - `temporal_profile_score`
+  - `balanced_profile_score`
+- `winner_summary()` com:
+  - melhor candidato estatico
+  - melhor candidato temporal
+  - melhor candidato equilibrado
+  - racional resumido do vencedor
