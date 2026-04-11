@@ -1,69 +1,89 @@
 """
-Ferramentas para avaliação da **estabilidade temporal** dos bins.
+Temporal stability utilities for bin diagnostics.
 
-O principal indicador é ``temporal_separability_score``. Ele calcula a distância média entre as curvas de event rate de cada bin ao longo das safras (mês) e permite penalizações para inversões de tendência ou baixa frequência.
-
-Funções principais
-------------------
-event_rate_by_time(df, time_col)     -> DataFrame pivotado
-stability_table(df_pivot)            -> métricas por bin
-psi_over_time(df_pivot)              -> PSI entre 1ª e última safra
-ks_over_time(df_pivot)               -> KS entre 1ª e última safra
-temporal_separability_score(df, variable, bin_col, target_col, time_col)
-    -> escore médio de separação temporal
+The main indicator is ``temporal_separability_score``, which measures how
+consistently event-rate curves stay separated across time periods.
 """
 
-import pandas as pd
+from __future__ import annotations
+
 import numpy as np
+import pandas as pd
 from scipy.stats import ks_2samp
 
-# ------------------------------------------------------------------ #
-def event_rate_by_time(bin_tbl: pd.DataFrame, time_col: str) -> pd.DataFrame:
+
+def event_rate_by_time(
+    bin_tbl: pd.DataFrame,
+    time_col: str,
+    *,
+    fill_value: float | None = None,
+) -> pd.DataFrame:
     """
-    Espera bin_tbl com colunas ['variable', 'bin', 'event', 'count', time_col].
-    Retorna DataFrame pivotado: index = (variable, bin), columns = safra,
-    values = event_rate.
+    Build an event-rate pivot table indexed by ``(variable, bin)``.
     """
     df = bin_tbl.copy()
     df["event_rate"] = df["event"] / df["count"]
-    pivot = (
-        df.pivot_table(
-            index=["variable", "bin"],
-            columns=time_col,
-            values="event_rate"
-        )
-        .sort_index(axis=1)          # ordena safras
-        .sort_index()
-    )
-    return pivot
 
-# ------------------------------------------------------------------ #
+    pivot_kwargs = {
+        "index": ["variable", "bin"],
+        "columns": time_col,
+        "values": "event_rate",
+    }
+    if fill_value is not None:
+        pivot_kwargs["fill_value"] = fill_value
+
+    return df.pivot_table(**pivot_kwargs).sort_index(axis=1).sort_index()
+
+
 def stability_table(pivot: pd.DataFrame) -> pd.DataFrame:
-    """Desvio padrão e amplitude por bin."""
-    std = pivot.std(axis=1)
-    rng = pivot.max(axis=1) - pivot.min(axis=1)
-    return pd.DataFrame({"std": std, "range": rng})
+    """Return simple temporal dispersion metrics for each bin."""
+    if pivot.empty:
+        return pd.DataFrame(columns=["std", "range", "coverage", "observed_periods"])
 
-# ------------------------------------------------------------------ #
+    std = pivot.std(axis=1, skipna=True)
+    rng = pivot.max(axis=1, skipna=True) - pivot.min(axis=1, skipna=True)
+    coverage = pivot.notna().mean(axis=1)
+    observed_periods = pivot.notna().sum(axis=1)
+    return pd.DataFrame(
+        {
+            "std": std,
+            "range": rng,
+            "coverage": coverage,
+            "observed_periods": observed_periods,
+        }
+    )
+
+
 def psi_over_time(pivot: pd.DataFrame) -> float:
-    """PSI global entre primeira e última safra."""
+    """Compute PSI between the first and last observed time periods."""
+    if pivot.shape[1] < 2:
+        return 0.0
+
     from .metrics import psi
+
     first, last = pivot.columns[0], pivot.columns[-1]
     df_tmp = pd.DataFrame(
         {
-            "expected": pivot[first].values,
-            "actual": pivot[last].values
+            "expected": pivot[first].fillna(0.0).values,
+            "actual": pivot[last].fillna(0.0).values,
         }
     )
     return psi(df_tmp)
 
-# ------------------------------------------------------------------ #
-def ks_over_time(pivot: pd.DataFrame) -> float:
-    """KS global entre primeira e última safra (distribuição de event-rate)."""
-    first, last = pivot.columns[0], pivot.columns[-1]
-    return ks_2samp(pivot[first], pivot[last]).statistic
 
-# ------------------------------------------------------------------ #
+def ks_over_time(pivot: pd.DataFrame) -> float:
+    """Compute KS between the first and last observed event-rate distributions."""
+    if pivot.shape[1] < 2:
+        return 0.0
+
+    first, last = pivot.columns[0], pivot.columns[-1]
+    first_values = pivot[first].dropna().values
+    last_values = pivot[last].dropna().values
+    if len(first_values) == 0 or len(last_values) == 0:
+        return 0.0
+    return float(ks_2samp(first_values, last_values).statistic)
+
+
 def temporal_separability_score(
     df: pd.DataFrame,
     variable: str,
@@ -73,45 +93,68 @@ def temporal_separability_score(
     *,
     penalize_inversions: bool = False,
     penalize_low_freq: bool = False,
+    penalize_low_coverage: bool = False,
+    min_bin_count: int = 30,
+    min_time_coverage: float = 0.5,
+    min_common_periods: int = 2,
+    low_freq_penalty: float = 0.1,
+    low_coverage_penalty: float = 0.1,
+    inversion_penalty: float = 0.1,
 ) -> float:
-    """Calcula a separação temporal entre os bins.
+    """
+    Calculate temporal separability between bins.
 
-    Para cada bin é obtida a curva de event rate por safra (mês). O score é a
-    média das distâncias absolutas entre todas as combinações de curvas.
-    Opcionalmente penaliza inversões de tendência ou bins com baixa
-    contagem.
+    The base score is the mean absolute distance between all valid pairs of
+    bin event-rate curves. Sparse combinations are handled explicitly: only
+    overlapping periods are compared, and pairs with too little overlap are
+    ignored. Optional penalties can discourage bins with low support, low time
+    coverage, or ranking reversals across periods.
     """
     tbl = (
         df.groupby([bin_col, time_col])[target_col]
         .agg(["sum", "count"])
         .reset_index()
-        .rename(columns={"sum": "event", "count": "count"})
+        .rename(columns={"sum": "event"})
     )
     tbl["variable"] = variable
-    pivot = event_rate_by_time(tbl, time_col)
 
-    n_bins = pivot.shape[0]
-    if n_bins < 2:
+    pivot = event_rate_by_time(tbl, time_col)
+    if pivot.shape[0] < 2:
         return 0.0
 
-    curves = pivot.to_numpy()
-    dists = []
-    for i in range(n_bins):
-        for j in range(i + 1, n_bins):
-            dists.append(np.abs(curves[i] - curves[j]).mean())
+    curves = pivot.to_numpy(dtype=float)
+    distances = []
+    inversion_count = 0
 
-    score = float(np.mean(dists))
+    for i in range(pivot.shape[0]):
+        for j in range(i + 1, pivot.shape[0]):
+            diffs = curves[i] - curves[j]
+            mask = np.isfinite(diffs)
+            if mask.sum() < min_common_periods:
+                continue
+
+            valid_diffs = diffs[mask]
+            distances.append(float(np.abs(valid_diffs).mean()))
+
+            if penalize_inversions:
+                non_zero_signs = np.sign(valid_diffs)
+                non_zero_signs = non_zero_signs[non_zero_signs != 0]
+                if np.unique(non_zero_signs).size > 1:
+                    inversion_count += 1
+
+    score = float(np.mean(distances)) if distances else 0.0
 
     if penalize_low_freq:
-        freq = tbl.groupby(bin_col)["count"].min()
-        low = (freq < 30).sum()
-        score -= 0.1 * low
+        min_counts = tbl.groupby(bin_col)["count"].min()
+        score -= low_freq_penalty * int((min_counts < min_bin_count).sum())
+
+    if penalize_low_coverage:
+        coverage = pivot.notna().mean(axis=1)
+        score -= low_coverage_penalty * int((coverage < min_time_coverage).sum())
 
     if penalize_inversions:
-        for idx in pivot.index:
-            values = pivot.loc[idx].values
-            trend = np.sign(np.diff(values))
-            if np.unique(trend[trend != 0]).size > 1:
-                score -= 0.1
+        score -= inversion_penalty * inversion_count
 
-    return score
+    if not np.isfinite(score):
+        return 0.0
+    return float(score)

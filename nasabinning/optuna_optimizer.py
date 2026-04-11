@@ -1,41 +1,29 @@
 """
-optuna_optimizer.py
-Busca hiperparâmetros ótimos para NASABinner via Optuna.
+Optuna-based optimization for NASABinner.
 
-Função principal
-----------------
-optimize_bins(
-    X, y, *, time_col=None, time_values=None, n_trials=20,
-    alpha=0.7, beta=0.2, gamma=0.1, **base_kwargs)
-→ (best_params: dict, fitted_binner: NASABinner)
-
-O Optuna apenas ajusta os hiperparâmetros do OptimalBinning. O score retornado
-pelo ``_objective`` prioriza a separabilidade temporal das curvas por safra,
-computada por ``temporal_separability_score`` e ponderada com IV e KS segundo:
-
-``score = α * separabilidade + β * IV + γ * KS``
-
-onde ``α`` > ``β`` e ``γ`` (valores padrão: 0.7, 0.2 e 0.1).
+The objective prioritizes temporal separability while still considering IV and
+temporal KS as supporting signals.
 """
+
 from __future__ import annotations
 
-from typing import Any, Tuple, Optional
+import logging
+from typing import Any, Optional
 
+import numpy as np
 import optuna
 import pandas as pd
-import logging
 
 from .binning_engine import NASABinner
 from .temporal_stability import (
-    temporal_separability_score,
     event_rate_by_time,
     ks_over_time,
+    temporal_separability_score,
 )
 
 logger = logging.getLogger(__name__)
 
 
-# --------------------------------------------------------------------------- #
 def _objective(
     trial: optuna.Trial,
     X: pd.DataFrame,
@@ -47,28 +35,23 @@ def _objective(
     beta: float,
     gamma: float,
 ) -> float:
-    """Função objetivo usada pelo Optuna."""
+    """Objective function used by Optuna."""
     params = {
         "max_bins": trial.suggest_int("max_bins", 3, 10),
         "min_bin_size": trial.suggest_float("min_bin_size", 0.01, 0.1),
-        "min_event_rate_diff": trial.suggest_float(
-            "min_event_rate_diff", 0.01, 0.1
-        ),
+        "min_event_rate_diff": trial.suggest_float("min_event_rate_diff", 0.01, 0.1),
     }
 
-    # ------------------------------------------------------------------ #
-    # remove possíveis chaves conflitantes antes de repassar
     cfg = dict(base_kwargs)
     cfg.pop("min_event_rate_diff", None)
     cfg.pop("strategy_kwargs", None)
 
-    # cria NASABinner candidato
     binner = NASABinner(
         **cfg,
         max_bins=params["max_bins"],
         min_event_rate_diff=params["min_event_rate_diff"],
-        strategy_kwargs=dict(min_bin_size=params["min_bin_size"]),
-        use_optuna=False,  # evita recursão
+        strategy_kwargs={"min_bin_size": params["min_bin_size"]},
+        use_optuna=False,
     )
     df_fit = X.copy()
     if time_col and time_values is not None:
@@ -76,48 +59,57 @@ def _objective(
 
     binner.fit(df_fit, y, time_col=time_col)
 
-    # métricas para avaliação
-    iv = binner.iv_
+    iv_value = binner.iv_
     n_bins = len(binner.bin_summary)
 
     if time_col and time_values is not None:
         bins = binner.transform(df_fit)[X.columns[0]]
-        df_tmp = pd.DataFrame({
-            'bin': bins,
-            'target': y,
-            'time': time_values,
-        })
+        df_tmp = pd.DataFrame({"bin": bins, "target": y, "time": time_values})
         sep = temporal_separability_score(
-            df_tmp, X.columns[0], 'bin', 'target', 'time'
+            df_tmp,
+            X.columns[0],
+            "bin",
+            "target",
+            "time",
+            penalize_inversions=True,
+            penalize_low_freq=True,
+            penalize_low_coverage=True,
         )
         tbl = (
-            df_tmp.groupby(['bin', 'time'])['target']
-            .agg(['sum','count']).reset_index()
-            .rename(columns={'sum':'event','count':'count'})
+            df_tmp.groupby(["bin", "time"])["target"]
+            .agg(["sum", "count"])
+            .reset_index()
+            .rename(columns={"sum": "event"})
         )
-        tbl['variable'] = X.columns[0]
-        pivot = event_rate_by_time(tbl, 'time')
-        ks = ks_over_time(pivot)
+        tbl["variable"] = X.columns[0]
+        pivot = event_rate_by_time(tbl, "time")
+        ks_value = ks_over_time(pivot)
     else:
         sep = 0.0
-        ks = 0.0
+        ks_value = 0.0
 
-    score = alpha * sep + beta * iv + gamma * ks
+    score = alpha * sep + beta * iv_value + gamma * ks_value
+    if not np.isfinite(score):
+        score = -1e6
 
-    trial.set_user_attr('separability', sep)
-    trial.set_user_attr('iv', iv)
-    trial.set_user_attr('ks', ks)
-    trial.set_user_attr('n_bins', n_bins)
-    trial.set_user_attr('score', score)
+    trial.set_user_attr("separability", sep)
+    trial.set_user_attr("iv", iv_value)
+    trial.set_user_attr("ks", ks_value)
+    trial.set_user_attr("n_bins", n_bins)
+    trial.set_user_attr("score", score)
 
     logger.info(
-        f"Trial {trial.number}: score={score:.4f}, sep={sep:.4f}, iv={iv:.4f}, ks={ks:.4f}"
+        "Trial %s: score=%.4f, sep=%.4f, iv=%.4f, ks=%.4f",
+        trial.number,
+        score,
+        sep,
+        iv_value,
+        ks_value,
     )
 
-    return score
+    return float(score)
 
 
-# --------------------------------------------------------------------------- #
 def optimize_bins(
     X: pd.DataFrame,
     y: pd.Series,
@@ -129,29 +121,31 @@ def optimize_bins(
     beta: float = 0.2,
     gamma: float = 0.1,
     **base_kwargs,
-) -> Tuple[dict[str, Any], NASABinner]:
+) -> tuple[dict[str, Any], NASABinner]:
     """
-    Executa Optuna para achar hiperparâmetros ideais.
-
-    Retorna
-    -------
-    best_params : dict
-        {'max_bins', 'min_bin_size', 'min_event_rate_diff'}
-    fitted_binner : NASABinner
-        Binner treinado com os melhores hiperparâmetros.
+    Execute Optuna and return the best parameters and fitted binner.
     """
     study = optuna.create_study(direction="maximize")
-
-    # ajustando verbose do optuna
     optuna.logging.set_verbosity(optuna.logging.WARNING)
 
     study.optimize(
-        lambda tr: _objective(
-            tr, X, y, base_kwargs, time_col, time_values, alpha, beta, gamma
+        lambda trial: _objective(
+            trial,
+            X,
+            y,
+            base_kwargs,
+            time_col,
+            time_values,
+            alpha,
+            beta,
+            gamma,
         ),
         n_trials=n_trials,
         show_progress_bar=False,
     )
+
+    if not study.best_trials:
+        raise RuntimeError("Optuna nao concluiu nenhum trial valido.")
 
     best = study.best_trial
     best_params = {
@@ -160,8 +154,6 @@ def optimize_bins(
         "min_event_rate_diff": best.params["min_event_rate_diff"],
     }
 
-    # ------------------------------------------------------------------ #
-    # treina binner final com melhores parâmetros
     cfg = dict(base_kwargs)
     cfg.pop("min_event_rate_diff", None)
     cfg.pop("strategy_kwargs", None)
@@ -174,11 +166,9 @@ def optimize_bins(
         **cfg,
         max_bins=best_params["max_bins"],
         min_event_rate_diff=best_params["min_event_rate_diff"],
-        strategy_kwargs=dict(min_bin_size=best_params["min_bin_size"]),
+        strategy_kwargs={"min_bin_size": best_params["min_bin_size"]},
         use_optuna=False,
     ).fit(df_final, y, time_col=time_col)
 
-    # expõe best_params ao objeto para debug externo se desejado
     final_binner.best_params_ = best_params
-
     return best_params, final_binner
