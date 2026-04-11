@@ -25,7 +25,12 @@ binner = NASABinner(
     check_stability=True,
     use_optuna=True,
     time_col="month",
-    strategy_kwargs={"n_trials": 10},
+    strategy_kwargs={
+        "n_trials": 10,
+        "objective_kwargs": {
+            "minimums": {"iv": 0.05, "coverage_ratio": 0.75},
+        },
+    },
 )
 
 binner.fit(X, y, time_col="month")
@@ -55,6 +60,7 @@ print(f"Temporal separability: {sep:.3f}")
 print(f"IV: {binner.iv_:.3f}")
 print(f"KS over time: {ks:.3f}")
 print("Best params:", binner.best_params_)
+print("Objective summaries:", binner.objective_summaries_)
 print(diagnostics.head())
 print(summary[["variable", "temporal_score", "alert_flags"]])
 

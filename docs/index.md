@@ -10,6 +10,7 @@ Fluxo recomendado:
 4. Gerar a tabela detalhada com `temporal_bin_diagnostics(...)`
 5. Gerar o sumario agregado com `temporal_variable_summary(...)`
 6. Inspecionar graficamente com `plot_event_rate_stability(...)`
-7. Exportar um snapshot simples com `save_report(...)`
+7. Opcionalmente otimizar com `use_optuna=True` e `objective_kwargs`
+8. Exportar um snapshot simples com `save_report(...)`
 
 Para detalhes da API principal, veja `docs/api_reference.md`.

@@ -15,6 +15,11 @@ Parametros mais usados:
 - `time_col`: coluna de safra usada no diagnostico temporal
 - `strategy_kwargs`: parametros especificos da estrategia
 
+Quando `use_optuna=True`, `strategy_kwargs` tambem pode receber:
+
+- `n_trials`
+- `objective_kwargs`
+
 Metodos principais:
 
 - `fit(X, y, time_col=None)`
@@ -34,6 +39,8 @@ Atributos principais apos `fit`:
 - `iv_`
 - `iv_by_variable_`
 - `best_params_` quando `use_optuna=True`
+- `objective_summary_` nos binners treinados diretamente com `optimize_bins(...)`
+- `objective_summaries_` no `NASABinner` multi-feature quando `use_optuna=True`
 
 ## Camada de diagnostico temporal
 
@@ -58,3 +65,23 @@ Atributos principais apos `fit`:
 - contagem de reversoes de ranking
 - `temporal_score`
 - `alert_flags`
+
+## Otimizacao orientada a credito
+
+`optimize_bins(...)` agora utiliza um score composto simples e auditavel:
+
+- componentes-base:
+  - `separability`
+  - `iv`
+  - `ks`
+  - `temporal_score`
+- penalizacoes:
+  - `rare_bin_count`
+  - `coverage_ratio_min`
+  - `event_rate_std_max`
+  - `woe_std_max`
+  - `bin_share_std_max`
+  - `monotonic_break_period_count`
+  - `ranking_reversal_period_count`
+
+O resumo final do melhor candidato fica disponivel em `objective_summary_`.

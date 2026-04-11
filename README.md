@@ -1,5 +1,9 @@
 # NASABinning
 
+<p align="center">
+  <img src="./imgs/social_preview.png" alt="NASABinning Banner" width="600"/>
+</p>
+
 Biblioteca para binning interpretavel com foco em estabilidade temporal, pensada para cenarios de risco de credito, PD e scorecards.
 
 ## Visao geral
@@ -26,6 +30,7 @@ O core atual cobre:
 - `plot_event_rate_stability(...)` para inspecao visual
 - `save_report(...)` para export simples em `.xlsx` ou `.json`
 - `temporal_separability_score(...)` como metrica de separacao temporal robusta a esparsidade
+- objetivo de otimizacao com penalizacoes de estabilidade, rareza e perda de ordenacao
 
 Importante:
 
@@ -102,12 +107,18 @@ binner = NASABinner(
     strategy="supervised",
     check_stability=True,
     use_optuna=True,
-    strategy_kwargs={"n_trials": 20},
+    strategy_kwargs={
+        "n_trials": 20,
+        "objective_kwargs": {
+            "minimums": {"iv": 0.05, "coverage_ratio": 0.75},
+        },
+    },
 )
 
 binner.fit(X, y, time_col="AnoMesReferencia")
 pivot = binner.stability_over_time(X, y, time_col="AnoMesReferencia")
 print(binner.best_params_)
+print(binner.objective_summaries_)
 ```
 
 ## Estrutura principal
@@ -141,6 +152,23 @@ Na versao atual essa camada ja existe em formato tabular e pode ser usada para:
 - monitorar volatilidade de `event_rate`, `WoE` e `bin_share`
 - sinalizar quebra de monotonicidade e reversao de ranking
 - preparar insumos para comparacao treino vs validacao temporal vs OOT
+
+## Otimizacao orientada a credito
+
+O objetivo atual do Optuna continua estritamente no escopo do NASABinning:
+ele nao tenta virar um framework de modelagem de risco, mas passa a escolher
+bins de forma mais alinhada com PD.
+
+A funcao-objetivo agora combina:
+
+- separacao estatica e IV como sinais-base
+- `temporal_score` como sinal positivo de estabilidade
+- penalizacoes por bins raros
+- penalizacoes por baixa cobertura temporal
+- penalizacoes por volatilidade de `event_rate`, `WoE` e `bin_share`
+- penalizacoes por quebra de monotonicidade e reversao de ranking
+
+Isso ajuda a evitar binnings que parecem fortes no treino, mas degradam mais no tempo.
 
 ## Licenca
 
