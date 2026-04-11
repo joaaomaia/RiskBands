@@ -4,24 +4,22 @@ import numpy as np
 import pandas as pd
 
 from nasabinning import NASABinner
-from nasabinning.temporal_stability import (
-    temporal_separability_score,
-    event_rate_by_time,
-    ks_over_time,
-)
+from nasabinning.temporal_stability import ks_over_time, temporal_separability_score
+
 
 # synthetic dataset -------------------------------------------------------
 rng = np.random.default_rng(0)
 n = 800
 
-# feature with slight drift across months
 X = pd.DataFrame({"x": rng.normal(size=n)})
 X["month"] = rng.choice([202301, 202302, 202303, 202304], size=n)
 
-proba = 0.2 + 0.15 * X["x"] + 0.02 * (X["month"] - 202301)
-y = (rng.random(n) < proba).astype(int)
+proba = 0.20 + 0.15 * X["x"] + 0.02 * (X["month"] - 202301)
+proba = np.clip(proba, 0.01, 0.99)
+y = pd.Series((rng.random(n) < proba).astype(int), name="target")
 
-# fit NASABinner using Optuna to maximise temporal separability
+
+# fit NASABinner using Optuna to maximize temporal separability ----------
 binner = NASABinner(
     strategy="supervised",
     check_stability=True,
@@ -32,7 +30,8 @@ binner = NASABinner(
 
 binner.fit(X, y, time_col="month")
 
-# stability metrics ------------------------------------------------------
+
+# stability metrics -------------------------------------------------------
 pivot = binner.stability_over_time(X, y, time_col="month")
 ks = ks_over_time(pivot)
 
@@ -48,7 +47,9 @@ sep = temporal_separability_score(
 print(f"Temporal separability: {sep:.3f}")
 print(f"IV: {binner.iv_:.3f}")
 print(f"KS over time: {ks:.3f}")
+print("Best params:", binner.best_params_)
 
-# plot curves ------------------------------------------------------------
-# Exibe gráfico de event rate por safra para cada bin
+
+# optional export ---------------------------------------------------------
 binner.plot_event_rate_stability(pivot)
+binner.save_report("reports/temporal_stability_example.xlsx")
