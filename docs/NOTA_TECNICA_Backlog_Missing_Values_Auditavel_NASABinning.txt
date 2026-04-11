@@ -1,0 +1,263 @@
+NOTA_TECNICA_Backlog_Missing_Values_Auditavel_NASABinning.txt
+
+Tema
+Tratamento auditável de valores ausentes (missing values) no NASABinning com foco em risco de crédito, PD, IFRS 9, Resolução 4966 e eventual escrutínio regulatório.
+
+Objetivo desta nota
+Registrar, de forma estruturada e cuidadosa, uma linha de pensamento para eventual desenvolvimento futuro de uma política de tratamento de missing values no NASABinning que:
+- faça sentido tecnicamente
+- preserve interpretabilidade
+- seja auditável
+- seja defensável em contexto regulatório
+- não empurre o projeto para soluções “mágicas” ou opacas
+
+Motivação
+Surgiu a hipótese de que poderia ser interessante aplicar algo vagamente semelhante ao que modelos como CatBoost fazem ao lidar com valores ausentes, evitando abordagens simplistas como:
+- fillna por média
+- fillna por sentinela arbitrário
+- imputações baratas e pouco interpretáveis
+
+A intuição por trás da hipótese é válida:
+em risco de crédito, missing muitas vezes carrega informação própria e não deve ser tratado de forma descuidada.
+
+No entanto, para o NASABinning, o ponto mais importante não é reproduzir “algo sofisticado” a qualquer custo, e sim construir uma política:
+- clara
+- determinística
+- observável
+- estável no tempo
+- fácil de explicar para validação, auditoria e eventual Bacen
+
+Conclusão principal
+Sim, faz sentido estudar uma abordagem mais cuidadosa para missing values dentro do NASABinning.
+
+Mas a implementação recomendada não deve começar por uma imputação “inteligente” opaca do tipo:
+“descobrir automaticamente a categoria mais parecida e jogar o missing para lá”
+sem trilha de auditoria robusta.
+
+A recomendação mais segura é evoluir por camadas, começando por políticas fortemente auditáveis.
+
+Princípio orientador
+No NASABinning, o tratamento de missing deve ser entendido como parte da lógica de binning e estabilidade temporal, e não como uma imputação mágica isolada.
+
+Ou seja:
+o problema não é apenas preencher um vazio.
+O problema é decidir como o missing deve se comportar como grupo de risco ao longo do tempo.
+
+Recomendação de arquitetura conceitual
+A evolução mais prudente é esta:
+
+Camada 1 — Missing explícito como bin próprio
+Esta deve ser a política padrão e principal.
+O missing entra como um bin separado e observável.
+
+Vantagens:
+- máxima auditabilidade
+- máxima transparência
+- fácil de defender
+- permite medir diretamente:
+  - share de missing
+  - event rate do missing
+  - WoE do missing
+  - estabilidade temporal do missing
+  - volatilidade do missing por safra
+- permite decidir depois, com evidência, se missing deve permanecer isolado ou não
+
+Essa política responde bem a perguntas típicas de validação:
+- quanto de missing existe?
+- missing está aumentando?
+- missing carrega risco maior ou menor?
+- missing é estável entre safras?
+- missing está concentrado em períodos problemáticos?
+
+Conclusão:
+esta deve continuar sendo a política default do NASABinning.
+
+Camada 2 — Missing bin + regra auditável de fusão
+Depois de criar o missing como bin próprio, pode-se permitir uma etapa opcional e controlada de fusão com outro bin, desde que a regra seja explicitamente registrada e justificável.
+
+Exemplos de critérios possíveis:
+- fusão com bin de menor distância de WoE
+- fusão com bin de menor distância de event rate
+- fusão com vizinho monotônico mais próximo
+- fusão condicionada à melhora ou não piora relevante da estabilidade temporal
+- fusão condicionada à preservação de cobertura mínima e ausência de bins raros excessivos
+
+Essa abordagem é muito mais defensável do que um fillna simples e ainda preserva trilha de auditoria.
+
+O que precisa ficar registrado:
+- qual era o bin original de missing
+- qual era seu share
+- qual era seu event rate
+- qual era seu WoE
+- para qual bin foi fundido
+- qual critério levou à fusão
+- qual foi o impacto em IV
+- qual foi o impacto em temporal_score
+- qual foi o impacto em volatilidade de WoE / event rate / share
+- se houve ganho ou perda de monotonicidade
+- se houve ganho ou perda de estabilidade temporal
+
+Conclusão:
+essa é provavelmente a melhor evolução futura para o NASABinning.
+
+Camada 3 — Atribuição por similaridade
+Esta seria a camada mais sofisticada e mais delicada.
+
+Exemplos conceituais:
+- missing em categórica ser atribuído à categoria/bin mais “similar”
+- missing em numérica ser encaixado no bin com perfil mais compatível
+- uso de algum critério de proximidade comportamental
+
+Embora tecnicamente possível, essa abordagem traz riscos importantes:
+- opacidade
+- dificuldade de explicação
+- risco de parecer “heurística conveniente”
+- maior fragilidade em validação e auditoria
+- risco de instabilidade em OOT
+- risco de uso excessivo do target na regra de tratamento
+
+Por isso, essa camada não deve ser prioridade imediata.
+
+Se algum dia for desenvolvida, ela deve obedecer exigências fortes:
+- ser determinística
+- usar somente informação de treino
+- ser reproduzível
+- gerar trilha de auditoria completa
+- ser comparável contra a política simples de missing separado
+- demonstrar ganho robusto e estável
+- não piorar a explicabilidade do projeto
+
+Posicionamento recomendado para o NASABinning
+O NASABinning não deve oferecer “imputação inteligente genérica”.
+O projeto deve oferecer, no máximo, políticas auditáveis de tratamento de missing dentro do processo de binning.
+
+Posicionamento recomendado:
+- missing não é só um buraco a ser preenchido
+- missing é um comportamento potencialmente informativo
+- o tratamento de missing deve ser visível, mensurável e justificável
+
+Políticas futuras sugeridas
+Uma boa linha de evolução futura pode ser algo como:
+
+missing_policy = "separate_bin"
+missing_policy = "forbid"
+missing_policy = "merge_nearest_woe"
+missing_policy = "merge_nearest_event_rate"
+missing_policy = "merge_monotonic_neighbor"
+
+Esses nomes são apenas referência conceitual.
+O importante é que qualquer política:
+- seja clara
+- tenha racional explícito
+- gere audit trail
+- seja compatível com diagnóstico temporal
+- apareça no reporting do projeto
+
+Requisitos mínimos para qualquer implementação futura
+Se esse tema entrar no backlog do NASABinning, os requisitos mínimos deveriam ser:
+
+1. Auditabilidade
+- regra determinística
+- documentação clara
+- log da decisão aplicada
+- visibilidade no bin_summary e no reporting
+
+2. Segurança metodológica
+- uso apenas de dados de treino para aprender a regra
+- nenhuma dependência de informação futura
+- nenhuma lógica excessivamente opaca
+
+3. Compatibilidade com diagnóstico temporal
+- medir impacto sobre temporal_score
+- medir impacto sobre WoE ao longo do tempo
+- medir impacto sobre share do bin
+- medir impacto sobre monotonicidade por safra
+- medir impacto sobre ranking reversal
+
+4. Comparação formal contra baseline simples
+Toda política nova deve ser comparada pelo menos contra:
+- missing separado como bin próprio
+- eventual baseline simples já existente
+
+5. Defensabilidade regulatória
+A política precisa responder com clareza:
+- por que ela existe
+- em que condições ela atua
+- como ela decide
+- quais métricas sustentam a decisão
+- qual o efeito observado em treino, validação temporal e OOT
+
+O que evitar
+Não é recomendável, em um primeiro momento:
+- KNN para imputar missing dentro do NASABinning
+- clustering obscuro para “achar categoria parecida”
+- embeddings ou técnicas difíceis de explicar
+- regras dinâmicas excessivamente complexas
+- fillna automático silencioso sem exposição no report
+- qualquer estratégia que esconda o missing do analista
+
+Essas abordagens podem até funcionar em alguns cenários, mas são mais difíceis de defender em ambientes regulados e podem colidir com os princípios de interpretabilidade do projeto.
+
+Como isso conversa com risco de crédito
+No contexto de PD, scorecards, IFRS 9 e Resolução 4966, missing pode ser relevante por vários motivos:
+- falhas operacionais de captura
+- mudança de processo
+- mudança de origem de dados
+- degradação de qualidade cadastral
+- diferenças de comportamento entre públicos
+- efeito temporal em determinadas safras
+
+Por isso, missing não deve ser tratado como simples sujeira estatística.
+Ele pode ser um sinal de risco, de processo ou de mudança estrutural.
+
+A abordagem recomendada para o NASABinning deve refletir isso.
+
+Recomendação prática de backlog
+Quando esse tema for desenvolvido com calma, a sequência mais prudente seria:
+
+Fase 1
+- formalizar missing como bin explícito e bem visível no fluxo e no reporting, se ainda houver pontos a melhorar
+
+Fase 2
+- criar política opcional de fusão auditável do bin missing com outro bin
+- começar com critério simples e defensável, como proximidade de WoE ou event rate
+
+Fase 3
+- avaliar impacto temporal e estrutural dessa fusão
+- comparar com baseline de missing separado
+- medir efeito sobre:
+  - IV
+  - KS
+  - temporal_score
+  - volatilidade de WoE
+  - volatilidade de share
+  - monotonicidade
+  - reversão de ranking
+
+Fase 4
+- só então considerar algo mais sofisticado, se ainda houver justificativa forte
+
+Critério de sucesso
+Uma futura funcionalidade de missing no NASABinning só deve ser considerada bem-sucedida se:
+- melhorar ou preservar interpretabilidade
+- melhorar ou preservar estabilidade temporal
+- não piorar auditabilidade
+- for simples de explicar
+- produzir evidência comparativa clara contra a abordagem baseline
+
+Resumo executivo
+- A ideia faz sentido.
+- É tecnicamente viável.
+- Mas não deve entrar como “imputação inteligente mágica”.
+- O caminho mais forte para o NASABinning é:
+  1. missing como bin separado por padrão
+  2. política opcional de fusão auditável e supervisionada
+  3. só depois, se necessário, avaliar algo mais sofisticado
+- Isso é muito mais alinhado com Bacen, IFRS 9, Resolução 4966, auditabilidade e produtização de modelos de perdas esperadas.
+
+Decisão recomendada neste momento
+Guardar este tema como backlog futuro do NASABinning.
+Não interromper a Sprint 4 atual.
+Retomar o assunto em momento próprio, com desenho cuidadoso, testes e foco explícito em auditabilidade.
+
+Fim da nota.
