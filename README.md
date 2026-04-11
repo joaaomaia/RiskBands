@@ -19,6 +19,24 @@ O NASABinning prioriza a qualidade temporal dos bins, e nao apenas a separacao e
 
 No fluxo temporal, a ideia central e privilegiar bins que mantenham curvas de `event rate` separadas e consistentes entre safras, abrindo caminho para usos mais robustos em treino, validacao temporal e OOT.
 
+## Casos de uso prioritarios
+
+O NASABinning faz mais sentido quando a pergunta principal e:
+
+- quais bins continuam defensaveis quando saio do treino e olho outras safras
+- como comparar uma solucao mais agressiva em IV com outra mais robusta no tempo
+- como documentar de forma auditavel por que um binning foi escolhido em um contexto de credito
+
+Ele nao tenta substituir um pipeline completo de PD. O foco continua sendo a escolha, diagnostico, comparacao e explicacao de bins.
+
+## Comece por aqui
+
+Se voce esta chegando agora ao projeto:
+
+- veja [examples/README.md](examples/README.md) para o mapa rapido dos exemplos
+- rode [examples/temporal_stability_example.py](examples/temporal_stability_example.py) para entender o fluxo base
+- rode [examples/pd_vintage_champion_challenger.py](examples/pd_vintage_champion_challenger.py) para o exemplo ancora de credito/PD com vintages
+
 ## Estado atual do core
 
 O core atual cobre:
@@ -130,6 +148,24 @@ print(binner.best_params_)
 print(binner.objective_summaries_)
 ```
 
+## Exemplo ancora para credito / PD
+
+O exemplo mais importante do repositório agora e:
+
+- [examples/pd_vintage_champion_challenger.py](examples/pd_vintage_champion_challenger.py)
+
+Ele mostra um fluxo champion/challenger em cima de uma variavel de risco com multiplas safras, comparando um pequeno pool de candidatos:
+
+- campeao estatico: maior forca em discriminacao
+- campeao temporal: melhor leitura no perfil temporal agregado
+- campeao equilibrado: melhor compromisso entre poder e robustez
+
+O ponto central do exemplo e mostrar que:
+
+- bins raros e reversoes podem sinalizar fragilidade
+- melhor treino nem sempre e o melhor binning para credito
+- a decisao final precisa olhar discriminacao junto com estabilidade temporal
+
 ## Reporting auditavel e comparacao
 
 O NASABinning agora consegue explicar melhor por que um binning venceu, sem sair do
@@ -164,6 +200,17 @@ print(candidate_audit[["candidate_name", "variable", "objective_score", "rationa
 print(winners[["variable", "best_static_candidate", "best_temporal_candidate", "selected_candidate"]])
 ```
 
+## Como ler champion / challenger em credito
+
+Uma leitura pratica do comparador e:
+
+- `best_static_candidate`: o candidato que mais impressiona em discriminacao
+- `best_temporal_candidate`: o candidato com melhor leitura temporal agregada
+- `best_balanced_candidate`: o candidato que melhor equilibra poder e robustez
+- `selected_candidate`: a recomendacao final dentro daquele conjunto de candidatos
+
+Em um contexto de PD, a escolha final nem sempre deve seguir o campeao estatico. Se a estabilidade temporal virar uma preocupacao material, o challenger temporal pode ser a opcao mais prudente, mesmo com menos brilho no treino.
+
 ## Estrutura principal
 
 ```text
@@ -181,13 +228,12 @@ nasabinning/
 
 ## Proximo foco
 
-O proximo passo natural do projeto e fortalecer exemplos reais de PD e champion/challenger entre:
+O proximo passo natural do projeto e consolidar maturidade final de pacote:
 
-- melhor discriminacao estatica
-- melhor estabilidade temporal
-- melhor equilibrio entre ambas
-
-Com isso, a camada de reporting auditavel desta sprint vira base para exemplos mais fortes e narrativas mais proximas do uso real em credito.
+- documentacao mais polida e navegavel
+- organizacao final de exemplos e API
+- empacotamento e preparo para uso mais estavel
+- smoke tests e CI mais claros
 
 ## Otimizacao orientada a credito
 

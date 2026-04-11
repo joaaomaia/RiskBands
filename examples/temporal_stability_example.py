@@ -1,7 +1,18 @@
-"""Example demonstrating temporal stability with NASABinning."""
+"""Quickstart example demonstrating temporal stability with NASABinning.
+
+For a more credit-oriented champion/challenger narrative, see
+``examples/pd_vintage_champion_challenger.py``.
+"""
+
+from pathlib import Path
+import sys
 
 import numpy as np
 import pandas as pd
+
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 
 from nasabinning import NASABinner
 from nasabinning.temporal_stability import ks_over_time, temporal_separability_score
