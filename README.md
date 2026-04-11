@@ -16,10 +16,12 @@ O NASABinning prioriza a qualidade temporal dos bins, e nao apenas a separacao e
 - metricas classicas como IV e PSI
 - diagnosticos de estabilidade ao longo das safras
 - otimizacao com Optuna para buscar bins mais estaveis no tempo
+- reporting auditavel do racional de escolha
+- comparacao entre candidatos estaticos, temporais e equilibrados
 
 No fluxo temporal, a ideia central e privilegiar bins que mantenham curvas de `event rate` separadas e consistentes entre safras, abrindo caminho para usos mais robustos em treino, validacao temporal e OOT.
 
-## Casos de uso prioritarios
+## O que o projeto e, e o que ele nao e
 
 O NASABinning faz mais sentido quando a pergunta principal e:
 
@@ -34,8 +36,10 @@ Ele nao tenta substituir um pipeline completo de PD. O foco continua sendo a esc
 Se voce esta chegando agora ao projeto:
 
 - veja [examples/README.md](examples/README.md) para o mapa rapido dos exemplos
-- rode [examples/temporal_stability_example.py](examples/temporal_stability_example.py) para entender o fluxo base
-- rode [examples/pd_vintage_champion_challenger.py](examples/pd_vintage_champion_challenger.py) para o exemplo ancora de credito/PD com vintages
+- rode [examples/temporal_stability/temporal_stability_example.py](examples/temporal_stability/temporal_stability_example.py) para entender o fluxo base
+- abra [examples/temporal_stability/temporal_stability_example.ipynb](examples/temporal_stability/temporal_stability_example.ipynb) para uma versao mais guiada
+- rode [examples/pd_vintage_champion_challenger/pd_vintage_champion_challenger.py](examples/pd_vintage_champion_challenger/pd_vintage_champion_challenger.py) para o exemplo ancora de credito/PD com vintages
+- abra [examples/pd_vintage_champion_challenger/pd_vintage_champion_challenger.ipynb](examples/pd_vintage_champion_challenger/pd_vintage_champion_challenger.ipynb) para a leitura champion/challenger mais didatica
 
 ## Estado atual do core
 
@@ -150,11 +154,17 @@ print(binner.objective_summaries_)
 
 ## Exemplo ancora para credito / PD
 
-O exemplo mais importante do repositório agora e:
+O exemplo mais importante do repositorio agora vive em uma pasta propria, com versao Python e notebook:
 
-- [examples/pd_vintage_champion_challenger.py](examples/pd_vintage_champion_challenger.py)
+- [examples/pd_vintage_champion_challenger/pd_vintage_champion_challenger.py](examples/pd_vintage_champion_challenger/pd_vintage_champion_challenger.py)
+- [examples/pd_vintage_champion_challenger/pd_vintage_champion_challenger.ipynb](examples/pd_vintage_champion_challenger/pd_vintage_champion_challenger.ipynb)
 
-Ele mostra um fluxo champion/challenger em cima de uma variavel de risco com multiplas safras, comparando um pequeno pool de candidatos:
+Ele usa material de apoio em `research/raw_material/` para montar um fluxo de credito enxuto com `bureau_score`, `month`, `risk_segment` e `target`, comparando um pequeno pool de candidatos. Em particular:
+
+- `credit_data_synthesizer.py` gera o painel sintetico de vintages
+- `credit_data_sampler.py` entra como preview opcional de rebalanceamento por safra
+
+O champion/challenger principal continua rodando sobre o painel bruto, justamente para preservar a tensao entre discriminacao e estabilidade:
 
 - campeao estatico: maior forca em discriminacao
 - campeao temporal: melhor leitura no perfil temporal agregado
@@ -165,11 +175,16 @@ O ponto central do exemplo e mostrar que:
 - bins raros e reversoes podem sinalizar fragilidade
 - melhor treino nem sempre e o melhor binning para credito
 - a decisao final precisa olhar discriminacao junto com estabilidade temporal
+- o campeao equilibrado costuma ser a leitura mais defensavel quando queremos algo util para PD e scorecards
+
+Se voce prefere comecar pelo basico antes do exemplo de credito, use:
+
+- [examples/temporal_stability/temporal_stability_example.py](examples/temporal_stability/temporal_stability_example.py)
+- [examples/temporal_stability/temporal_stability_example.ipynb](examples/temporal_stability/temporal_stability_example.ipynb)
 
 ## Reporting auditavel e comparacao
 
-O NASABinning agora consegue explicar melhor por que um binning venceu, sem sair do
-escopo de binning e estabilidade temporal.
+O NASABinning agora consegue explicar melhor por que um binning venceu, sem sair do escopo de binning e estabilidade temporal.
 
 O report consolidado por variavel combina:
 
@@ -237,9 +252,7 @@ O proximo passo natural do projeto e consolidar maturidade final de pacote:
 
 ## Otimizacao orientada a credito
 
-O objetivo atual do Optuna continua estritamente no escopo do NASABinning:
-ele nao tenta virar um framework de modelagem de risco, mas passa a escolher
-bins de forma mais alinhada com PD.
+O objetivo atual do Optuna continua estritamente no escopo do NASABinning: ele nao tenta virar um framework de modelagem de risco, mas passa a escolher bins de forma mais alinhada com PD.
 
 A funcao-objetivo agora combina:
 

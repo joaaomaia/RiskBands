@@ -57,7 +57,7 @@ Atributos principais apos `fit`:
 - `coverage_flag`
 - flags de rareza, cobertura, monotonicidade e reversao de ranking
 
-`temporal_variable_summary(...)` agrega essas informacoes por variavel e expõe:
+`temporal_variable_summary(...)` agrega essas informacoes por variavel e expoe:
 
 - cobertura temporal media e minima
 - contagem de bins raros
@@ -87,7 +87,7 @@ Quando o binner nao possui `objective_summary_` persistido, o report deriva um r
 
 ## Otimizacao orientada a credito
 
-`optimize_bins(...)` agora utiliza um score composto simples e auditavel:
+`optimize_bins(...)` utiliza um score composto simples e auditavel:
 
 - componentes-base:
   - `separability`
@@ -107,7 +107,7 @@ O resumo final do melhor candidato fica disponivel em `objective_summary_`.
 
 ## Comparacao entre candidatos
 
-`BinComparator` continua em `nasabinning.compare` e agora expÃµe:
+`BinComparator` continua em `nasabinning.compare` e agora expoe:
 
 - `candidate_audit_report()` com o report consolidado por candidato x variavel
 - `candidate_profile_summary()` com scores e ranks em tres perfis:
@@ -119,3 +119,12 @@ O resumo final do melhor candidato fica disponivel em `objective_summary_`.
   - melhor candidato temporal
   - melhor candidato equilibrado
   - racional resumido do vencedor
+
+## Exemplos ancora
+
+Para ver a API aplicada em fluxos de credito com vintages:
+
+- `examples/temporal_stability/temporal_stability_example.py`
+- `examples/temporal_stability/temporal_stability_example.ipynb`
+- `examples/pd_vintage_champion_challenger/pd_vintage_champion_challenger.py`
+- `examples/pd_vintage_champion_challenger/pd_vintage_champion_challenger.ipynb`
