@@ -21,6 +21,8 @@ O core atual cobre:
 
 - `fit -> transform` para variaveis numericas e categoricas
 - `stability_over_time(...)` para gerar o pivot temporal por bin e safra
+- `temporal_bin_diagnostics(...)` para tabela auditavel por variavel/bin/safra
+- `temporal_variable_summary(...)` para resumo agregado com alertas de estabilidade
 - `plot_event_rate_stability(...)` para inspecao visual
 - `save_report(...)` para export simples em `.xlsx` ou `.json`
 - `temporal_separability_score(...)` como metrica de separacao temporal robusta a esparsidade
@@ -71,10 +73,23 @@ binner.fit(X, y, time_col="AnoMesReferencia")
 X_woe = binner.transform(X, return_woe=True)
 
 pivot = binner.stability_over_time(X, y, time_col="AnoMesReferencia")
+diagnostics = binner.temporal_bin_diagnostics(
+    X,
+    y,
+    time_col="AnoMesReferencia",
+    dataset_name="train",
+)
+summary = binner.temporal_variable_summary(
+    diagnostics=diagnostics,
+    time_col="AnoMesReferencia",
+)
+
 binner.plot_event_rate_stability(pivot)
 binner.save_report("reports/binning_report.xlsx")
 
 print(binner.bin_summary.head())
+print(diagnostics.head())
+print(summary[["variable", "temporal_score", "alert_flags"]])
 print(binner.iv_)
 ```
 
@@ -101,6 +116,7 @@ print(binner.best_params_)
 nasabinning/
 |-- binning_engine.py
 |-- temporal_stability.py
+|-- temporal_diagnostics.py
 |-- refinement.py
 |-- metrics.py
 |-- reporting.py
@@ -118,6 +134,13 @@ O proximo passo natural do projeto e a camada de diagnostico por safra, com metr
 - volatilidade temporal
 - WoE e contribuicao de IV por periodo
 - sinais de degradacao e reversao de ranking
+
+Na versao atual essa camada ja existe em formato tabular e pode ser usada para:
+
+- identificar bins ausentes ou raros em determinadas safras
+- monitorar volatilidade de `event_rate`, `WoE` e `bin_share`
+- sinalizar quebra de monotonicidade e reversao de ranking
+- preparar insumos para comparacao treino vs validacao temporal vs OOT
 
 ## Licenca
 

@@ -33,6 +33,13 @@ binner.fit(X, y, time_col="month")
 
 # stability metrics -------------------------------------------------------
 pivot = binner.stability_over_time(X, y, time_col="month")
+diagnostics = binner.temporal_bin_diagnostics(
+    X,
+    y,
+    time_col="month",
+    dataset_name="train",
+)
+summary = binner.temporal_variable_summary(diagnostics=diagnostics, time_col="month")
 ks = ks_over_time(pivot)
 
 bins = binner.transform(X)["x"]
@@ -48,6 +55,8 @@ print(f"Temporal separability: {sep:.3f}")
 print(f"IV: {binner.iv_:.3f}")
 print(f"KS over time: {ks:.3f}")
 print("Best params:", binner.best_params_)
+print(diagnostics.head())
+print(summary[["variable", "temporal_score", "alert_flags"]])
 
 
 # optional export ---------------------------------------------------------
