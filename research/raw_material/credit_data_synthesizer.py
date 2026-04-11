@@ -384,6 +384,68 @@ def default_group_profiles(
         )
     return profiles
 
+
+def build_nasabinning_pd_example_frame(
+    *,
+    random_seed: int = 73,
+    periods: list[int] | None = None,
+    samples_per_period: int = 180,
+    n_groups: int = 4,
+) -> pd.DataFrame:
+    """Build a lightweight credit-risk frame for NASABinning examples.
+
+    This helper intentionally keeps the output small and focused on the NASABinning
+    use case: one main risk variable with multiple vintages, local instability in
+    later periods, and a homogeneous-group label that can be reused by sampling
+    or explanation layers.
+    """
+    rng = np.random.default_rng(random_seed)
+    periods = periods or [202301, 202302, 202303, 202304, 202305]
+    profiles = default_group_profiles(n_groups)
+
+    rows = []
+    record_id = 0
+    for i, period in enumerate(periods):
+        period_ts = pd.Timestamp(f"{period}01")
+        bureau_score = (
+            rng.normal(loc=0.03 * i, scale=1.0, size=samples_per_period)
+            + rng.normal(scale=0.30, size=samples_per_period)
+        )
+
+        # Correlate the synthetic homogeneous groups with the raw score while
+        # preserving enough overlap to make the binning comparison interesting.
+        quantiles = np.quantile(bureau_score, np.linspace(0, 1, n_groups + 1)[1:-1])
+        group_idx = np.digitize(-bureau_score, quantiles, right=True)
+        group_idx = np.clip(group_idx, 0, n_groups - 1)
+
+        period_shift = 0.0 if period < periods[-2] else 1.4
+        for score, idx in zip(bureau_score, group_idx):
+            profile = profiles[int(idx)]
+            pd_anchor = profile.pd_base
+
+            logits = -2.10 + 1.20 * score + 8.0 * pd_anchor
+            unstable_zone = (-0.05 < score) and (score < 0.95)
+            if unstable_zone:
+                logits += 1.15 * period_shift
+            if score > 1.15:
+                logits -= 0.85 * period_shift
+
+            proba = 1.0 / (1.0 + np.exp(-logits))
+            target = int(rng.random() < proba)
+            record_id += 1
+            rows.append(
+                {
+                    "id_contrato": f"SIM-{period}-{record_id:06d}",
+                    "bureau_score": float(score),
+                    "risk_segment": profile.name,
+                    "month": int(period),
+                    "data_ref": period_ts,
+                    "target": target,
+                }
+            )
+
+    return pd.DataFrame(rows)
+
 # =============================================================================
 # CreditDataSynthesizer
 # =============================================================================

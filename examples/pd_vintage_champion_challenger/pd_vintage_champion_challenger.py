@@ -8,54 +8,78 @@ This example stays strictly inside the NASABinning scope:
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 import sys
 
-import numpy as np
 import pandas as pd
 
-ROOT = Path(__file__).resolve().parents[1]
-if str(ROOT) not in sys.path:
-    sys.path.insert(0, str(ROOT))
+ROOT = Path(__file__).resolve().parents[2]
+RAW_MATERIAL = ROOT / "research" / "raw_material"
+for candidate_path in (ROOT, RAW_MATERIAL):
+    if str(candidate_path) not in sys.path:
+        sys.path.insert(0, str(candidate_path))
 
+from credit_data_sampler import TargetSampler
+from credit_data_synthesizer import build_nasabinning_pd_example_frame
 from nasabinning.compare import BinComparator
 
 
-def make_pd_vintage_dataset(seed: int = 73, n_per_period: int = 180) -> tuple[pd.DataFrame, pd.Series]:
-    """Create a synthetic PD-style dataset with vintage drift and local instability."""
-    rng = np.random.default_rng(seed)
-    periods = [202301, 202302, 202303, 202304, 202305]
-    rows = []
-
-    for i, period in enumerate(periods):
-        base = rng.normal(loc=0.03 * i, scale=1.0, size=n_per_period)
-        shift = 0.0 if period < 202304 else 1.4
-        bureau_score = base + rng.normal(scale=0.30, size=n_per_period)
-
-        # The mid-score zone becomes unstable in later vintages. This is useful
-        # to show why a visually strong split in train is not always the best
-        # choice for credit decisions.
-        logits = -1.90 + 1.25 * bureau_score
-        unstable_zone = (bureau_score > -0.05) & (bureau_score < 0.95)
-        logits += np.where(unstable_zone, 1.15 * shift, 0.0)
-        logits += np.where(bureau_score > 1.15, -0.85 * shift, 0.0)
-
-        proba = 1.0 / (1.0 + np.exp(-logits))
-        target = (rng.random(n_per_period) < proba).astype(int)
-
-        rows.extend(
-            {
-                "bureau_score": float(score),
-                "month": int(period),
-                "target": int(y),
-            }
-            for score, y in zip(bureau_score, target)
-        )
-
-    df = pd.DataFrame(rows)
-    X = df[["bureau_score", "month"]].reset_index(drop=True)
-    y = df["target"].reset_index(drop=True)
+def make_pd_vintage_dataset(
+    seed: int = 73,
+    n_per_period: int = 180,
+) -> tuple[pd.DataFrame, pd.Series]:
+    """Create a small PD-style frame with vintages using the raw-material helpers."""
+    panel = build_nasabinning_pd_example_frame(
+        random_seed=seed,
+        samples_per_period=n_per_period,
+    )
+    X = panel[["bureau_score", "month"]].reset_index(drop=True)
+    y = panel["target"].reset_index(drop=True)
     return X, y
+
+
+def build_sampling_preview(
+    seed: int = 73,
+    n_per_period: int = 180,
+    target_ratio: float = 0.30,
+) -> pd.DataFrame:
+    """Show how the sampler can rebalance vintages without changing the core example."""
+    panel = build_nasabinning_pd_example_frame(
+        random_seed=seed,
+        samples_per_period=n_per_period,
+    )
+    sampler = TargetSampler(
+        target_ratio=target_ratio,
+        keep_positives=True,
+        per_group=False,
+        strategy="undersample",
+    )
+
+    original_level = sampler.logger.level
+    sampler.logger.setLevel(logging.ERROR)
+    balanced, _overflow = sampler.fit_transform(
+        panel,
+        target_col="target",
+        safra_col="month",
+        group_col="risk_segment",
+        random_state=seed,
+    )
+    sampler.logger.setLevel(original_level)
+
+    raw_by_month = panel.groupby("month")["target"].agg(["mean", "size"])
+    sampled_by_month = balanced.groupby("month")["target"].agg(["mean", "size"])
+
+    preview = pd.DataFrame(
+        {
+            "month": raw_by_month.index,
+            "raw_target_rate": raw_by_month["mean"].values,
+            "sampled_target_rate": sampled_by_month["mean"].reindex(raw_by_month.index).values,
+            "raw_count": raw_by_month["size"].values,
+            "sampled_count": sampled_by_month["size"].reindex(raw_by_month.index).values,
+        }
+    )
+    return preview.reset_index(drop=True)
 
 
 def build_candidate_configs() -> list[dict]:
@@ -115,7 +139,7 @@ def build_champion_challenger_board(
     winner_row = winner_summary.iloc[0]
     profile_map = [
         ("static_champion", "best_static_candidate", "Maior forca em discriminacao estatica."),
-        ("temporal_champion", "best_temporal_candidate", "Melhor comportamento no perfil temporal."),
+        ("temporal_champion", "best_temporal_candidate", "Melhor comportamento no perfil temporal agregado."),
         (
             "balanced_champion",
             "best_balanced_candidate",
@@ -189,9 +213,10 @@ def build_credit_takeaways(
 def run_pd_vintage_champion_challenger_demo(
     seed: int = 73,
     n_per_period: int = 180,
-) -> dict[str, pd.DataFrame | list[str] | pd.DataFrame]:
+) -> dict[str, pd.DataFrame | list[str]]:
     """Run the anchor example and return all intermediate tables."""
     X, y = make_pd_vintage_dataset(seed=seed, n_per_period=n_per_period)
+    sampling_preview = build_sampling_preview(seed=seed, n_per_period=n_per_period)
     comparator = BinComparator(build_candidate_configs(), time_col="month")
     summary = comparator.fit_compare(X, y)
     candidate_audit = comparator.candidate_audit_report()
@@ -216,6 +241,7 @@ def run_pd_vintage_champion_challenger_demo(
         "winner_summary": winner_summary,
         "champion_board": champion_board,
         "selected_audit": selected_audit,
+        "sampling_preview": sampling_preview,
         "credit_takeaways": takeaways,
     }
 
@@ -245,6 +271,8 @@ def main() -> None:
     )
     print("\n== Winner summary ==")
     print(results["winner_summary"])
+    print("\n== Optional sampling preview ==")
+    print(results["sampling_preview"])
     print("\n== Selected candidate audit ==")
     print(
         results["selected_audit"][
