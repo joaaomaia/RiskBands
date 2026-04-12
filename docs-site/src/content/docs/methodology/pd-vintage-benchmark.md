@@ -149,5 +149,5 @@ Mesmo assim, ele é útil porque explicita um tipo de falha comum em crédito: o
 
 ## Páginas relacionadas
 
-- [Como ler os gráficos](/methodology/how-to-read-the-charts/)
-- [Por que não usar apenas OptimalBinning](/methodology/why-not-only-optimal-binning/)
+- [Como ler os gráficos](../how-to-read-the-charts/)
+- [Por que não usar apenas OptimalBinning](../why-not-only-optimal-binning/)

@@ -10,6 +10,26 @@ description: "Marcos de release em alto nível para o pacote público e para a d
 - referência de API mais profunda
 - curadoria de publicações e notas técnicas
 
+## Publicação inicial da documentação
+
+Esta fase marcou a saída da documentação oficial do RiskBands para um formato
+realmente navegável e publicável:
+
+- site em Astro + Starlight
+- deploy em GitHub Pages
+- Home orientada a porta técnica e porta metodológica
+- conteúdo principal em PT-BR
+- benchmark PD vintage integrado à narrativa pública
+
+## Consolidação da navegação
+
+Depois da publicação inicial, a documentação também passou por uma rodada de
+correção de rotas e links internos para ficar mais confiável em GitHub Pages:
+
+- links da Home e das páginas internas alinhados ao `base` do site
+- sidebar ajustada para respeitar `/RiskBands/`
+- páginas de referência menos placeholder e mais honestas sobre o estado atual
+
 ## v1.0.0
 
 Mudanças estruturais importantes já refletidas no repositório:

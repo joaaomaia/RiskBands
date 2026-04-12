@@ -71,6 +71,6 @@ para uma frase como:
 
 ## Páginas relacionadas
 
-- [Por que não usar apenas OptimalBinning](/methodology/why-not-only-optimal-binning/)
-- [Benchmark PD vintage](/methodology/pd-vintage-benchmark/)
-- [Robustez temporal em risco de crédito](/methodology/temporal-robustness-in-credit-risk/)
+- [Por que não usar apenas OptimalBinning](../why-not-only-optimal-binning/)
+- [Benchmark PD vintage](../pd-vintage-benchmark/)
+- [Robustez temporal em risco de crédito](../temporal-robustness-in-credit-risk/)

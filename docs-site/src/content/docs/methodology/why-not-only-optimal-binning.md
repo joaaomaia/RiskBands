@@ -104,6 +104,6 @@ Ela costuma ser mais parecida com:
 
 ## Páginas relacionadas
 
-- [Por que RiskBands](/methodology/why-riskbands/)
-- [Benchmark PD vintage](/methodology/pd-vintage-benchmark/)
-- [Robustez temporal em risco de crédito](/methodology/temporal-robustness-in-credit-risk/)
+- [Por que RiskBands](../why-riskbands/)
+- [Benchmark PD vintage](../pd-vintage-benchmark/)
+- [Robustez temporal em risco de crédito](../temporal-robustness-in-credit-risk/)

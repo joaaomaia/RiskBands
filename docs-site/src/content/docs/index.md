@@ -12,34 +12,34 @@ hero:
     do tempo.
   actions:
     - text: Começar pelo Quickstart
-      link: /technical/quickstart/
+      link: ./technical/quickstart/
       icon: right-arrow
     - text: Ver o benchmark PD vintage
-      link: /methodology/pd-vintage-benchmark/
+      link: ./methodology/pd-vintage-benchmark/
       icon: right-arrow
       variant: minimal
 features:
   - title: Porta técnica
     description: Instalação, Quickstart, visão geral da API e exemplos para começar a usar rápido.
-    link: /technical/installation/
+    link: ./technical/installation/
   - title: Porta metodológica
     description: A trilha para quem precisa entender por que binning estático sozinho nem sempre basta em risco de crédito.
-    link: /methodology/why-riskbands/
+    link: ./methodology/why-riskbands/
   - title: Benchmarks
     description: Benchmark PD vintage comparando OptimalBinning puro, baseline estática interna e seleção balanceada do RiskBands.
-    link: /methodology/pd-vintage-benchmark/
+    link: ./methodology/pd-vintage-benchmark/
   - title: Exemplos
     description: Fluxos executáveis para estabilidade temporal, champion challenger e demonstrações orientadas a crédito.
-    link: /technical/examples/
+    link: ./technical/examples/
   - title: API
     description: Mapa da superfície principal em torno de Binner, BinComparator, diagnósticos temporais e reporting auditável.
-    link: /technical/api-overview/
+    link: ./technical/api-overview/
   - title: Foco em risco de crédito
     description: Pensado para PD, scorecards, safras, cobertura, bins raros, reversões e trade-offs defendíveis.
-    link: /methodology/temporal-robustness-in-credit-risk/
+    link: ./methodology/temporal-robustness-in-credit-risk/
   - title: Publicações
     description: Espaço preparado para notas técnicas, benchmarks publicados e materiais externos do projeto.
-    link: /reference/publications/
+    link: ./reference/publications/
 ---
 
 ## Duas portas de entrada muito claras
@@ -48,20 +48,20 @@ features:
 
 Use esta trilha se você já comprou a ideia e quer chegar rápido em código executável:
 
-- [Instalação](/technical/installation/)
-- [Quickstart](/technical/quickstart/)
-- [Visão geral da API](/technical/api-overview/)
-- [Exemplos](/technical/examples/)
+- [Instalação](./technical/installation/)
+- [Quickstart](./technical/quickstart/)
+- [Visão geral da API](./technical/api-overview/)
+- [Exemplos](./technical/examples/)
 
 ### Porta metodológica
 
 Use esta trilha se a sua pergunta principal ainda é "por que eu precisaria de algo além do binning estático?":
 
-- [Por que RiskBands](/methodology/why-riskbands/)
-- [Por que não usar apenas OptimalBinning](/methodology/why-not-only-optimal-binning/)
-- [Benchmark PD vintage](/methodology/pd-vintage-benchmark/)
-- [Como ler os gráficos](/methodology/how-to-read-the-charts/)
-- [Robustez temporal em risco de crédito](/methodology/temporal-robustness-in-credit-risk/)
+- [Por que RiskBands](./methodology/why-riskbands/)
+- [Por que não usar apenas OptimalBinning](./methodology/why-not-only-optimal-binning/)
+- [Benchmark PD vintage](./methodology/pd-vintage-benchmark/)
+- [Como ler os gráficos](./methodology/how-to-read-the-charts/)
+- [Robustez temporal em risco de crédito](./methodology/temporal-robustness-in-credit-risk/)
 
 ## O problema que o RiskBands tenta resolver
 
@@ -185,24 +185,24 @@ O RiskBands adiciona essa camada por meio de:
 
 ## Por onde começar
 
-- Quer começar por código? Vá para [Quickstart](/technical/quickstart/).
-- Quer a narrativa com evidência? Vá para [Benchmark PD vintage](/methodology/pd-vintage-benchmark/).
-- Quer o enquadramento conceitual? Vá para [Por que não usar apenas OptimalBinning](/methodology/why-not-only-optimal-binning/).
+- Quer começar por código? Vá para [Quickstart](./technical/quickstart/).
+- Quer a narrativa com evidência? Vá para [Benchmark PD vintage](./methodology/pd-vintage-benchmark/).
+- Quer o enquadramento conceitual? Vá para [Por que não usar apenas OptimalBinning](./methodology/why-not-only-optimal-binning/).
 
 <div class="rb-cta-row">
   <div class="rb-cta">
     <h3>Começar a usar</h3>
     <p>Instale a biblioteca, ajuste um primeiro <code>Binner</code> e veja a API principal.</p>
-    <a href="/technical/quickstart/">Ir para o Quickstart</a>
+    <a href="./technical/quickstart/">Ir para o Quickstart</a>
   </div>
   <div class="rb-cta">
     <h3>Comprar a tese</h3>
     <p>Entenda o benchmark PD vintage e por que a visão temporal muda decisões reais.</p>
-    <a href="/methodology/pd-vintage-benchmark/">Abrir o benchmark</a>
+    <a href="./methodology/pd-vintage-benchmark/">Abrir o benchmark</a>
   </div>
   <div class="rb-cta">
     <h3>Explorar exemplos</h3>
     <p>Veja scripts e notebooks para estabilidade temporal, champion challenger e benchmark.</p>
-    <a href="/technical/examples/">Ver exemplos</a>
+    <a href="./technical/examples/">Ver exemplos</a>
   </div>
 </div>

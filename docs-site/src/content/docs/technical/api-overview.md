@@ -68,6 +68,6 @@ Quando habilitado, ele funciona como uma camada opcional de busca e otimização
 
 ## Próximos passos
 
-- [Exemplos](/technical/examples/) para material executável
-- [Por que não usar apenas OptimalBinning](/methodology/why-not-only-optimal-binning/) para o posicionamento conceitual
-- [Benchmark PD vintage](/methodology/pd-vintage-benchmark/) para a demonstração mais forte do repositório hoje
+- [Exemplos](../examples/) para material executável
+- [Por que não usar apenas OptimalBinning](../../methodology/why-not-only-optimal-binning/) para o posicionamento conceitual
+- [Benchmark PD vintage](../../methodology/pd-vintage-benchmark/) para a demonstração mais forte do repositório hoje

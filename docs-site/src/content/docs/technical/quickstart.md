@@ -88,5 +88,5 @@ Se a sua pergunta já não é mais "quais são os cortes?" e sim "qual candidato
 
 É nesse ponto que o RiskBands fica especialmente útil para trabalho de crédito com champion challenger, benchmark e escolha final por trade-off.
 
-- Vá para [Visão geral da API](/technical/api-overview/)
-- Ou pule direto para [Benchmark PD vintage](/methodology/pd-vintage-benchmark/)
+- Vá para [Visão geral da API](../api-overview/)
+- Ou pule direto para [Benchmark PD vintage](../../methodology/pd-vintage-benchmark/)

@@ -63,4 +63,4 @@ npm install
 npm run dev
 ```
 
-Se você estiver mexendo na documentação, veja também [Desenvolvimento](/project/development/).
+Se você estiver mexendo na documentação, veja também [Desenvolvimento](../../project/development/).
