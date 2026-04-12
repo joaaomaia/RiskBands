@@ -40,7 +40,6 @@ venv/
 *.csv
 *.parquet
 *.pkl
-*.json
 
 # Images
 imgs/olds/

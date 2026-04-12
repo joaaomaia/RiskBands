@@ -1,0 +1,26 @@
+{
+  "name": "riskbands-docs",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Official Astro + Starlight documentation site for RiskBands.",
+  "scripts": {
+    "dev": "astro dev",
+    "start": "astro dev",
+    "build": "astro check && astro build",
+    "preview": "astro preview",
+    "astro": "astro"
+  },
+  "dependencies": {
+    "@astrojs/starlight": "^0.38.3",
+    "astro": "^6.0.0"
+  },
+  "devDependencies": {
+    "@astrojs/check": "^0.9.4",
+    "typescript": ">=5.0.0 <6.0.0"
+  },
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "packageManager": "npm@11.6.2"
+}

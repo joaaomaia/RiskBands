@@ -34,14 +34,16 @@ npm run preview
 O deploy no GitHub Pages é feito por `.github/workflows/docs-deploy.yml`.
 
 - pushes em `master` disparam build e deploy da docs
-- o workflow usa a action oficial do Astro para GitHub Pages
-- o site é buildado a partir de `docs-site/`
+- o workflow faz `npm ci` dentro de `docs-site/`
+- o build roda com `npm run build` dentro de `docs-site/`
+- o artifact publicado vem de `docs-site/dist/`
+- o GitHub Pages deve estar configurado para **GitHub Actions**
 
 ## Checklist de publicação
 
 Antes de anunciar a docs publicamente, vale confirmar:
 
-1. GitHub Pages configurado para publicar via GitHub Actions.
+1. GitHub Pages configurado em `Settings > Pages` com `Source = GitHub Actions`.
 2. URL final da docs validada após o primeiro deploy.
 3. Home, benchmark e Quickstart abrindo corretamente.
 4. Social preview da docs apontando para a imagem esperada.

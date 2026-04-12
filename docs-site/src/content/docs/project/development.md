@@ -54,8 +54,10 @@ O deploy está configurado em:
 O workflow:
 
 - roda em pushes para `master`
-- builda o site Astro a partir de `docs-site/`
-- publica a saída estática no GitHub Pages
+- instala dependências com `npm ci` dentro de `docs-site/`
+- builda o site Astro com `npm run build` dentro de `docs-site/`
+- publica `docs-site/dist/` no GitHub Pages
+- depende de `Settings > Pages > Source = GitHub Actions`
 
 ## Checklist de readiness para publicação
 
