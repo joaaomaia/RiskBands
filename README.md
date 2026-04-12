@@ -1,210 +1,189 @@
 # RiskBands
 
-Binning orientado a **risco de crédito**, com foco em **robustez temporal**, **separabilidade**, **cobertura por safra** e **racional auditável** para seleção de cortes.
+<p align="center">
+  <img src="imgs/riskbands_logo_reconstruction_bundle/riskbands_full_lockup.svg" alt="RiskBands" width="340">
+</p>
 
-O projeto foi desenhado para responder uma pergunta muito comum em PD e scorecards:
+<p align="center">
+  Binning para risco de crédito com foco em <strong>robustez temporal</strong>,
+  <strong>comparação entre candidatos</strong> e <strong>racional auditável</strong>.
+</p>
 
-> **um binning que parece ótimo no agregado continua defensável quando olhamos o comportamento por vintage?**
-
-Em muitos projetos, a resposta prática é “nem sempre”. É exatamente aí que o RiskBands entra.
+<p align="center">
+  <a href="https://joaaomaia.github.io/RiskBands/">Documentação oficial</a>
+  ·
+  <a href="https://joaaomaia.github.io/RiskBands/methodology/pd-vintage-benchmark/">Benchmark PD vintage</a>
+  ·
+  <a href="https://joaaomaia.github.io/RiskBands/technical/quickstart/">Quickstart</a>
+  ·
+  <a href="https://joaaomaia.github.io/RiskBands/technical/api-overview/">API</a>
+</p>
 
 ---
 
 ## O que é o RiskBands
 
-RiskBands é uma biblioteca para construir, comparar e auditar candidatos de binning quando o problema real não é apenas maximizar uma métrica estática, mas também defender o resultado no tempo.
+O RiskBands é uma biblioteca para construir, comparar e auditar candidatos de
+binning quando o problema real não é apenas maximizar uma métrica estática, mas
+também defender o resultado ao longo do tempo.
 
-Ele foi pensado especialmente para cenários como:
+Ele foi pensado especialmente para contextos como:
 
 - modelos de **PD**
 - scorecards de crédito
-- variáveis de bureau ou comportamento com **drift temporal**
-- carteiras em que a leitura por safra importa
-- casos em que bins raros, reversões ou perda de cobertura tornam o binning mais frágil em produção
+- variáveis com **drift temporal**
+- leitura relevante por safra ou vintage
+- estruturas com bins raros, baixa cobertura ou reversões de ranking
 
----
+A pergunta central do projeto é simples:
 
-## Por que não usar apenas OptimalBinning puro
+> um binning que parece ótimo no agregado continua defensável quando você abre o comportamento por safra?
 
-O `OptimalBinning` é uma base muito forte para encontrar soluções estáticas de separação. O ponto é que, em crédito, **uma boa solução estática nem sempre é uma boa solução operacional**.
+## Onde o projeto se diferencia
 
-O RiskBands adiciona uma camada a mais de decisão:
+O `OptimalBinning` já resolve muito bem o problema de corte estático. O
+RiskBands não tenta negar isso.
 
-- auditoria temporal por safra/vintage
-- penalizações estruturais
-- comparação entre candidatos
-- leitura explícita de cobertura mínima, bins raros e reversões
-- racional final auditável de seleção
+No fluxo supervisionado numérico do repositório atual, o projeto reaproveita
+`optbinning.OptimalBinning` no backend do corte estático. O diferencial está no
+que vem depois:
+
+- diagnóstico temporal por variável, bin e período
+- penalizações estruturais para fragilidade, baixa cobertura e volatilidade
+- comparação entre candidatos via `BinComparator`
+- score objetivo mais alinhado a trade-offs de risco de crédito
+- resumos auditáveis para explicar por que um candidato venceu
 
 Em outras palavras:
 
-- **OptimalBinning puro** ajuda a encontrar um bom binning estático
-- **RiskBands** ajuda a decidir se esse binning continua sendo o mais defensável para crédito ao longo do tempo
+- **OptimalBinning puro** ajuda a encontrar um bom corte estático
+- **RiskBands** ajuda a decidir se esse corte continua sendo a melhor resposta
+  para crédito quando o tempo entra na análise
 
----
+## Onde o Optuna entra
 
-## O projeto usa OptimalBinning no backend
+O projeto também pode usar `Optuna` como camada opcional de busca em fluxos
+supervisionados.
 
-**Sim, em fluxos supervisionados o projeto usa `OptimalBinning` no backend.**
+O papel do Optuna aqui não é ser o centro da biblioteca. Ele entra quando faz
+sentido explorar configurações sob uma régua que já incorpora:
 
-Mas isso não significa que o RiskBands seja apenas um wrapper superficial.
-
-A diferença é que o fluxo supervisionado do projeto não para no solver estático. Ele adiciona camadas de:
-
-- refinamento
-- auditoria temporal
-- penalizações
-- comparação entre candidatos
-- seleção explicável
-
-Por isso, a baseline interna supervisionada do RiskBands **não é a mesma coisa** que rodar `OptimalBinning` puro de forma isolada.
-
----
-
-## O projeto usa Optuna
-
-**Sim, o projeto também contempla uso de `Optuna` em fluxos de otimização.**
-
-A ideia aqui não é otimizar “por otimizar”, mas permitir busca mais alinhada ao problema de crédito, considerando não só separação agregada, como também:
-
-- estabilidade temporal
+- discriminação estática
+- robustez temporal
 - cobertura
-- volatilidade de event rate e WoE
+- bins raros
 - reversões de ordenação
-- objetivo balanceado e auditável
+- penalizações estruturais e racional auditável
 
-Na prática, isso abre espaço para uma busca mais coerente com a pergunta de negócio:
+## Quando o RiskBands tende a agregar mais valor
 
-> **qual candidato é o melhor compromisso entre discriminação e robustez temporal?**
+- o IV agregado parece forte, mas a estabilidade no tempo é ruim
+- há inversões de event rate entre bins em diferentes safras
+- alguns bins somem, ficam raros ou mal cobertos em períodos específicos
+- a composição da carteira muda ao longo do tempo
+- o time precisa de uma escolha defendível em validação, governança ou comitê
 
----
+## Quando o estático ainda pode ser suficiente
 
-## Por que ele é mais direcionado a risco de crédito do que o OptimalBinning puro
+Nem todo problema exige uma troca de candidato.
 
-Porque o projeto foi desenhado para lidar com problemas que são especialmente relevantes em crédito, por exemplo em modelos de **PD**:
+Se a variável continua coerente ao longo das safras e a estrutura não mostra
+fragilidade relevante, o RiskBands pode simplesmente confirmar que a solução
+estática continua sendo a melhor escolha. Isso também é um bom resultado.
 
-### 1. O agregado pode enganar
-Uma variável pode ter IV alto no consolidado e ainda assim perder coerência quando observada por safra.
+## Como começar
 
-### 2. Robustez temporal importa
-Em crédito, não basta separar bem em um corte agregado. É preciso verificar se a lógica dos bins continua funcionando com mudança de composição, drift e deterioração da carteira.
+### Porta técnica
 
-### 3. Cobertura ruim machuca produção
-Bins que somem, ficam raros ou perdem representatividade em certas safras podem gerar fragilidade prática.
+- [Documentação oficial](https://joaaomaia.github.io/RiskBands/)
+- [Instalação](https://joaaomaia.github.io/RiskBands/technical/installation/)
+- [Quickstart](https://joaaomaia.github.io/RiskBands/technical/quickstart/)
+- [Visão geral da API](https://joaaomaia.github.io/RiskBands/technical/api-overview/)
+- [Exemplos](https://joaaomaia.github.io/RiskBands/technical/examples/)
 
-### 4. Reversões importam
-Quando a ordenação esperada entre bins se perde ao longo do tempo, o binning pode até parecer forte no treino, mas ficar mais difícil de defender em produção e governança.
+### Porta metodológica
 
-### 5. A decisão final precisa ser explicável
-Em vez de parar em “ganhou no IV”, o RiskBands ajuda a responder:
+- [Por que RiskBands](https://joaaomaia.github.io/RiskBands/methodology/why-riskbands/)
+- [Por que não usar apenas OptimalBinning](https://joaaomaia.github.io/RiskBands/methodology/why-not-only-optimal-binning/)
+- [Benchmark PD vintage](https://joaaomaia.github.io/RiskBands/methodology/pd-vintage-benchmark/)
+- [Como ler os gráficos](https://joaaomaia.github.io/RiskBands/methodology/how-to-read-the-charts/)
+- [Robustez temporal em risco de crédito](https://joaaomaia.github.io/RiskBands/methodology/temporal-robustness-in-credit-risk/)
 
-- por que este candidato venceu
-- onde o outro perdeu
-- quais penalizações pesaram
-- qual foi o trade-off entre separação e estabilidade
+## Quickstart mínimo
 
----
+```python
+import numpy as np
+import pandas as pd
 
-## Filosofia do projeto
+from riskbands import Binner
 
-O RiskBands não foi desenhado para dizer que o candidato temporal sempre vence.
+rng = np.random.default_rng(0)
+n = 800
 
-A proposta é mais honesta:
+X = pd.DataFrame({"score": rng.normal(size=n)})
+X["month"] = rng.choice([202301, 202302, 202303, 202304], size=n)
 
-- quando a solução estática é suficiente, o projeto pode **validar** essa escolha
-- quando a leitura por safra revela fragilidade, o projeto pode **trocar** para uma alternativa mais robusta
-- quando o trade-off não compensa, o projeto pode **manter** a solução mais discriminante
+proba = 0.20 + 0.15 * X["score"] + 0.02 * (X["month"] - 202301)
+proba = np.clip(proba, 0.01, 0.99)
+y = pd.Series((rng.random(n) < proba).astype(int), name="target")
 
-Isso é especialmente útil em crédito, porque evita duas armadilhas:
+binner = Binner(
+    strategy="supervised",
+    check_stability=True,
+    monotonic="ascending",
+    min_event_rate_diff=0.03,
+)
 
-- confiar demais em uma métrica agregada
-- sacrificar discriminação sem necessidade
+binner.fit(X, y, time_col="month")
+summary = binner.temporal_variable_summary(
+    diagnostics=binner.temporal_bin_diagnostics(
+        X,
+        y,
+        time_col="month",
+        dataset_name="train",
+    ),
+    time_col="month",
+)
+```
 
----
+## Benchmark principal do repositório
 
-## Benchmark principal
+O benchmark mais importante hoje compara três lentes:
 
-O repositório já aponta para um benchmark premium comparando três lentes:
+1. `OptimalBinning` puro como baseline externa
+2. `RiskBands` estático como baseline interna
+3. `RiskBands` balanceado/temporal como abordagem orientada a crédito
 
-- `OptimalBinning` puro como baseline externa
-- `RiskBands` estático como baseline interna
-- `RiskBands` balanceado/temporal como abordagem orientada a crédito
+Materiais principais:
 
-Exemplos citados na documentação de exemplos:
+- [`examples/pd_vintage_benchmark/pd_vintage_benchmark.py`](examples/pd_vintage_benchmark/pd_vintage_benchmark.py)
+- [`examples/pd_vintage_benchmark/pd_vintage_benchmark.ipynb`](examples/pd_vintage_benchmark/pd_vintage_benchmark.ipynb)
+- [`examples/pd_vintage_champion_challenger/pd_vintage_champion_challenger.py`](examples/pd_vintage_champion_challenger/pd_vintage_champion_challenger.py)
+- [`examples/temporal_stability/temporal_stability_example.py`](examples/temporal_stability/temporal_stability_example.py)
 
-- `examples/pd_vintage_benchmark/pd_vintage_benchmark.py`
-- `examples/pd_vintage_benchmark/pd_vintage_benchmark.ipynb`
-- `examples/pd_vintage_champion_challenger/pd_vintage_champion_challenger.py`
-- `examples/temporal_stability/temporal_stability_example.py`
+## Instalação
 
----
+```bash
+git clone https://github.com/joaaomaia/RiskBands.git
+cd RiskBands
+pip install -e .
+```
 
-## Casos em que o projeto tende a fazer mais sentido
+Para desenvolvimento, testes e notebooks:
 
-O RiskBands tende a agregar mais valor quando você tem:
-
-- score ou variável contínua com comportamento diferente entre vintages
-- PD com deterioração localizada em certas faixas
-- overlap entre segmentos
-- composição da carteira mudando ao longo do tempo
-- necessidade de defender binning em comitê, validação ou governança
-- preocupação com estabilidade e não apenas com performance agregada
-
----
-
-## Casos em que o ganho pode ser menor
-
-Nem todo problema exige uma camada temporal mais forte.
-
-Se a variável já é estável ao longo das safras e a leitura agregada permanece coerente, o RiskBands pode simplesmente confirmar que o candidato estático continua sendo uma boa escolha.
-
-Isso também é um resultado valioso.
-
----
-
-## O que o projeto entrega melhor
-
-- comparação auditável entre candidatos
-- diagnóstico temporal mais explícito
-- seleção orientada por trade-off
-- leitura mais próxima da realidade de crédito
-- benchmark mais natural para PD do que uma régua puramente estática
-
----
+```bash
+pip install -e .[dev]
+```
 
 ## O que o projeto não tenta ser
 
-O foco do RiskBands é **binning**.
-
-Ele não tenta, por si só, ser:
+O foco do RiskBands é **binning**. Ele não tenta, sozinho, ser:
 
 - pipeline completo de modelagem de PD
 - framework de monitoramento de carteira
 - solução completa de MLOps para crédito
 
-A proposta é ser uma camada forte e especializada de decisão sobre binning.
-
----
-
-## Como começar
-
-Se sua pergunta principal for:
-
-**“Por que um binning com IV alto pode ficar frágil no tempo?”**
-
-comece por:
-
-- `examples/pd_vintage_benchmark/pd_vintage_benchmark.ipynb`
-
-Se você quiser primeiro entender a mecânica central da API:
-
-- `examples/temporal_stability/temporal_stability_example.py`
-
-Se quiser um fluxo mais direto de champion/challenger em crédito:
-
-- `examples/pd_vintage_champion_challenger/pd_vintage_champion_challenger.ipynb`
-
----
+A proposta é ser uma camada especializada e forte de decisão sobre binning.
 
 ## Mensagem principal
 
@@ -212,4 +191,4 @@ O RiskBands não tenta substituir a força do `OptimalBinning`.
 
 Ele tenta responder melhor à pergunta que aparece no mundo real de crédito:
 
-> **entre os candidatos que parecem bons no agregado, qual continua mais defensável quando olhamos o tempo?**
+> entre os candidatos que parecem bons no agregado, qual continua mais defensável quando o tempo entra na decisão?

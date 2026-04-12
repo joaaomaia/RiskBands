@@ -6,6 +6,8 @@ const repoName = 'RiskBands';
 const docsSiteUrl = process.env.DOCS_SITE_URL ?? `https://${repoOwner}.github.io`;
 const docsBasePath =
   process.env.DOCS_BASE_PATH ?? (process.env.GITHUB_ACTIONS ? `/${repoName}` : '/');
+const docsBasePathForMeta = docsBasePath === '/' ? '' : docsBasePath;
+const socialPreviewUrl = `${docsSiteUrl}${docsBasePathForMeta}/og/riskbands-social-preview.png`;
 
 export default defineConfig({
   site: docsSiteUrl,
@@ -18,6 +20,11 @@ export default defineConfig({
       description:
         'Documentação oficial do RiskBands para binning com robustez temporal em risco de crédito, PD e scorecards.',
       favicon: '/favicon.svg',
+      logo: {
+        light: './src/assets/riskbands-light.svg',
+        dark: './src/assets/riskbands-dark.svg',
+        alt: 'RiskBands',
+      },
       titleDelimiter: '-',
       locales: {
         root: {
@@ -62,8 +69,52 @@ export default defineConfig({
         {
           tag: 'meta',
           attrs: {
+            property: 'og:image',
+            content: socialPreviewUrl,
+          },
+        },
+        {
+          tag: 'meta',
+          attrs: {
+            property: 'og:image:alt',
+            content:
+              'RiskBands: binning com robustez temporal para risco de crédito, PD e scorecards.',
+          },
+        },
+        {
+          tag: 'meta',
+          attrs: {
+            property: 'og:image:width',
+            content: '1280',
+          },
+        },
+        {
+          tag: 'meta',
+          attrs: {
+            property: 'og:image:height',
+            content: '640',
+          },
+        },
+        {
+          tag: 'meta',
+          attrs: {
             name: 'twitter:card',
-            content: 'summary',
+            content: 'summary_large_image',
+          },
+        },
+        {
+          tag: 'meta',
+          attrs: {
+            name: 'twitter:image',
+            content: socialPreviewUrl,
+          },
+        },
+        {
+          tag: 'meta',
+          attrs: {
+            name: 'twitter:image:alt',
+            content:
+              'RiskBands: binning com robustez temporal para risco de crédito, PD e scorecards.',
           },
         },
       ],

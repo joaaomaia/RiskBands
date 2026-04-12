@@ -37,6 +37,16 @@ O deploy no GitHub Pages é feito por `.github/workflows/docs-deploy.yml`.
 - o workflow usa a action oficial do Astro para GitHub Pages
 - o site é buildado a partir de `docs-site/`
 
+## Checklist de publicação
+
+Antes de anunciar a docs publicamente, vale confirmar:
+
+1. GitHub Pages configurado para publicar via GitHub Actions.
+2. URL final da docs validada após o primeiro deploy.
+3. Home, benchmark e Quickstart abrindo corretamente.
+4. Social preview da docs apontando para a imagem esperada.
+5. `DOCS_SITE_URL` e `DOCS_BASE_PATH` coerentes com a URL pública.
+
 ## Suporte futuro a domínio customizado
 
 O site já está preparado para domínio customizado.

@@ -57,6 +57,16 @@ O workflow:
 - builda o site Astro a partir de `docs-site/`
 - publica a saída estática no GitHub Pages
 
+## Checklist de readiness para publicação
+
+Antes de tratar a docs como pública, revise:
+
+1. GitHub Pages apontando para GitHub Actions.
+2. `DOCS_SITE_URL` e `DOCS_BASE_PATH` coerentes com a URL final.
+3. Home, benchmark e páginas metodológicas abrindo corretamente.
+4. Search index gerado sem erros de build.
+5. Preview social da docs apontando para o asset esperado.
+
 ## Figuras do benchmark na documentação
 
 Os embeds metodológicos da docs usam assets reais exportados pelo benchmark para:
