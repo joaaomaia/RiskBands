@@ -1,7 +1,7 @@
 # RiskBands
 
 <p align="center">
-  <img src="imgs/riskbands_logo_reconstruction_bundle/riskbands_full_lockup.svg" alt="RiskBands" width="340">
+  <img src="docs-site/public/brand/riskbands_horizontal_dark.svg" alt="RiskBands" width="340">
 </p>
 
 <p align="center">
