@@ -47,11 +47,13 @@ viz = [
   "plotly>=6.0"
 ]
 dev = [
+  "build>=1.2",
   "black>=24.4",
   "ipykernel>=6.29",
   "openpyxl>=3.1",
   "plotly>=6.0",
-  "pytest>=8.2"
+  "pytest>=8.2",
+  "twine>=5.1"
 ]
 
 [project.urls]

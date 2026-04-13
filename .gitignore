@@ -9,10 +9,12 @@ __pycache__/
 *.egg-info/
 .eggs/
 dist/
+dist-*/
 build/
 
 # Virtual environments
 .venv/
+.venv-*/
 env/
 venv/
 
@@ -55,6 +57,7 @@ coverage.xml
 pytest_cache/
 .pytest_cache/
 .pytest_tmp/
+.pytest_tmp_release*/
 .tox/
 .nox/
 

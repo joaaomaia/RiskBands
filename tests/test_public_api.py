@@ -1,4 +1,6 @@
-﻿import importlib
+import importlib
+import re
+from pathlib import Path
 
 import pytest
 
@@ -23,8 +25,15 @@ def test_public_api_exports_are_importable():
     assert temporal_separability_score is not None
 
 
-def test_package_version_matches_breaking_release():
-    assert riskbands.__version__ == "1.0.0"
+def test_package_version_matches_pyproject():
+    pyproject = Path(__file__).resolve().parents[1] / "pyproject.toml"
+    match = re.search(
+        r'^version\s*=\s*"([^"]+)"\s*$',
+        pyproject.read_text(encoding="utf-8"),
+        flags=re.MULTILINE,
+    )
+    assert match is not None
+    assert riskbands.__version__ == match.group(1)
 
 
 def test_legacy_namespace_is_removed():
@@ -35,4 +44,3 @@ def test_legacy_namespace_is_removed():
 def test_old_public_class_name_is_removed():
     with pytest.raises(ImportError):
         exec("from riskbands import RiskBandsBinner", {})
-

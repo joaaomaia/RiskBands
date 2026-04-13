@@ -1,0 +1,129 @@
+name: release-validation
+
+on:
+  workflow_dispatch:
+  pull_request:
+  push:
+    branches:
+      - master
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Validate Release Candidate
+    runs-on: ubuntu-latest
+    outputs:
+      package-version: ${{ steps.meta.outputs.package-version }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Read package version
+        id: meta
+        shell: bash
+        run: |
+          version="$(python - <<'PY'
+          import tomllib
+          with open("pyproject.toml", "rb") as f:
+              print(tomllib.load(f)["project"]["version"])
+          PY
+          )"
+          echo "package-version=${version}" >> "$GITHUB_OUTPUT"
+
+      - name: Install package and release tooling
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e .[dev]
+
+      - name: Run release-oriented test subset
+        run: |
+          pytest -q \
+            tests/test_public_api.py \
+            tests/test_binning_engine.py \
+            tests/test_compare.py \
+            tests/test_temporal_stability.py \
+            --basetemp .pytest_tmp_release
+
+      - name: Build sdist and wheel
+        run: python -m build
+
+      - name: Validate distribution metadata
+        run: python -m twine check dist/*
+
+      - name: Upload distribution artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: python-package-distributions
+          path: dist/
+          if-no-files-found: error
+          retention-days: 14
+
+  smoke-wheel:
+    name: Smoke Install Wheel
+    needs: validate
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Download distribution artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: python-package-distributions
+          path: dist
+
+      - name: Install wheel in a clean virtual environment
+        shell: bash
+        run: |
+          python -m venv .venv-smoke-wheel
+          . .venv-smoke-wheel/bin/activate
+          python -m pip install --upgrade pip
+          python -m pip install dist/*.whl
+          python scripts/smoke_test_installed_package.py \
+            --expected-version "${{ needs.validate.outputs.package-version }}"
+
+  smoke-sdist:
+    name: Smoke Install Sdist
+    needs: validate
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Download distribution artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: python-package-distributions
+          path: dist
+
+      - name: Install sdist in a clean virtual environment
+        shell: bash
+        run: |
+          python -m venv .venv-smoke-sdist
+          . .venv-smoke-sdist/bin/activate
+          python -m pip install --upgrade pip
+          python -m pip install dist/*.tar.gz
+          python scripts/smoke_test_installed_package.py \
+            --expected-version "${{ needs.validate.outputs.package-version }}"
