@@ -36,6 +36,22 @@ def test_package_version_matches_pyproject():
     assert riskbands.__version__ == match.group(1)
 
 
+def test_resolve_version_uses_distribution_version_when_local_pyproject_is_missing(monkeypatch):
+    package_dir = Path(riskbands.__file__).resolve().parent
+
+    class FakeDistribution:
+        version = "9.9.9"
+
+        def locate_file(self, name: str) -> Path:
+            assert name == "riskbands"
+            return package_dir
+
+    monkeypatch.setattr(riskbands, "_infer_local_version", lambda: "0.0.0")
+    monkeypatch.setattr(riskbands, "distribution", lambda _: FakeDistribution())
+
+    assert riskbands._resolve_version() == "9.9.9"
+
+
 def test_legacy_namespace_is_removed():
     with pytest.raises(ModuleNotFoundError):
         importlib.import_module("nasabinning")
@@ -44,3 +60,27 @@ def test_legacy_namespace_is_removed():
 def test_old_public_class_name_is_removed():
     with pytest.raises(ImportError):
         exec("from riskbands import RiskBandsBinner", {})
+
+
+def test_old_score_strategy_name_is_absent_from_public_materials():
+    root = Path(__file__).resolve().parents[1]
+    old_name = "generalization" + "_v1"
+    paths = [
+        root / "README.md",
+        root / "docs" / "api_reference.md",
+        *sorted((root / "docs-site" / "src" / "content" / "docs" / "technical").rglob("*.md")),
+        *sorted((root / "examples").rglob("*.py")),
+        *sorted((root / "examples").rglob("*.ipynb")),
+        *sorted((root / "riskbands").rglob("*.py")),
+    ]
+
+    for path in paths:
+        text = path.read_text(encoding="utf-8")
+        assert old_name not in text, f"Unexpected legacy score name in {path}"
+
+
+def test_old_score_strategy_name_is_rejected():
+    old_name = "generalization" + "_v1"
+
+    with pytest.raises(ValueError, match="Unsupported score strategy"):
+        Binner(score_strategy=old_name)

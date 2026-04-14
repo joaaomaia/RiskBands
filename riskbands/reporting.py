@@ -11,7 +11,11 @@ import numpy as np
 import pandas as pd
 
 from .binning_engine import Binner
-from .optuna_optimizer import score_objective_components
+from .objectives import (
+    build_objective_components,
+    build_objective_components_from_diagnostics,
+    score_objective_components,
+)
 from .temporal_stability import event_rate_by_time, ks_over_time, temporal_separability_score
 
 PathLike = Union[str, Path]
@@ -21,6 +25,10 @@ BASE_COMPONENT_COLUMNS = [
     "iv_component",
     "ks_component",
     "temporal_score_component",
+]
+
+GENERALIZATION_BASE_COMPONENT_COLUMNS = [
+    "separation_reward_component",
 ]
 
 PENALTY_COLUMNS = [
@@ -35,6 +43,15 @@ PENALTY_COLUMNS = [
     "temporal_shortfall_penalty",
 ]
 
+GENERALIZATION_PENALTY_COLUMNS = [
+    "temporal_variance_penalty",
+    "window_drift_penalty",
+    "rank_inversion_penalty",
+    "separation_penalty",
+    "entropy_penalty",
+    "psi_penalty",
+]
+
 TEMPORAL_PROFILE_PENALTIES = [
     "rare_bin_penalty",
     "coverage_gap_penalty",
@@ -44,6 +61,10 @@ TEMPORAL_PROFILE_PENALTIES = [
     "monotonic_break_penalty",
     "ranking_reversal_penalty",
     "temporal_shortfall_penalty",
+    "temporal_variance_penalty",
+    "window_drift_penalty",
+    "rank_inversion_penalty",
+    "psi_penalty",
 ]
 
 
@@ -121,6 +142,9 @@ def _top_items(mapping: dict[str, Any] | None, *, limit: int = 3) -> str:
 
 def _selection_basis(base_components: dict[str, Any] | None) -> str:
     base_components = base_components or {}
+    if _safe_float(base_components.get("separation_reward_component")) > 0:
+        return "balanced"
+
     static_signal = _safe_float(base_components.get("iv_component")) + _safe_float(
         base_components.get("ks_component")
     )
@@ -171,6 +195,27 @@ def _json_ready_records(df: pd.DataFrame) -> list[dict[str, Any]]:
     return clean.to_dict(orient="records")
 
 
+def _resolve_effective_objective_kwargs(
+    binner: Binner,
+    objective_kwargs: dict[str, Any] | None,
+) -> dict[str, Any] | None:
+    if objective_kwargs is not None:
+        if hasattr(binner, "_resolved_objective_kwargs"):
+            return binner._resolved_objective_kwargs(objective_kwargs)
+        return objective_kwargs
+    if hasattr(binner, "_resolved_objective_kwargs"):
+        return binner._resolved_objective_kwargs()
+    return getattr(binner, "objective_kwargs", None)
+
+
+def _objective_preference_score(row: dict[str, Any] | pd.Series) -> float:
+    score = _safe_float(row.get("objective_score"), default=np.nan)
+    direction = _coalesce_text(row.get("objective_direction")) or "maximize"
+    if not np.isfinite(score):
+        return np.nan
+    return -score if direction == "minimize" else score
+
+
 def _resolve_temporal_sources(
     binner: Binner,
     X: pd.DataFrame | None,
@@ -213,11 +258,18 @@ def _objective_summary_for_variable(
     X: pd.DataFrame | None,
     y: pd.Series | None,
     *,
+    diagnostics: pd.DataFrame | None,
     time_col: str | None,
     iv_value: float | None,
     summary_row: dict[str, Any] | None,
     objective_kwargs: dict[str, Any] | None,
 ) -> tuple[dict[str, Any], str]:
+    effective_objective_kwargs = _resolve_effective_objective_kwargs(binner, objective_kwargs)
+    score_strategy = _coalesce_text(
+        (effective_objective_kwargs or {}).get("score_strategy"),
+        getattr(binner, "score_strategy", None),
+        "legacy",
+    )
     summaries = getattr(binner, "objective_summaries_", None)
     if isinstance(summaries, dict) and summaries.get(variable):
         return summaries[variable], "stored_multi_feature"
@@ -230,67 +282,108 @@ def _objective_summary_for_variable(
         return {}, "unavailable"
 
     child_binner = _resolve_child_binner(binner, variable)
-    transformed = child_binner.transform(X[[variable]])
-    bin_values = transformed if isinstance(transformed, pd.Series) else transformed[variable]
-    components = {
-        "iv": _safe_float(iv_value, default=0.0),
-        "separability": 0.0,
-        "ks": 0.0,
-        "temporal_score": _safe_float((summary_row or {}).get("temporal_score"), default=0.0),
-        "n_bins_effective": _safe_float((summary_row or {}).get("n_bins_effective"), default=0.0),
-        "coverage_ratio_min": _safe_float((summary_row or {}).get("coverage_ratio_min"), default=1.0),
-        "coverage_ratio_mean": _safe_float((summary_row or {}).get("coverage_ratio_mean"), default=1.0),
-        "rare_bin_count": _safe_float((summary_row or {}).get("rare_bin_count"), default=0.0),
-        "event_rate_std_mean": _safe_float((summary_row or {}).get("event_rate_std_mean"), default=0.0),
-        "event_rate_std_max": _safe_float((summary_row or {}).get("event_rate_std_max"), default=0.0),
-        "woe_std_mean": _safe_float((summary_row or {}).get("woe_std_mean"), default=0.0),
-        "woe_std_max": _safe_float((summary_row or {}).get("woe_std_max"), default=0.0),
-        "bin_share_std_mean": _safe_float((summary_row or {}).get("bin_share_std_mean"), default=0.0),
-        "bin_share_std_max": _safe_float((summary_row or {}).get("bin_share_std_max"), default=0.0),
-        "monotonic_break_period_count": _safe_float(
-            (summary_row or {}).get("monotonic_break_period_count"),
-            default=0.0,
-        ),
-        "ranking_reversal_period_count": _safe_float(
-            (summary_row or {}).get("ranking_reversal_period_count"),
-            default=0.0,
-        ),
-        "bins_missing_any_period_count": _safe_float(
-            (summary_row or {}).get("bins_missing_any_period_count"),
-            default=0.0,
-        ),
-        "missing_period_count": _safe_float((summary_row or {}).get("missing_period_count"), default=0.0),
-        "low_coverage_bin_count": _safe_float(
-            (summary_row or {}).get("low_coverage_bin_count"),
-            default=0.0,
-        ),
-    }
-
-    if time_col and time_col in X.columns:
-        df_tmp = pd.DataFrame({"bin": bin_values, "target": y, "time": X[time_col]})
-        components["separability"] = _safe_float(
-            temporal_separability_score(
-                df_tmp,
-                variable,
-                "bin",
-                "target",
-                "time",
-                penalize_inversions=False,
-                penalize_low_freq=False,
-                penalize_low_coverage=False,
+    if score_strategy != "legacy" and diagnostics is not None and not diagnostics.empty:
+        diagnostics_var = diagnostics.loc[diagnostics["variable"] == variable].copy()
+        if not diagnostics_var.empty:
+            components = build_objective_components_from_diagnostics(
+                diagnostics_var,
+                iv_value=_safe_float(iv_value, default=0.0),
+                summary_row=summary_row,
+                time_col=time_col,
+                objective_kwargs=effective_objective_kwargs,
             )
-        )
-        tbl = (
-            df_tmp.groupby(["bin", "time"])["target"]
-            .agg(["sum", "count"])
-            .reset_index()
-            .rename(columns={"sum": "event"})
-        )
-        tbl["variable"] = variable
-        components["ks"] = _safe_float(ks_over_time(event_rate_by_time(tbl, "time")))
+            derived = score_objective_components(components, objective_kwargs=effective_objective_kwargs)
+            return derived, "derived_from_diagnostics"
 
-    derived = score_objective_components(components, objective_kwargs=objective_kwargs)
-    return derived, "derived_default_objective"
+    if score_strategy == "legacy":
+        transformed = child_binner.transform(X[[variable]])
+        bin_values = transformed if isinstance(transformed, pd.Series) else transformed[variable]
+        components = {
+            "iv": _safe_float(iv_value, default=0.0),
+            "separability": 0.0,
+            "ks": 0.0,
+            "temporal_score": _safe_float((summary_row or {}).get("temporal_score"), default=0.0),
+            "n_bins_effective": _safe_float((summary_row or {}).get("n_bins_effective"), default=0.0),
+            "coverage_ratio_min": _safe_float((summary_row or {}).get("coverage_ratio_min"), default=1.0),
+            "coverage_ratio_mean": _safe_float((summary_row or {}).get("coverage_ratio_mean"), default=1.0),
+            "rare_bin_count": _safe_float((summary_row or {}).get("rare_bin_count"), default=0.0),
+            "event_rate_std_mean": _safe_float((summary_row or {}).get("event_rate_std_mean"), default=0.0),
+            "event_rate_std_max": _safe_float((summary_row or {}).get("event_rate_std_max"), default=0.0),
+            "woe_std_mean": _safe_float((summary_row or {}).get("woe_std_mean"), default=0.0),
+            "woe_std_max": _safe_float((summary_row or {}).get("woe_std_max"), default=0.0),
+            "bin_share_std_mean": _safe_float((summary_row or {}).get("bin_share_std_mean"), default=0.0),
+            "bin_share_std_max": _safe_float((summary_row or {}).get("bin_share_std_max"), default=0.0),
+            "monotonic_break_period_count": _safe_float(
+                (summary_row or {}).get("monotonic_break_period_count"),
+                default=0.0,
+            ),
+            "ranking_reversal_period_count": _safe_float(
+                (summary_row or {}).get("ranking_reversal_period_count"),
+                default=0.0,
+            ),
+            "bins_missing_any_period_count": _safe_float(
+                (summary_row or {}).get("bins_missing_any_period_count"),
+                default=0.0,
+            ),
+            "missing_period_count": _safe_float((summary_row or {}).get("missing_period_count"), default=0.0),
+            "low_coverage_bin_count": _safe_float(
+                (summary_row or {}).get("low_coverage_bin_count"),
+                default=0.0,
+            ),
+        }
+
+        if time_col and time_col in X.columns:
+            df_tmp = pd.DataFrame({"bin": bin_values, "target": y, "time": X[time_col]})
+            components["separability"] = _safe_float(
+                temporal_separability_score(
+                    df_tmp,
+                    variable,
+                    "bin",
+                    "target",
+                    "time",
+                    penalize_inversions=False,
+                    penalize_low_freq=False,
+                    penalize_low_coverage=False,
+                )
+            )
+            tbl = (
+                df_tmp.groupby(["bin", "time"])["target"]
+                .agg(["sum", "count"])
+                .reset_index()
+                .rename(columns={"sum": "event"})
+            )
+            tbl["variable"] = variable
+            components["ks"] = _safe_float(ks_over_time(event_rate_by_time(tbl, "time")))
+
+        derived = score_objective_components(components, objective_kwargs=effective_objective_kwargs)
+        return derived, "derived_legacy_objective"
+
+    cols = [variable]
+    if time_col and time_col in X.columns:
+        cols.append(time_col)
+    X_eval = X[cols].copy()
+
+    components = build_objective_components(
+        child_binner,
+        X_eval,
+        y,
+        time_col=time_col if time_col in X_eval.columns else None,
+        objective_kwargs=effective_objective_kwargs,
+    )
+    if iv_value is not None:
+        components["iv"] = _safe_float(iv_value, default=0.0)
+        if (
+            score_strategy != "legacy"
+            and (
+                time_col is None
+                or time_col not in X_eval.columns
+                or X_eval[time_col].nunique(dropna=True) <= 1
+            )
+        ):
+            components["separation"] = _safe_float(iv_value, default=0.0)
+
+    derived = score_objective_components(components, objective_kwargs=effective_objective_kwargs)
+    return derived, "derived_configured_objective"
 
 
 def build_variable_audit_report(
@@ -326,7 +419,9 @@ def build_variable_audit_report(
         summary=summary,
     )
     iv_by_variable = getattr(binner, "iv_by_variable_", pd.Series(dtype=float))
+    effective_objective_kwargs = _resolve_effective_objective_kwargs(binner, objective_kwargs)
     rows = []
+    collected_objective_summaries = {}
 
     for variable in bin_summary["variable"].drop_duplicates().tolist():
         bin_rows = _bin_rows_for_variable(bin_summary, variable)
@@ -342,14 +437,18 @@ def build_variable_audit_report(
             variable,
             X,
             y,
+            diagnostics=diagnostics,
             time_col=time_col,
             iv_value=_safe_float(iv_by_variable.get(variable), default=0.0),
             summary_row=summary_row,
-            objective_kwargs=objective_kwargs,
+            objective_kwargs=effective_objective_kwargs,
         )
         components = objective_summary.get("components", {})
         base_components = objective_summary.get("base_components", {})
         penalties = objective_summary.get("penalties", {})
+        normalized_components = objective_summary.get("normalized_components", {})
+        objective_config = objective_summary.get("objective_config", {})
+        collected_objective_summaries[variable] = objective_summary
 
         dataset_value = _coalesce_text(
             summary_row.get("dataset"),
@@ -368,7 +467,10 @@ def build_variable_audit_report(
             "n_bins_effective": int(_safe_float(summary_row.get("n_bins_effective"), default=len(bin_rows))),
             "iv": _safe_float(iv_by_variable.get(variable, components.get("iv")), default=np.nan),
             "ks": _safe_float(components.get("ks"), default=np.nan),
-            "separability": _safe_float(components.get("separability"), default=np.nan),
+            "separability": _safe_float(
+                components.get("separability", components.get("separation")),
+                default=np.nan,
+            ),
             "temporal_score": _safe_float(
                 summary_row.get("temporal_score", components.get("temporal_score")),
                 default=np.nan,
@@ -401,18 +503,54 @@ def build_variable_audit_report(
             ),
             "alert_flags": _coalesce_text(summary_row.get("alert_flags")),
             "objective_source": objective_source,
+            "score_strategy": _coalesce_text(
+                objective_summary.get("score_strategy"),
+                getattr(binner, "score_strategy", None),
+                "legacy",
+            ),
+            "objective_direction": _coalesce_text(
+                objective_summary.get("objective_direction"),
+                objective_config.get("objective_direction"),
+                "maximize",
+            ),
             "objective_score": _safe_float(objective_summary.get("score"), default=np.nan),
+            "objective_preference_score": _safe_float(
+                objective_summary.get("comparison_score"),
+                default=np.nan,
+            ),
             "objective_base_score": _safe_float(objective_summary.get("base_score"), default=np.nan),
             "objective_total_penalty": _safe_float(
                 objective_summary.get("total_penalty"),
                 default=np.nan,
             ),
+            "objective_normalization_strategy": _coalesce_text(
+                objective_config.get("normalization_strategy"),
+                getattr(binner, "normalization_strategy", None),
+            ),
+            "woe_shrinkage_strength": _safe_float(
+                objective_config.get("woe_shrinkage_strength"),
+                default=getattr(binner, "woe_shrinkage_strength", np.nan),
+            ),
         }
 
         for column in BASE_COMPONENT_COLUMNS:
             row[column] = _safe_float(base_components.get(column), default=0.0)
+        for column in GENERALIZATION_BASE_COMPONENT_COLUMNS:
+            row[column] = _safe_float(base_components.get(column), default=0.0)
         for column in PENALTY_COLUMNS:
             row[column] = _safe_float(penalties.get(column), default=0.0)
+        for column in GENERALIZATION_PENALTY_COLUMNS:
+            row[column] = _safe_float(penalties.get(column), default=0.0)
+
+        if not np.isfinite(row["objective_preference_score"]):
+            row["objective_preference_score"] = _objective_preference_score(row)
+
+        for key, value in components.items():
+            row[f"objective_raw_{key}"] = _safe_float(value, default=np.nan)
+        for key, value in normalized_components.items():
+            row[f"objective_norm_{key}"] = _safe_float(value, default=np.nan)
+        for key, value in objective_summary.get("weights", {}).items():
+            row[f"objective_weight_{key}"] = _safe_float(value, default=np.nan)
 
         row["key_drivers"] = _top_items(base_components)
         row["key_penalties"] = _top_items(penalties)
@@ -423,6 +561,10 @@ def build_variable_audit_report(
     report = pd.DataFrame(rows).sort_values(["variable", "candidate_name"]).reset_index(drop=True)
     report.attrs["time_col"] = time_col
     report.attrs["dataset"] = dataset_name
+    if collected_objective_summaries:
+        binner.objective_summaries_ = collected_objective_summaries
+        if len(collected_objective_summaries) == 1:
+            binner.objective_summary_ = next(iter(collected_objective_summaries.values()))
     binner._variable_audit_report_ = report
     return report
 
@@ -438,25 +580,40 @@ def build_candidate_profile_report(candidate_reports: pd.DataFrame) -> pd.DataFr
     df = candidate_reports.copy()
     for column in [
         "objective_score",
+        "objective_preference_score",
         "objective_total_penalty",
         "coverage_ratio_mean",
         "coverage_ratio_min",
         "rare_bin_count",
         "ranking_reversal_period_count",
-    ] + BASE_COMPONENT_COLUMNS + PENALTY_COLUMNS:
+    ] + BASE_COMPONENT_COLUMNS + GENERALIZATION_BASE_COMPONENT_COLUMNS + PENALTY_COLUMNS + GENERALIZATION_PENALTY_COLUMNS:
         if column not in df.columns:
             df[column] = 0.0
         df[column] = pd.to_numeric(df[column], errors="coerce").fillna(0.0)
+
+    if "objective_direction" not in df.columns:
+        df["objective_direction"] = "maximize"
+    df["objective_direction"] = df["objective_direction"].fillna("maximize")
+    if "objective_preference_score" not in df.columns or (df["objective_preference_score"] == 0).all():
+        df["objective_preference_score"] = df.apply(_objective_preference_score, axis=1)
+    else:
+        missing_pref = ~np.isfinite(df["objective_preference_score"])
+        if missing_pref.any():
+            df.loc[missing_pref, "objective_preference_score"] = df.loc[missing_pref].apply(
+                _objective_preference_score,
+                axis=1,
+            )
 
     df["static_profile_score"] = (
         df["iv_component"] + df["ks_component"] - df["iv_shortfall_penalty"]
     )
     df["temporal_profile_score"] = (
         df["separability_component"]
+        + df["separation_reward_component"]
         + df["temporal_score_component"]
         - df[TEMPORAL_PROFILE_PENALTIES].sum(axis=1)
     )
-    df["balanced_profile_score"] = df["objective_score"]
+    df["balanced_profile_score"] = df["objective_preference_score"]
 
     group_cols = ["variable"]
     if "dataset" in df.columns and df["dataset"].notna().any():
@@ -672,6 +829,12 @@ def _save_json(binner: Binner, path: Path) -> None:
         "psi_over_time": bin_summary.attrs.get("psi_over_time"),
         "bin_table": _json_ready_records(bin_summary),
     }
+    if getattr(binner, "objective_config_", None) is not None:
+        info["objective_config"] = binner.objective_config_
+    if getattr(binner, "objective_summary_", None) is not None:
+        info["objective_summary"] = binner.objective_summary_
+    if getattr(binner, "objective_summaries_", None) is not None:
+        info["objective_summaries"] = binner.objective_summaries_
     pivot = getattr(binner, "_pivot_", None)
     if pivot is not None:
         info["pivot_event_rate"] = _json_ready_records(pivot.reset_index())

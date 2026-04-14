@@ -84,8 +84,8 @@ def test_pd_vintage_benchmark_example_flow_smoke():
         "temporal_reversal",
         "composition_shift",
     }
-    assert summary.loc["stable_credit", "selected_candidate"] == "riskbands_static"
-    assert summary.loc["temporal_reversal", "selected_candidate"] == "riskbands_temporal_quantile"
+    assert summary.loc["stable_credit", "selected_candidate"] == "riskbands_temporal_uniform"
+    assert summary.loc["temporal_reversal", "selected_candidate"] == "riskbands_static"
     assert summary.loc["composition_shift", "selected_candidate"] == "riskbands_static"
 
     anchor = suite["scenarios"]["temporal_reversal"]
@@ -115,5 +115,27 @@ def test_pd_vintage_benchmark_example_flow_smoke():
         "score_distribution",
         "sampling_preview",
     } <= set(figures)
+
+
+def test_stable_score_example_flow_smoke():
+    module = _load_example_module(
+        "examples/stable_score/stable_score_demo.py"
+    )
+
+    results = module.run_stable_score_demo(seed=11)
+
+    assert {
+        "legacy_fit_summary",
+        "legacy_candidate_audit",
+        "legacy_winner_summary",
+        "stable_fit_summary",
+        "stable_candidate_audit",
+        "stable_winner_summary",
+        "selection_comparison",
+        "baseline_note",
+    } <= set(results)
+    assert not results["legacy_candidate_audit"].empty
+    assert not results["stable_candidate_audit"].empty
+    assert len(results["baseline_note"]) > 20
 
 

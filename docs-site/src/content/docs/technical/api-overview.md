@@ -1,9 +1,21 @@
 ---
-title: "Visão geral da API"
-description: "Mapa da superfície principal do pacote e do fluxo orientado a crédito em torno de Binner e BinComparator."
+title: "Visao geral da API"
+description: "Mapa da superficie publica do RiskBands, com foco em onboarding, pandas-first e acesso simples ao score `stable`."
 ---
 
-## Superfície pública principal
+## Porta de entrada recomendada
+
+Na maior parte dos casos, o fluxo ideal para um usuario novo eh:
+
+1. instanciar `Binner`
+2. rodar `fit(...)`
+3. inspecionar `summary()`, `score_details()` e `report()`
+4. aplicar `transform(...)` no mesmo formato de entrada que voce ja usa no pandas
+
+O projeto agora favorece esse caminho sem esconder configuracoes avancadas do
+score.
+
+## Superficie publica principal
 
 ```python
 from riskbands import Binner, BinComparator
@@ -14,60 +26,121 @@ from riskbands.temporal_stability import (
 )
 ```
 
+## O que ficou mais amigavel
+
+Sem mexer agressivamente no core, a API publica do `Binner` ficou mais proxima
+de padroes familiares de sklearn e pandas:
+
+- `fit(df, y="target", column="score")`
+- `fit(df["score"], y=df["target"])`
+- `transform(df)` ou `transform(df["score"])`
+- `fit_transform(...)`
+- `summary()`
+- `report()`
+- `score_details()`
+- `diagnostics()`
+- `binning_table()`
+- `plot_stability()`
+- `get_params()` e `set_params(...)`
+
+Tambem foram adicionados aliases mais amigaveis para configuracao:
+
+- `max_n_bins` como alias de `max_bins`
+- `monotonic_trend` como alias de `monotonic`
+
 ## Blocos centrais
 
 | Componente | Papel no fluxo | Por que importa |
 | --- | --- | --- |
-| `Binner` | Construtor principal para binning estático e sensível ao tempo | É a porta de entrada para ajustar, transformar e auditar variáveis |
-| `stability_over_time(...)` | Monta pivôs de event rate ao longo do tempo | Ajuda a enxergar rapidamente se os bins continuam coerentes por safra |
-| `temporal_bin_diagnostics(...)` | Diagnóstico detalhado por variável, bin e período | Expõe cobertura, raridade, reversões e volatilidade |
-| `temporal_variable_summary(...)` | Resumo temporal por variável | Facilita comparar candidatos e detectar estruturas frágeis |
-| `variable_audit_report(...)` | Relatório auditável com score objetivo e racional | Transforma métricas em um artefato de decisão explicável |
-| `BinComparator` | Comparação champion challenger entre múltiplas configurações | É a peça central quando o problema é escolher o candidato certo, e não apenas ajustar um |
+| `Binner` | Porta de entrada principal | Ajusta, transforma, resume e expoe score e diagnostico em uma superficie mais amigavel |
+| `summary()` | Resumo curto pos-fit | Ajuda a entender rapidamente bins, IV e score |
+| `score_details()` | Detalhamento do objective | Expoe score final, componentes, normalizacao e pesos |
+| `diagnostics()` | Leitura temporal rapida | Evita navegar por estruturas internas para abrir estabilidade por bin ou por variavel |
+| `report()` | Relatorio auditavel consolidado | Junta score, penalidades, cortes e racional em uma tabela unica |
+| `BinComparator` | Comparacao champion challenger | Continua sendo a peca central quando o problema eh escolher entre multiplos candidatos |
 
-## Fluxo orientado a crédito
+## Fluxo recomendado para candidato unico
 
-### Avaliação de candidato único
+```python
+binner = Binner(
+    strategy="supervised",
+    score_strategy="stable",
+    max_n_bins=5,
+    check_stability=True,
+)
 
-Use `Binner` diretamente quando você quiser ajustar um candidato e inspecionar:
+binner.fit(df, y="target", column="score", time_col="month")
+score_bins = binner.transform(df["score"])
+summary = binner.summary()
+score_details = binner.score_details()
+diagnostics = binner.diagnostics(kind="bin")
+report = binner.report()
+```
 
-- separação estática
-- estabilidade temporal
-- sinais de fragilidade estrutural
-- racional para reporting posterior
+Esse fluxo preserva o core introduzido nas releases recentes:
 
-### Avaliação multi-candidato
-
-Use `BinComparator` quando a tarefa real for comparar famílias de candidatos, como:
-
-- baselines supervisionadas estáticas
-- alternativas temporais ou mais conservadoras
-- candidatos balanceados com guardrails mais fortes
-
-Esse é o caminho mais natural para risco de crédito, onde a escolha final normalmente depende de trade-offs e não de uma métrica única.
-
-## O que é tecnicamente verdadeiro no repositório atual
-
-- o fluxo supervisionado numérico usa `optbinning.OptimalBinning` no backend do corte estático
-- os diagnósticos temporais são implementados dentro do próprio RiskBands
-- score objetivo e penalizações estruturais são implementados no RiskBands
-- o uso de Optuna existe como camada opcional de busca em fluxos supervisionados
-- o projeto já gera relatórios auditáveis e resumos de vencedor
+- `legacy`
+- `stable`
+- `score_weights`
+- `normalization_strategy`
+- `woe_shrinkage_strength`
+- `objective_kwargs`
 
 ## Onde o Optuna entra
 
-O Optuna não é o centro da proposta do projeto.
+O Optuna continua sendo uma camada opcional de busca.
 
-Quando habilitado, ele funciona como uma camada opcional de busca e otimização sobre o espaço de candidatos supervisionados. O objetivo não é "otimizar por otimizar", e sim procurar configurações que conciliem:
+A melhoria recente foi de ergonomia da API publica, nao de mudanca conceitual
+do objective. Ou seja:
 
-- discriminação estática
-- robustez temporal
-- cobertura
-- baixa fragilidade estrutural
-- racional auditável
+- o score continua o mesmo
+- o acesso ao score ficou mais simples
+- o uso com e sem Optuna continua suportado
 
-## Próximos passos
+## Estrategias de score
 
-- [Exemplos](../examples/) para material executável
-- [Por que não usar apenas OptimalBinning](../../methodology/why-not-only-optimal-binning/) para o posicionamento conceitual
-- [Benchmark PD vintage](../../methodology/pd-vintage-benchmark/) para a demonstração mais forte do repositório hoje
+Hoje a API expoe duas estrategias explicitas:
+
+- `legacy`
+  Mantem o score historico orientado a maximizacao.
+- `stable`
+  Introduz o objective orientado a robustez temporal e minimizacao.
+
+Exemplo:
+
+```python
+binner = Binner(
+    strategy="supervised",
+    check_stability=True,
+    use_optuna=True,
+    time_col="month",
+    score_strategy="stable",
+    score_weights={
+        "temporal_variance_weight": 0.22,
+        "window_drift_weight": 0.18,
+        "rank_inversion_weight": 0.20,
+        "separation_weight": 0.20,
+        "entropy_weight": 0.08,
+        "psi_weight": 0.12,
+    },
+    normalization_strategy="absolute",
+    woe_shrinkage_strength=40.0,
+    strategy_kwargs={"n_trials": 10},
+)
+```
+
+## O que olhar em seguida
+
+Depois do primeiro `fit`, o trio mais util costuma ser:
+
+- `summary()` para uma leitura curta
+- `score_details()` para entender o score
+- `diagnostics()` para abrir a estabilidade temporal
+
+## Proximos passos
+
+- [Quickstart](../quickstart/)
+- [Score e estrategias](../score-strategy/)
+- [Outputs e diagnostico](../outputs/)
+- [Exemplos](../examples/)
+- [Benchmark PD vintage](../methodology/pd-vintage-benchmark/)

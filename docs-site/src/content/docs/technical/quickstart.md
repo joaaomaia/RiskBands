@@ -1,16 +1,16 @@
 ---
 title: Quickstart
-description: "Ajuste seu primeiro Binner, inspecione o comportamento temporal e gere uma leitura auditável."
+description: "Ajuste seu primeiro Binner com a API mais amigável do RiskBands e entenda os outputs principais em poucos passos."
 ---
 
-## Fluxo mínimo
+## O fluxo recomendado hoje
 
-O fluxo central do RiskBands foi pensado para ser curto:
+Para um usuário novo, o caminho mais fácil é:
 
-1. ajustar um `Binner`
-2. inspecionar o comportamento temporal
-3. resumir a estabilidade da variável
-4. gerar uma visão auditável do candidato
+1. criar um `Binner`
+2. ajustar com `fit(df, y="target", column="score", time_col="month")`
+3. olhar `summary()`
+4. abrir `score_details()` ou `diagnostics()` quando precisar aprofundar
 
 ```python
 import numpy as np
@@ -21,72 +21,81 @@ from riskbands import Binner
 rng = np.random.default_rng(0)
 n = 800
 
-X = pd.DataFrame({"score": rng.normal(size=n)})
-X["month"] = rng.choice([202301, 202302, 202303, 202304], size=n)
+df = pd.DataFrame({"score": rng.normal(size=n)})
+df["month"] = rng.choice([202301, 202302, 202303, 202304], size=n)
 
-proba = 0.20 + 0.15 * X["score"] + 0.02 * (X["month"] - 202301)
+proba = 0.20 + 0.15 * df["score"] + 0.02 * (df["month"] - 202301)
 proba = np.clip(proba, 0.01, 0.99)
-y = pd.Series((rng.random(n) < proba).astype(int), name="target")
+df["target"] = (rng.random(n) < proba).astype(int)
 
 binner = Binner(
     strategy="supervised",
+    max_n_bins=5,
     check_stability=True,
-    monotonic="ascending",
-    min_event_rate_diff=0.03,
+    score_strategy="stable",
 )
 
-binner.fit(X, y, time_col="month")
-diagnostics = binner.temporal_bin_diagnostics(
-    X,
-    y,
-    time_col="month",
-    dataset_name="train",
-)
-summary = binner.temporal_variable_summary(
-    diagnostics=diagnostics,
-    time_col="month",
-)
-audit = binner.variable_audit_report(
-    X,
-    y,
-    time_col="month",
-    dataset_name="train",
-)
+binner.fit(df, y="target", column="score", time_col="month")
+score_bins = binner.transform(df["score"])
+summary = binner.summary()
+score_details = binner.score_details()
+diagnostics = binner.diagnostics(kind="bin")
 ```
+
+## Por que esse fluxo é mais amigável
+
+Ele segue convenções familiares:
+
+- `fit(...)`
+- `transform(...)`
+- `fit_transform(...)`
+- `get_params()` / `set_params(...)`
+- `DataFrame` e `Series` do pandas como primeira opção
+
+Também evita exigir que você memorize estruturas internas logo no começo.
 
 ## O que olhar primeiro
 
-### `summary`
+### `summary()`
 
-Use `temporal_variable_summary(...)` para obter uma leitura por variável com indicadores como:
+É a melhor primeira parada após o ajuste.
 
-- `temporal_score`
-- cobertura mínima
-- contagem de bins raros
-- volatilidade de event rate, WoE e participação do bin
-- reversões de ordenação
-- quebras de monotonicidade
+Use quando quiser responder rapidamente:
 
-É uma boa porta de entrada para responder: "a variável ainda parece saudável quando eu abro por safra?"
+- quantos bins ficaram?
+- qual foi o IV?
+- qual estratégia de score está ativa?
+- qual foi o score final?
+- existem alertas temporais importantes?
 
-### `audit`
+### `score_details()`
 
-Use `variable_audit_report(...)` quando você precisar de uma tabela única que consolide:
+Use quando a pergunta for:
 
-- cortes
-- IV e KS
-- score temporal
-- score objetivo
-- penalizações
-- resumo textual do racional
+- por que esse score saiu assim?
+- o que entrou no objective?
+- quais pesos foram usados?
+- qual normalização está ativa?
+- qual `woe_shrinkage_strength` foi aplicado?
 
-Essa é a camada que ajuda a transformar diagnóstico em decisão explicável.
+### `diagnostics()`
 
-## Quando sair do candidato único
+Use `diagnostics(kind="bin")` para abrir a granularidade por variável x bin x período.
 
-Se a sua pergunta já não é mais "quais são os cortes?" e sim "qual candidato eu deveria confiar?", o próximo passo natural é o `BinComparator`.
+Use `diagnostics(kind="variable")` para um resumo temporal por variável.
 
-É nesse ponto que o RiskBands fica especialmente útil para trabalho de crédito com champion challenger, benchmark e escolha final por trade-off.
+## Quando usar `stable`
 
-- Vá para [Visão geral da API](../api-overview/)
-- Ou pule direto para [Benchmark PD vintage](../../methodology/pd-vintage-benchmark/)
+Para um novo usuário, `stable` costuma ser a melhor estratégia pública para começar quando:
+
+- existe coluna temporal
+- estabilidade importa de verdade
+- você quer equilibrar separação e robustez
+
+Se você precisa reproduzir um comportamento mais histórico ou comparar com a abordagem anterior, use `legacy`.
+
+## Próximos passos
+
+- [Score e estratégias](../score-strategy/)
+- [Outputs e diagnóstico](../outputs/)
+- [Optuna](../optuna/)

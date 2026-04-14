@@ -124,6 +124,9 @@ export default defineConfig({
           items: [
             { label: 'Instalação', link: '/technical/installation/' },
             { label: 'Quickstart', link: '/technical/quickstart/' },
+            { label: 'Score e estratégias', link: '/technical/score-strategy/' },
+            { label: 'Outputs e diagnóstico', link: '/technical/outputs/' },
+            { label: 'Optuna', link: '/technical/optuna/' },
             { label: 'Visão geral da API', link: '/technical/api-overview/' },
             { label: 'Exemplos', link: '/technical/examples/' },
           ],
@@ -148,6 +151,7 @@ export default defineConfig({
           label: 'Projeto',
           items: [
             { label: 'Release Notes', link: '/reference/release-notes/' },
+            { label: 'Evolução após v1.0.0', link: '/reference/after-v1-0/' },
             { label: 'Publicações', link: '/reference/publications/' },
             { label: 'Desenvolvimento', link: '/project/development/' },
           ],

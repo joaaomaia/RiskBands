@@ -49,6 +49,44 @@ Em outras palavras:
 - `RiskBands` ajuda a decidir se esse corte continua sendo a melhor resposta
   para credito quando o tempo entra na analise
 
+## Arquitetura de score
+
+O repositório agora expõe dois caminhos explícitos de score:
+
+- `legacy`
+  Mantém o objetivo histórico baseado em componentes positivos menos penalidades.
+- `stable`
+  Introduz a estratégia pública recomendada para robustez temporal, orientada a
+  minimização, com componentes normalizados e foco em equilíbrio entre
+  separação e estabilidade.
+
+O `stable` combina:
+
+- variância temporal ponderada do WoE shrinkado
+- drift entre janelas adjacentes
+- penalidade de inversão de ranking entre bins
+- penalidade de separação insuficiente
+- entropy penalty para distribuições degeneradas
+- PSI como proxy de estabilidade em produção
+
+Todos os componentes são normalizados em modo absoluto, então o score funciona
+mesmo quando apenas um candidato está sendo avaliado.
+
+Os pesos padrão são:
+
+- `temporal_variance_weight=0.22`
+- `window_drift_weight=0.18`
+- `rank_inversion_weight=0.20`
+- `separation_weight=0.20`
+- `entropy_weight=0.08`
+- `psi_weight=0.12`
+
+O shrink de WoE é tratado como camada de robustez, não como score isolado:
+
+- WoE raw por bin e período
+- shrink em direção ao WoE global do bin
+- uso do WoE shrinkado nos componentes temporais
+
 ## Instalacao
 
 Instalacao base:
@@ -99,31 +137,67 @@ from riskbands import Binner
 rng = np.random.default_rng(0)
 n = 800
 
-X = pd.DataFrame({"score": rng.normal(size=n)})
-X["month"] = rng.choice([202301, 202302, 202303, 202304], size=n)
+df = pd.DataFrame({"score": rng.normal(size=n)})
+df["month"] = rng.choice([202301, 202302, 202303, 202304], size=n)
 
-proba = 0.20 + 0.15 * X["score"] + 0.02 * (X["month"] - 202301)
+proba = 0.20 + 0.15 * df["score"] + 0.02 * (df["month"] - 202301)
 proba = np.clip(proba, 0.01, 0.99)
-y = pd.Series((rng.random(n) < proba).astype(int), name="target")
+df["target"] = (rng.random(n) < proba).astype(int)
 
 binner = Binner(
     strategy="supervised",
+    max_n_bins=5,
     check_stability=True,
     monotonic="ascending",
     min_event_rate_diff=0.03,
+    score_strategy="stable",
+    normalization_strategy="absolute",
+    woe_shrinkage_strength=40.0,
 )
 
-binner.fit(X, y, time_col="month")
-summary = binner.temporal_variable_summary(
-    diagnostics=binner.temporal_bin_diagnostics(
-        X,
-        y,
-        time_col="month",
-        dataset_name="train",
-    ),
+binner.fit(df, y="target", column="score", time_col="month")
+score_bins = binner.transform(df["score"])
+summary = binner.summary()
+score_details = binner.score_details()
+diagnostics = binner.diagnostics(kind="bin")
+```
+
+Fluxo mais amigavel, no estilo sklearn/pandas:
+
+- `fit(df, y="target", column="score", time_col="month")`
+- `transform(df)` ou `transform(df["score"])`
+- `fit_transform(df["score"], y=df["target"])`
+- `binning_table()`, `summary()`, `report()`, `score_details()`, `diagnostics()`
+- `get_params()` e `set_params(...)` com aliases como `max_n_bins` e `monotonic_trend`
+
+## Customização do objective
+
+```python
+binner = Binner(
+    strategy="supervised",
+    check_stability=True,
+    use_optuna=True,
     time_col="month",
+    score_strategy="stable",
+    score_weights={
+        "temporal_variance_weight": 0.18,
+        "window_drift_weight": 0.16,
+        "rank_inversion_weight": 0.22,
+        "separation_weight": 0.24,
+        "entropy_weight": 0.08,
+        "psi_weight": 0.12,
+    },
+    normalization_strategy="absolute",
+    woe_shrinkage_strength=35.0,
+    strategy_kwargs={"n_trials": 10},
 )
 ```
+
+Leitura rápida:
+
+- no `legacy`, maiores scores continuam melhores
+- no `stable`, menores scores são melhores
+- relatórios auditáveis expõem score final, componentes raw, componentes normalizados, pesos, estratégia e parâmetros de shrink
 
 ## Benchmark principal do repositorio
 
@@ -137,6 +211,8 @@ Materiais principais:
 
 - [pd_vintage_benchmark.py](https://github.com/joaaomaia/RiskBands/blob/master/examples/pd_vintage_benchmark/pd_vintage_benchmark.py)
 - [pd_vintage_benchmark.ipynb](https://github.com/joaaomaia/RiskBands/blob/master/examples/pd_vintage_benchmark/pd_vintage_benchmark.ipynb)
+- [riskbands_synthetic_plotly_comparative_demo.ipynb](https://github.com/joaaomaia/RiskBands/blob/master/examples/riskbands_synthetic_plotly_comparative_demo.ipynb)
+- [stable_score_demo.py](https://github.com/joaaomaia/RiskBands/blob/master/examples/stable_score/stable_score_demo.py)
 - [pd_vintage_champion_challenger.py](https://github.com/joaaomaia/RiskBands/blob/master/examples/pd_vintage_champion_challenger/pd_vintage_champion_challenger.py)
 - [temporal_stability_example.py](https://github.com/joaaomaia/RiskBands/blob/master/examples/temporal_stability/temporal_stability_example.py)
 

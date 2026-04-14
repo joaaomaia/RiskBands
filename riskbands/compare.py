@@ -93,6 +93,8 @@ class BinComparator:
             if not audit.empty:
                 result.update(
                     objective_score=float(audit["objective_score"].mean()),
+                    objective_preference_score=float(audit["objective_preference_score"].mean()),
+                    objective_direction=str(audit["objective_direction"].mode().iloc[0]),
                     temporal_score=float(audit["temporal_score"].mean()),
                     total_penalty=float(audit["objective_total_penalty"].mean()),
                     alert_flags=_combine_alerts(audit["alert_flags"]),
@@ -169,7 +171,18 @@ class BinComparator:
             raise RuntimeError("Run fit_compare first.")
         summary = pd.DataFrame(self.results_).set_index("name")
         cols = ["strategy", "iv", "n_bins", "psi"]
-        optional = [column for column in ["objective_score", "temporal_score", "total_penalty", "alert_flags"] if column in summary.columns]
+        optional = [
+            column
+            for column in [
+                "objective_score",
+                "objective_preference_score",
+                "objective_direction",
+                "temporal_score",
+                "total_penalty",
+                "alert_flags",
+            ]
+            if column in summary.columns
+        ]
         return summary[cols + optional]
 
 

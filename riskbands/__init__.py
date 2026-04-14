@@ -23,17 +23,18 @@ def _infer_local_version() -> str:
 
 
 def _resolve_version() -> str:
+    local_version = _infer_local_version()
     package_dir = Path(__file__).resolve().parent
     try:
         dist = distribution("riskbands")
         if Path(dist.locate_file("riskbands")).resolve() == package_dir:
-            return dist.version
+            return dist.version if local_version == "0.0.0" else local_version
     except PackageNotFoundError:
         pass
     except Exception:  # pragma: no cover - metadata lookup is best effort
         pass
 
-    return _infer_local_version()
+    return local_version
 
 
 __all__ = [

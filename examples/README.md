@@ -1,9 +1,15 @@
-﻿# Examples
+# Examples
 
 ## Start Here
 
+- `examples/riskbands_synthetic_plotly_comparative_demo.ipynb`
+  Notebook novo focado na API mais amigavel do RiskBands, com dados sinteticos, fluxo dataframe-first, comparacao entre `legacy` e `stable` e visuais em Plotly.
+
 - `examples/pd_vintage_benchmark/pd_vintage_benchmark.py`
   Benchmark premium comparando `OptimalBinning` puro, RiskBands estatico e RiskBands balanceado em cenarios de credito com drift temporal.
+
+- `examples/stable_score/stable_score_demo.py`
+  Demo minima comparando o score `legacy` com `stable` sobre a mesma cesta de candidatos, mostrando como a decisao muda quando a funcao objetivo passa a priorizar robustez temporal.
 
 - `examples/pd_vintage_benchmark/pd_vintage_benchmark.ipynb`
   Notebook principal da vitrine metodologica, com board comparativo, heatmaps, curvas por vintage e leitura honesta dos trade-offs.
@@ -23,15 +29,19 @@
 ## How To Run
 
 - Script: `python examples/pd_vintage_benchmark/pd_vintage_benchmark.py --all-scenarios`
+- Script: `python examples/stable_score/stable_score_demo.py`
 - Script + export HTML: `python examples/pd_vintage_benchmark/pd_vintage_benchmark.py --scenario temporal_reversal --export-html-dir benchmark_html`
 - Script: `python examples/temporal_stability/temporal_stability_example.py`
 - Script: `python examples/pd_vintage_champion_challenger/pd_vintage_champion_challenger.py`
 - Notebook: open the `.ipynb` counterpart in Jupyter or VS Code
+- Notebook recomendado para onboarding: `examples/riskbands_synthetic_plotly_comparative_demo.ipynb`
 
 ## How To Read Them
 
 - Comece por `pd_vintage_benchmark/` se a sua pergunta principal for:
   "Por que um binning estatico com IV alto pode ficar fragil no tempo?"
+- Comece por `riskbands_synthetic_plotly_comparative_demo.ipynb` se a sua pergunta principal for:
+  "Qual e o jeito mais curto e familiar de usar o RiskBands hoje?"
 - Start with `temporal_stability/` if you want to understand the mechanics of the API before going into credit-specific trade-offs.
 - Go to `pd_vintage_champion_challenger/` if your main question is:
   "How can a binning that looks stronger in train lose to a more robust alternative over time?"
