@@ -36,6 +36,22 @@ def test_package_version_matches_pyproject():
     assert riskbands.__version__ == match.group(1)
 
 
+def test_resolve_version_uses_distribution_version_when_local_pyproject_is_missing(monkeypatch):
+    package_dir = Path(riskbands.__file__).resolve().parent
+
+    class FakeDistribution:
+        version = "9.9.9"
+
+        def locate_file(self, name: str) -> Path:
+            assert name == "riskbands"
+            return package_dir
+
+    monkeypatch.setattr(riskbands, "_infer_local_version", lambda: "0.0.0")
+    monkeypatch.setattr(riskbands, "distribution", lambda _: FakeDistribution())
+
+    assert riskbands._resolve_version() == "9.9.9"
+
+
 def test_legacy_namespace_is_removed():
     with pytest.raises(ModuleNotFoundError):
         importlib.import_module("nasabinning")

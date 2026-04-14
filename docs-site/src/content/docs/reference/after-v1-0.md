@@ -56,6 +56,12 @@ Principais pontos:
 - exemplos e notebooks atualizados para refletir a API atual
 - fluxo de release alinhado a tag, build validado e publicacao via Trusted Publishing
 
+## v2.0.1: acabamento da release
+
+Depois da primeira publicacao da serie `v2`, o projeto recebeu um patch de
+acabamento para garantir que `riskbands.__version__` reflita a versao correta
+quando o pacote eh instalado fora do repositorio.
+
 ## O que usar hoje
 
 Se voce estiver chegando agora ao projeto, o caminho recomendado eh:

@@ -10,6 +10,14 @@ description: "Marcos de release em alto nivel para o pacote publico e para a doc
 - referencia de API mais profunda
 - curadoria de publicacoes e notas tecnicas
 
+## v2.0.1
+
+Patch release para fechar a publicacao publica com consistencia:
+
+- corrige a resolucao de `riskbands.__version__` no pacote instalado fora do source tree
+- adiciona teste de regressao para a leitura de versao via metadata distribuida
+- preserva integralmente a renomeacao para `stable`, a documentacao nova e o fluxo de release da serie `v2`
+
 ## v2.0.0
 
 Release de consolidacao publica:
