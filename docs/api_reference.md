@@ -14,7 +14,7 @@ from riskbands import (
 
 Current version:
 
-- `1.1.0`
+- `1.2.0`
 
 ## `Binner`
 
@@ -24,8 +24,10 @@ Common parameters:
 
 - `strategy`: `"supervised"` or `"unsupervised"` for numeric variables
 - `max_bins`: default upper limit for bins
+- `max_n_bins`: sklearn/optbinning-friendly alias for `max_bins`
 - `min_event_rate_diff`: minimum event-rate gap used during refinement
 - `monotonic`: `"ascending"`, `"descending"`, or `None`
+- `monotonic_trend`: alias for `monotonic`
 - `check_stability`: enables temporal checks in the flow
 - `use_optuna`: enables hyperparameter search for `strategy="supervised"`
 - `time_col`: period column used by temporal diagnostics
@@ -38,9 +40,15 @@ Common parameters:
 
 Common methods:
 
-- `fit(X, y, time_col=None)`
-- `transform(X, return_woe=False)`
-- `fit_transform(X, y, **fit_params)`
+- `fit(X, y=None, target=None, column=None, columns=None, time_col=None, ...)`
+- `transform(X, column=None, columns=None, return_woe=False, return_type="auto")`
+- `fit_transform(X, y=None, target=None, ..., return_type="auto")`
+- `binning_table(column=None, columns=None)`
+- `summary(...)`
+- `report(...)`
+- `score_details(...)`
+- `diagnostics(kind="bin" | "variable", ...)`
+- `plot_stability(...)`
 - `stability_over_time(X, y, time_col, fill_value=None)`
 - `temporal_bin_diagnostics(X, y, time_col, dataset_name=None, ...)`
 - `temporal_variable_summary(X=None, y=None, diagnostics=None, time_col=None, ...)`
@@ -52,11 +60,24 @@ Common methods:
 
 Notes:
 
+- `fit(df, y="target", column="score")` and `fit(df["score"], y=df["target"])` are both valid.
+- DataFrame inputs preserve DataFrame outputs; Series inputs return Series by default when `return_type="auto"`.
+- `get_params()` and `set_params(...)` work in sklearn style and also understand aliases such as `max_n_bins`.
 - `save_report("...xlsx")` requires an XLSX writer engine such as `openpyxl` or `xlsxwriter`.
 
 Main attributes after `fit`:
 
 - `bin_summary`
+- `binning_table_`
+- `summary_`
+- `report_`
+- `score_details_`
+- `score_`
+- `comparison_score_`
+- `diagnostics_` when temporal context is available
+- `feature_names_in_`
+- `feature_name_` for single-feature fits
+- `target_name_`
 - `iv_`
 - `iv_by_variable_`
 - `objective_config_`

@@ -327,6 +327,23 @@ def _require_single_variable(bin_summary: pd.DataFrame) -> str:
     return str(bin_summary["variable"].iloc[0])
 
 
+def _resolve_bin_summary_frame(binner) -> pd.DataFrame:
+    bin_summary = getattr(binner, "bin_summary", None)
+    if bin_summary is None:
+        bin_summary = getattr(binner, "bin_summary_", None)
+    if bin_summary is None:
+        raise AttributeError("The provided binner does not expose `bin_summary` or `bin_summary_`.")
+    return bin_summary
+
+
+def _resolve_count_series(binner) -> pd.Series:
+    bin_summary = _resolve_bin_summary_frame(binner)
+    for column in ("count", "Count"):
+        if column in bin_summary.columns:
+            return pd.to_numeric(bin_summary[column], errors="coerce").fillna(0.0)
+    raise KeyError("The provided binner does not expose a recognized count column.")
+
+
 def _build_legacy_objective_components(
     binner,
     X: pd.DataFrame,
@@ -395,7 +412,7 @@ def _build_legacy_objective_components(
         ):
             components[column] = _safe_float(row.get(column, 0.0))
 
-    variable = _require_single_variable(binner.bin_summary)
+    variable = _require_single_variable(_resolve_bin_summary_frame(binner))
     bins = binner.transform(X)[variable]
     df_tmp = pd.DataFrame({"bin": bins, "target": y, "time": X[time_col]})
 
@@ -765,7 +782,7 @@ def _build_generalization_objective_components(
         "window_drift": 0.0,
         "rank_inversion": 0.0,
         "separation": _safe_float(summary_components.get("iv"), default=0.0),
-        "entropy": _entropy_penalty_from_counts(binner.bin_summary["count"]),
+        "entropy": _entropy_penalty_from_counts(_resolve_count_series(binner)),
         "psi": 0.0,
         "period_iv_std": 0.0,
         "psi_adjacent_mean": 0.0,

@@ -10,34 +10,17 @@ description: "Marcos de release em alto nível para o pacote público e para a d
 - referência de API mais profunda
 - curadoria de publicações e notas técnicas
 
-## Publicação inicial da documentação
+## v1.2.0
 
-Esta fase marcou a saída da documentação oficial do RiskBands para um formato
-realmente navegável e publicável:
+Evolução importante da ergonomia da API pública:
 
-- site em Astro + Starlight
-- deploy em GitHub Pages
-- Home orientada a porta técnica e porta metodológica
-- conteúdo principal em PT-BR
-- benchmark PD vintage integrado à narrativa pública
-
-## Consolidação da navegação
-
-Depois da publicação inicial, a documentação também passou por uma rodada de
-correção de rotas e links internos para ficar mais confiável em GitHub Pages:
-
-- links da Home e das páginas internas alinhados ao `base` do site
-- sidebar ajustada para respeitar `/RiskBands/`
-- páginas de referência menos placeholder e mais honestas sobre o estado atual
-
-## v1.0.0
-
-Mudanças estruturais importantes já refletidas no repositório:
-
-- rename destrutivo para `riskbands`
-- `Binner` estabelecido como classe principal pública
-- namespace legado `nasabinning` removido
-- direção de documentação orientada a benchmark estabelecida nos exemplos do repositório
+- `Binner` mais alinhado a convenções de sklearn e pandas
+- suporte amigável a `fit(df, y="target", column="feature")`
+- `transform(...)` e `fit_transform(...)` com comportamento mais previsível para `DataFrame` e `Series`
+- aliases públicos como `max_n_bins` e `monotonic_trend`
+- novos métodos de inspeção: `binning_table()`, `summary()`, `report()`, `score_details()`, `diagnostics()` e `plot_stability()`
+- atributos pós-fit mais fáceis de descobrir
+- notebook novo com Plotly e dados sintéticos para onboarding da biblioteca
 
 ## v1.1.0
 
@@ -48,6 +31,15 @@ Evolução importante da camada de scoring:
 - pesos configuráveis, normalização `absolute` e shrink de WoE
 - integração consistente com `Binner`, `BinComparator`, relatórios auditáveis e Optuna
 - novo exemplo mínimo comparando `legacy` versus `generalization_v1`
+
+## v1.0.0
+
+Mudanças estruturais importantes já refletidas no repositório:
+
+- rename destrutivo para `riskbands`
+- `Binner` estabelecido como classe principal pública
+- namespace legado `nasabinning` removido
+- direção de documentação orientada a benchmark estabelecida nos exemplos do repositório
 
 ## Fundação da documentação
 

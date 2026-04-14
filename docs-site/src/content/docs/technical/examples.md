@@ -1,9 +1,25 @@
 ---
 title: "Exemplos"
-description: "Scripts e notebooks que hoje ancoram a história pública do RiskBands."
+description: "Scripts e notebooks para quickstart, benchmark e demonstração da API amigável do RiskBands."
 ---
 
-## Exemplos principais
+## Comece por aqui
+
+### Notebook de ergonomia da API
+
+É a nova porta de entrada para quem quer aprender o RiskBands com um fluxo mais familiar de pandas/sklearn.
+
+- [Notebook sintético com Plotly](https://github.com/joaaomaia/RiskBands/blob/master/examples/riskbands_synthetic_plotly_comparative_demo.ipynb)
+
+Esse material mostra:
+
+- `fit(df, y="target", column="score", time_col="month")`
+- `transform(df["score"])`
+- `summary()`
+- `binning_table()`
+- `score_details()`
+- `diagnostics()`
+- comparação entre `legacy` e `generalization_v1`
 
 ### Benchmark PD vintage
 
@@ -23,8 +39,6 @@ Use este material quando a pergunta principal for:
 - [Script champion challenger](https://github.com/joaaomaia/RiskBands/blob/master/examples/pd_vintage_champion_challenger/pd_vintage_champion_challenger.py)
 - [Notebook champion challenger](https://github.com/joaaomaia/RiskBands/blob/master/examples/pd_vintage_champion_challenger/pd_vintage_champion_challenger.ipynb)
 
-Use este fluxo quando você quiser uma narrativa de seleção entre candidatos sem todo o enquadramento adicional do benchmark.
-
 ### Quickstart de estabilidade temporal
 
 É a porta de entrada mais curta para o núcleo temporal da biblioteca.
@@ -32,26 +46,21 @@ Use este fluxo quando você quiser uma narrativa de seleção entre candidatos s
 - [Script do quickstart](https://github.com/joaaomaia/RiskBands/blob/master/examples/temporal_stability/temporal_stability_example.py)
 - [Notebook do quickstart](https://github.com/joaaomaia/RiskBands/blob/master/examples/temporal_stability/temporal_stability_example.ipynb)
 
-Use este material quando você quiser entender a mecânica antes de entrar em benchmark e comparação metodológica.
-
 ### Demo do generalization objective
 
-É o exemplo mínimo para enxergar a mudança entre o score legado e o novo objective de generalização temporal.
+É o exemplo mínimo para enxergar a mudança entre o score legado e o objective temporal pós-`v1.1.0`.
 
 - [Script da demo](https://github.com/joaaomaia/RiskBands/blob/master/examples/generalization_objective/generalization_objective_demo.py)
 
-Use este material quando a pergunta principal for:
-
-> o que muda na seleção quando saio de um penalty score legado e passo para um objective explícito de generalização temporal?
-
 ## Ordem de leitura sugerida
 
-### Se você quer começar pelo lado técnico
+### Se você quer começar pela API
 
-1. Quickstart de estabilidade temporal
-2. Visão geral da API
-3. PD vintage champion challenger
-4. Benchmark PD vintage
+1. Notebook sintético com Plotly
+2. Quickstart
+3. Visão geral da API
+4. PD vintage champion challenger
+5. Benchmark PD vintage
 
 ### Se você quer começar pela tese metodológica
 
@@ -59,11 +68,3 @@ Use este material quando a pergunta principal for:
 2. Por que não usar apenas OptimalBinning
 3. Benchmark PD vintage
 4. Como ler os gráficos
-
-## Materiais de apoio já existentes no repositório
-
-Estes arquivos já ajudam a expandir a documentação oficial:
-
-- [`docs/api_reference.md`](https://github.com/joaaomaia/RiskBands/blob/master/docs/api_reference.md)
-- [`examples/README.md`](https://github.com/joaaomaia/RiskBands/blob/master/examples/README.md)
-- [`examples/pd_vintage_benchmark/guia_leitura_benchmark_riskbands_ptbr.md`](https://github.com/joaaomaia/RiskBands/blob/master/examples/pd_vintage_benchmark/guia_leitura_benchmark_riskbands_ptbr.md)

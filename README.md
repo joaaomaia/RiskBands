@@ -136,15 +136,16 @@ from riskbands import Binner
 rng = np.random.default_rng(0)
 n = 800
 
-X = pd.DataFrame({"score": rng.normal(size=n)})
-X["month"] = rng.choice([202301, 202302, 202303, 202304], size=n)
+df = pd.DataFrame({"score": rng.normal(size=n)})
+df["month"] = rng.choice([202301, 202302, 202303, 202304], size=n)
 
-proba = 0.20 + 0.15 * X["score"] + 0.02 * (X["month"] - 202301)
+proba = 0.20 + 0.15 * df["score"] + 0.02 * (df["month"] - 202301)
 proba = np.clip(proba, 0.01, 0.99)
-y = pd.Series((rng.random(n) < proba).astype(int), name="target")
+df["target"] = (rng.random(n) < proba).astype(int)
 
 binner = Binner(
     strategy="supervised",
+    max_n_bins=5,
     check_stability=True,
     monotonic="ascending",
     min_event_rate_diff=0.03,
@@ -153,17 +154,20 @@ binner = Binner(
     woe_shrinkage_strength=40.0,
 )
 
-binner.fit(X, y, time_col="month")
-summary = binner.temporal_variable_summary(
-    diagnostics=binner.temporal_bin_diagnostics(
-        X,
-        y,
-        time_col="month",
-        dataset_name="train",
-    ),
-    time_col="month",
-)
+binner.fit(df, y="target", column="score", time_col="month")
+score_bins = binner.transform(df["score"])
+summary = binner.summary()
+score_details = binner.score_details()
+diagnostics = binner.diagnostics(kind="bin")
 ```
+
+Fluxo mais amigavel, no estilo sklearn/pandas:
+
+- `fit(df, y="target", column="score", time_col="month")`
+- `transform(df)` ou `transform(df["score"])`
+- `fit_transform(df["score"], y=df["target"])`
+- `binning_table()`, `summary()`, `report()`, `score_details()`, `diagnostics()`
+- `get_params()` e `set_params(...)` com aliases como `max_n_bins` e `monotonic_trend`
 
 ## Customização do objective
 
@@ -206,6 +210,7 @@ Materiais principais:
 
 - [pd_vintage_benchmark.py](https://github.com/joaaomaia/RiskBands/blob/master/examples/pd_vintage_benchmark/pd_vintage_benchmark.py)
 - [pd_vintage_benchmark.ipynb](https://github.com/joaaomaia/RiskBands/blob/master/examples/pd_vintage_benchmark/pd_vintage_benchmark.ipynb)
+- [riskbands_synthetic_plotly_comparative_demo.ipynb](https://github.com/joaaomaia/RiskBands/blob/master/examples/riskbands_synthetic_plotly_comparative_demo.ipynb)
 - [generalization_objective_demo.py](https://github.com/joaaomaia/RiskBands/blob/master/examples/generalization_objective/generalization_objective_demo.py)
 - [pd_vintage_champion_challenger.py](https://github.com/joaaomaia/RiskBands/blob/master/examples/pd_vintage_champion_challenger/pd_vintage_champion_challenger.py)
 - [temporal_stability_example.py](https://github.com/joaaomaia/RiskBands/blob/master/examples/temporal_stability/temporal_stability_example.py)

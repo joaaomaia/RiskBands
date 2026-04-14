@@ -370,8 +370,17 @@ def _objective_summary_for_variable(
         time_col=time_col if time_col in X_eval.columns else None,
         objective_kwargs=effective_objective_kwargs,
     )
-    if iv_value is not None and "iv" not in components:
+    if iv_value is not None:
         components["iv"] = _safe_float(iv_value, default=0.0)
+        if (
+            score_strategy != "legacy"
+            and (
+                time_col is None
+                or time_col not in X_eval.columns
+                or X_eval[time_col].nunique(dropna=True) <= 1
+            )
+        ):
+            components["separation"] = _safe_float(iv_value, default=0.0)
 
     derived = score_objective_components(components, objective_kwargs=effective_objective_kwargs)
     return derived, "derived_configured_objective"
