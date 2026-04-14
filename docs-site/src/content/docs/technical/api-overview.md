@@ -66,6 +66,56 @@ Quando habilitado, ele funciona como uma camada opcional de busca e otimização
 - baixa fragilidade estrutural
 - racional auditável
 
+## Estratégias de score
+
+Hoje a API expõe duas estratégias explícitas:
+
+- `legacy`
+  Mantém o score histórico orientado a maximização.
+- `generalization_v1`
+  Introduz um objective orientado a generalização temporal e minimização.
+
+Exemplo:
+
+```python
+binner = Binner(
+    strategy="supervised",
+    check_stability=True,
+    use_optuna=True,
+    time_col="month",
+    score_strategy="generalization_v1",
+    score_weights={
+        "temporal_variance_weight": 0.22,
+        "window_drift_weight": 0.18,
+        "rank_inversion_weight": 0.20,
+        "separation_weight": 0.20,
+        "entropy_weight": 0.08,
+        "psi_weight": 0.12,
+    },
+    normalization_strategy="absolute",
+    woe_shrinkage_strength=40.0,
+    strategy_kwargs={"n_trials": 10},
+)
+```
+
+## O que entra no `generalization_v1`
+
+O novo objective combina:
+
+- variância temporal ponderada do WoE shrinkado
+- drift entre janelas adjacentes
+- penalidade de inversão de ranking entre bins
+- penalidade de separação insuficiente
+- entropy penalty para estruturas degeneradas
+- PSI como proxy de estabilidade em produção
+
+Notas práticas:
+
+- os componentes são normalizados em modo `absolute`
+- o score funciona mesmo quando apenas um candidato está sendo avaliado
+- o shrink de WoE é camada de robustez antes do score, não um score separado
+- relatórios auditáveis expõem componentes raw, componentes normalizados, pesos e parâmetros de shrink
+
 ## Próximos passos
 
 - [Exemplos](../examples/) para material executável

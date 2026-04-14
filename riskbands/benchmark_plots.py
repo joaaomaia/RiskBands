@@ -261,6 +261,12 @@ def plot_penalty_breakdown(board: pd.DataFrame, *, title: str) -> Any:
         "monotonic_break_penalty",
         "ranking_reversal_penalty",
         "temporal_shortfall_penalty",
+        "temporal_variance_penalty",
+        "window_drift_penalty",
+        "rank_inversion_penalty",
+        "separation_penalty",
+        "entropy_penalty",
+        "psi_penalty",
     ]
     available = [column for column in penalty_columns if column in board.columns]
     long = board[["approach_label"] + available].melt(

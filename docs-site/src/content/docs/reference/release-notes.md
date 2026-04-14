@@ -39,6 +39,16 @@ Mudanças estruturais importantes já refletidas no repositório:
 - namespace legado `nasabinning` removido
 - direção de documentação orientada a benchmark estabelecida nos exemplos do repositório
 
+## v1.1.0
+
+Evolução importante da camada de scoring:
+
+- caminho legado preservado explicitamente como `legacy`
+- novo objective `generalization_v1` para generalização temporal
+- pesos configuráveis, normalização `absolute` e shrink de WoE
+- integração consistente com `Binner`, `BinComparator`, relatórios auditáveis e Optuna
+- novo exemplo mínimo comparando `legacy` versus `generalization_v1`
+
 ## Fundação da documentação
 
 Este site em Starlight é a primeira fundação oficial da documentação pública do RiskBands:

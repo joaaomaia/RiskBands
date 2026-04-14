@@ -34,6 +34,16 @@ Use este fluxo quando você quiser uma narrativa de seleção entre candidatos s
 
 Use este material quando você quiser entender a mecânica antes de entrar em benchmark e comparação metodológica.
 
+### Demo do generalization objective
+
+É o exemplo mínimo para enxergar a mudança entre o score legado e o novo objective de generalização temporal.
+
+- [Script da demo](https://github.com/joaaomaia/RiskBands/blob/master/examples/generalization_objective/generalization_objective_demo.py)
+
+Use este material quando a pergunta principal for:
+
+> o que muda na seleção quando saio de um penalty score legado e passo para um objective explícito de generalização temporal?
+
 ## Ordem de leitura sugerida
 
 ### Se você quer começar pelo lado técnico

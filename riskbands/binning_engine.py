@@ -25,6 +25,11 @@ class Binner(BaseEstimator, TransformerMixin):
         time_col: str | None = None,
         force_categorical: list[str] | None = None,
         force_numeric: list[str] | None = None,
+        score_strategy: str = "legacy",
+        score_weights: dict | None = None,
+        normalization_strategy: str = "absolute",
+        woe_shrinkage_strength: float = 25.0,
+        objective_kwargs: dict | None = None,
         strategy_kwargs: dict | None = None,
     ):
         self.strategy = strategy
@@ -36,6 +41,11 @@ class Binner(BaseEstimator, TransformerMixin):
         self.time_col = time_col
         self.force_categorical = force_categorical or []
         self.force_numeric = force_numeric or []
+        self.score_strategy = score_strategy
+        self.score_weights = score_weights
+        self.normalization_strategy = normalization_strategy
+        self.woe_shrinkage_strength = woe_shrinkage_strength
+        self.objective_kwargs = objective_kwargs or {}
 
         strategy_kwargs = strategy_kwargs or {}
         if "strategy_kwargs" in strategy_kwargs:
@@ -50,6 +60,8 @@ class Binner(BaseEstimator, TransformerMixin):
     # ------------------------------------------------------------------
     def _numeric_strategy_kwargs(self) -> dict:
         kwargs = dict(self.strategy_kwargs)
+        kwargs.pop("n_trials", None)
+        kwargs.pop("objective_kwargs", None)
         if self.strategy == "supervised":
             kwargs.setdefault("max_bins", self.max_bins)
         elif self.strategy == "unsupervised":
@@ -60,6 +72,35 @@ class Binner(BaseEstimator, TransformerMixin):
                 "Use 'supervised' or 'unsupervised'."
             )
         return kwargs
+
+    # ------------------------------------------------------------------
+    def _resolved_objective_kwargs(self, override: dict | None = None) -> dict:
+        def _merge_dicts(base: dict, extra: dict) -> dict:
+            for key, value in extra.items():
+                if isinstance(value, dict) and isinstance(base.get(key), dict):
+                    _merge_dicts(base[key], value)
+                else:
+                    base[key] = value
+            return base
+
+        merged = {}
+        strategy_objective = dict(self.strategy_kwargs.get("objective_kwargs", {}) or {})
+        explicit_objective = dict(self.objective_kwargs or {})
+        if strategy_objective:
+            _merge_dicts(merged, strategy_objective)
+        if explicit_objective:
+            _merge_dicts(merged, explicit_objective)
+        if override:
+            _merge_dicts(merged, dict(override))
+
+        merged["score_strategy"] = self.score_strategy
+        if self.score_weights is not None:
+            merged["weights"] = dict(self.score_weights)
+        if self.normalization_strategy is not None:
+            merged["normalization_strategy"] = self.normalization_strategy
+        if self.woe_shrinkage_strength is not None:
+            merged["woe_shrinkage_strength"] = self.woe_shrinkage_strength
+        return merged
 
     # ------------------------------------------------------------------
     def _compute_iv_metrics(self) -> None:
@@ -111,7 +152,7 @@ class Binner(BaseEstimator, TransformerMixin):
 
             optuna_kwargs = dict(self.strategy_kwargs)
             n_trials = optuna_kwargs.pop("n_trials", 20)
-            objective_kwargs = optuna_kwargs.pop("objective_kwargs", None)
+            objective_kwargs = self._resolved_objective_kwargs(optuna_kwargs.pop("objective_kwargs", None))
             base_kwargs = dict(
                 strategy=self.strategy,
                 min_event_rate_diff=self.min_event_rate_diff,
@@ -142,6 +183,16 @@ class Binner(BaseEstimator, TransformerMixin):
                 ignore_index=True,
             )
             self._compute_iv_metrics()
+            if self.objective_summaries_:
+                self.objective_summary_ = next(iter(self.objective_summaries_.values()))
+                self.objective_config_ = next(
+                    (
+                        getattr(binner, "objective_config_", None)
+                        for binner in self._per_feature_binners.values()
+                        if getattr(binner, "objective_config_", None) is not None
+                    ),
+                    None,
+                )
             return self
 
         self._per_feature_binners = {}
@@ -194,6 +245,9 @@ class Binner(BaseEstimator, TransformerMixin):
 
         self.bin_summary = pd.concat(summaries, ignore_index=True)
         self._compute_iv_metrics()
+        from .objectives import resolve_objective_config
+
+        self.objective_config_ = resolve_objective_config(self._resolved_objective_kwargs())
         return self
 
     # ------------------------------------------------------------------

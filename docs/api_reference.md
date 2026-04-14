@@ -14,7 +14,7 @@ from riskbands import (
 
 Current version:
 
-- `1.0.0`
+- `1.1.0`
 
 ## `Binner`
 
@@ -29,6 +29,11 @@ Common parameters:
 - `check_stability`: enables temporal checks in the flow
 - `use_optuna`: enables hyperparameter search for `strategy="supervised"`
 - `time_col`: period column used by temporal diagnostics
+- `score_strategy`: `"legacy"` or `"generalization_v1"`
+- `score_weights`: optional weights for `generalization_v1`
+- `normalization_strategy`: currently `absolute` for standalone-safe normalization
+- `woe_shrinkage_strength`: shrink intensity applied before temporal scoring
+- `objective_kwargs`: advanced score configuration override
 - `strategy_kwargs`: strategy-specific parameters
 
 Common methods:
@@ -54,6 +59,7 @@ Main attributes after `fit`:
 - `bin_summary`
 - `iv_`
 - `iv_by_variable_`
+- `objective_config_`
 - `best_params_` when `use_optuna=True`
 - `objective_summary_` on binners trained directly with `optimize_bins(...)`
 - `objective_summaries_` on multi-feature `Binner` runs with `use_optuna=True`
@@ -89,14 +95,44 @@ Main attributes after `fit`:
 - `cut_summary`
 - `iv`, `ks`, `separability`, and `temporal_score`
 - temporal coverage and rare-bin signals
+- score strategy, objective direction, and comparison-ready score
 - objective components and penalties
+- raw components, normalized components, and effective weights
+- normalization mode and WoE shrinkage parameters
 - `key_drivers`, `key_penalties`
 - `selection_basis`
 - `rationale_summary`
 
 ## Credit-Oriented Optimization
 
-`optimize_bins(...)` uses a simple auditable score composed of:
+`optimize_bins(...)` now supports two explicit scoring strategies:
+
+- `legacy`
+  - maximize-oriented
+  - keeps the historical score based on positive components and penalties
+- `generalization_v1`
+  - minimize-oriented
+  - explicit generalization objective with normalized components
+
+`generalization_v1` combines:
+
+- temporal weighted variance of shrinked WoE
+- adjacent window drift
+- rank inversion penalty
+- separation penalty
+- entropy penalty
+- PSI penalty
+
+Default weights:
+
+- `temporal_variance_weight=0.22`
+- `window_drift_weight=0.18`
+- `rank_inversion_weight=0.20`
+- `separation_weight=0.20`
+- `entropy_weight=0.08`
+- `psi_weight=0.12`
+
+Legacy optimization remains composed of:
 
 - base components:
   - `separability`
@@ -113,6 +149,12 @@ Main attributes after `fit`:
   - `ranking_reversal_period_count`
 
 The final winner summary is stored in `objective_summary_`.
+
+Interpretation:
+
+- in `legacy`, higher `objective_score` is better
+- in `generalization_v1`, lower `objective_score` is better
+- `objective_preference_score` keeps comparisons consistent across strategies
 
 ## `BinComparator`
 

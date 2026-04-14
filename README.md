@@ -49,6 +49,43 @@ Em outras palavras:
 - `RiskBands` ajuda a decidir se esse corte continua sendo a melhor resposta
   para credito quando o tempo entra na analise
 
+## Arquitetura de score
+
+O repositório agora expõe dois caminhos explícitos de score:
+
+- `legacy`
+  Mantém o objetivo histórico baseado em componentes positivos menos penalidades.
+- `generalization_v1`
+  Introduz uma função objetivo de generalização temporal orientada a minimização,
+  com componentes normalizados e focada em equilíbrio entre separação e robustez.
+
+O `generalization_v1` combina:
+
+- variância temporal ponderada do WoE shrinkado
+- drift entre janelas adjacentes
+- penalidade de inversão de ranking entre bins
+- penalidade de separação insuficiente
+- entropy penalty para distribuições degeneradas
+- PSI como proxy de estabilidade em produção
+
+Todos os componentes são normalizados em modo absoluto, então o score funciona
+mesmo quando apenas um candidato está sendo avaliado.
+
+Os pesos padrão são:
+
+- `temporal_variance_weight=0.22`
+- `window_drift_weight=0.18`
+- `rank_inversion_weight=0.20`
+- `separation_weight=0.20`
+- `entropy_weight=0.08`
+- `psi_weight=0.12`
+
+O shrink de WoE é tratado como camada de robustez, não como score isolado:
+
+- WoE raw por bin e período
+- shrink em direção ao WoE global do bin
+- uso do WoE shrinkado nos componentes temporais
+
 ## Instalacao
 
 Instalacao base:
@@ -111,6 +148,9 @@ binner = Binner(
     check_stability=True,
     monotonic="ascending",
     min_event_rate_diff=0.03,
+    score_strategy="generalization_v1",
+    normalization_strategy="absolute",
+    woe_shrinkage_strength=40.0,
 )
 
 binner.fit(X, y, time_col="month")
@@ -125,6 +165,35 @@ summary = binner.temporal_variable_summary(
 )
 ```
 
+## Customização do objective
+
+```python
+binner = Binner(
+    strategy="supervised",
+    check_stability=True,
+    use_optuna=True,
+    time_col="month",
+    score_strategy="generalization_v1",
+    score_weights={
+        "temporal_variance_weight": 0.18,
+        "window_drift_weight": 0.16,
+        "rank_inversion_weight": 0.22,
+        "separation_weight": 0.24,
+        "entropy_weight": 0.08,
+        "psi_weight": 0.12,
+    },
+    normalization_strategy="absolute",
+    woe_shrinkage_strength=35.0,
+    strategy_kwargs={"n_trials": 10},
+)
+```
+
+Leitura rápida:
+
+- no `legacy`, maiores scores continuam melhores
+- no `generalization_v1`, menores scores são melhores
+- relatórios auditáveis expõem score final, componentes raw, componentes normalizados, pesos, estratégia e parâmetros de shrink
+
 ## Benchmark principal do repositorio
 
 O benchmark mais importante hoje compara tres lentes:
@@ -137,6 +206,7 @@ Materiais principais:
 
 - [pd_vintage_benchmark.py](https://github.com/joaaomaia/RiskBands/blob/master/examples/pd_vintage_benchmark/pd_vintage_benchmark.py)
 - [pd_vintage_benchmark.ipynb](https://github.com/joaaomaia/RiskBands/blob/master/examples/pd_vintage_benchmark/pd_vintage_benchmark.ipynb)
+- [generalization_objective_demo.py](https://github.com/joaaomaia/RiskBands/blob/master/examples/generalization_objective/generalization_objective_demo.py)
 - [pd_vintage_champion_challenger.py](https://github.com/joaaomaia/RiskBands/blob/master/examples/pd_vintage_champion_challenger/pd_vintage_champion_challenger.py)
 - [temporal_stability_example.py](https://github.com/joaaomaia/RiskBands/blob/master/examples/temporal_stability/temporal_stability_example.py)
 

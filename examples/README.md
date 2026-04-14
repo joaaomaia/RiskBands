@@ -5,6 +5,9 @@
 - `examples/pd_vintage_benchmark/pd_vintage_benchmark.py`
   Benchmark premium comparando `OptimalBinning` puro, RiskBands estatico e RiskBands balanceado em cenarios de credito com drift temporal.
 
+- `examples/generalization_objective/generalization_objective_demo.py`
+  Demo minima comparando o score `legacy` com `generalization_v1` sobre a mesma cesta de candidatos, mostrando como a decisao muda quando a funcao objetivo passa a priorizar generalizacao temporal.
+
 - `examples/pd_vintage_benchmark/pd_vintage_benchmark.ipynb`
   Notebook principal da vitrine metodologica, com board comparativo, heatmaps, curvas por vintage e leitura honesta dos trade-offs.
 
@@ -23,6 +26,7 @@
 ## How To Run
 
 - Script: `python examples/pd_vintage_benchmark/pd_vintage_benchmark.py --all-scenarios`
+- Script: `python examples/generalization_objective/generalization_objective_demo.py`
 - Script + export HTML: `python examples/pd_vintage_benchmark/pd_vintage_benchmark.py --scenario temporal_reversal --export-html-dir benchmark_html`
 - Script: `python examples/temporal_stability/temporal_stability_example.py`
 - Script: `python examples/pd_vintage_champion_challenger/pd_vintage_champion_challenger.py`
