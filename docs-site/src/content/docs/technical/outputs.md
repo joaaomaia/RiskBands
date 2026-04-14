@@ -1,6 +1,6 @@
 ---
 title: "Outputs e diagnóstico"
-description: "Como interpretar os principais outputs do Binner depois do fit."
+description: "Como interpretar os principais outputs do Binner depois do fit, com foco em auditoria, score e leitura temporal."
 ---
 
 ## O que aparece depois do `fit`
@@ -8,22 +8,32 @@ description: "Como interpretar os principais outputs do Binner depois do fit."
 Depois de ajustar um `Binner`, a API pública expõe artefatos mais amigáveis para inspeção:
 
 - `binning_table()`
+- `feature_binning_table()` e `get_binning_table()`
 - `summary()`
-- `report()`
 - `score_details()`
+- `score_table()`
+- `report()`
+- `audit_table()`
 - `diagnostics()`
 - `plot_stability()`
+- `plot_bad_rate_over_time()`
+- `plot_bad_rate_heatmap()`
+- `plot_bin_share_over_time()`
+- `plot_score_components()`
+- `export_binnings_json()`
+- `export_bundle()`
 
 Também ficam disponíveis atributos pós-fit úteis, como:
 
 - `binning_table_`
 - `summary_`
-- `report_`
 - `score_details_`
+- `score_table_`
+- `audit_table_`
+- `report_`
+- `metadata_`
 - `score_`
 - `comparison_score_`
-- `feature_name_`
-- `target_name_`
 
 ## `binning_table()`
 
@@ -33,36 +43,37 @@ Perguntas que ela ajuda a responder:
 
 - quantos bins ficaram?
 - quais intervalos ou grupos foram formados?
-- como o binning final está organizado?
+- qual é a ordem dos bins?
 
-## `summary()`
+## `score_table()`
 
-É o resumo curto e amigável do resultado.
+É a tabela mais curta para notebook quando a pergunta central é:
 
-Normalmente é a primeira tabela para olhar no notebook.
+- por que esse score saiu assim?
+- quais pesos entraram?
+- quais componentes pesaram mais?
+- qual normalização está ativa?
 
-Ela ajuda a responder:
+Ela expõe:
 
-- qual estratégia foi usada?
-- qual foi o score final?
-- qual foi o IV?
-- existem alertas temporais relevantes?
-
-## `score_details()`
-
-É a tabela mais útil para entender o objective.
-
-Ela expõe, por variável:
-
-- `score_strategy`
-- direção do objective
 - `objective_score`
 - `objective_preference_score`
-- componentes raw
-- componentes normalizados
-- pesos efetivos
-- `normalization_strategy`
-- `woe_shrinkage_strength`
+- `weight_profile`
+- `normalized_component_profile`
+- `raw_component_profile`
+- colunas detalhadas `objective_weight_*`, `objective_norm_*` e `objective_raw_*`
+
+## `audit_table()`
+
+É a tabela mais útil para revisão auditável e model risk.
+
+Ela combina em uma única visão:
+
+- cortes
+- IV e score temporal
+- score e penalidades
+- cobertura, bins raros e reversões
+- rationale resumido
 
 ## `diagnostics()`
 
@@ -75,32 +86,45 @@ Use `diagnostics(kind="variable")` quando quiser o resumo temporal agregado por 
 - cobertura
 - volatilidade de event rate
 - volatilidade de WoE
-- shares de bin
+- share dos bins
 - reversões de ranking
 - quebras de monotonicidade
 
-## `report()`
+## `metadata_`
 
-É a tabela consolidada para auditoria e decisão.
+O metadata pós-fit agora é mais auditável.
 
-Ela junta em um único lugar:
+Ele inclui:
 
-- cortes
-- métricas estáticas
-- métricas temporais
-- objective score
-- penalizações
-- racional resumido
+- versão do `riskbands`
+- `strategy`
+- `score_strategy`
+- `normalization_strategy`
+- `woe_shrinkage_strength`
+- pesos informados e pesos efetivos
+- `target_name`
+- `time_col`
+- features ajustadas
 
-## `plot_stability()`
+## Export auditável
 
-Use quando quiser uma leitura visual do comportamento temporal dos bins.
+### `export_binnings_json(path)`
 
-Ele é especialmente útil para:
+Gera um JSON único com:
 
-- notebooks
-- validação exploratória
-- comunicação com times menos técnicos
+- metadata geral do fit
+- pesos do score
+- bins por feature
+- resumo, score details e auditoria por feature
+
+### `export_bundle(path)`
+
+Gera um pacote de auditoria com:
+
+- JSON legível
+- CSVs prontos para notebook ou governança
+- tabelas por feature
+- Parquet opcional quando houver engine disponível
 
 ## Leitura rápida do score
 
@@ -117,8 +141,9 @@ Se quiser uma régua consolidada para comparação entre estratégias, olhe tamb
 binner.fit(df, y="target", column="score", time_col="month")
 
 table = binner.binning_table()
-summary = binner.summary()
-details = binner.score_details()
-diagnostics = binner.diagnostics(kind="bin")
-report = binner.report()
+score_table = binner.score_table()
+audit_table = binner.audit_table()
+
+binner.export_binnings_json("artifacts/riskbands_binnings.json")
+binner.export_bundle("artifacts/run_2026_04_14")
 ```

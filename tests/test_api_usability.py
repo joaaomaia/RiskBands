@@ -133,6 +133,46 @@ def test_summary_report_and_diagnostics_methods_are_friendly_aliases(demo_df: pd
     assert summary.iloc[0]["score_strategy"] == "legacy"
 
 
+def test_score_table_audit_table_and_metadata_expose_effective_weights(demo_df: pd.DataFrame):
+    binner = Binner(
+        strategy="supervised",
+        check_stability=True,
+        score_strategy="stable",
+        score_weights={
+            "temporal_variance_weight": 0.30,
+            "window_drift_weight": 0.10,
+            "rank_inversion_weight": 0.15,
+            "separation_weight": 0.20,
+            "entropy_weight": 0.10,
+            "psi_weight": 0.15,
+        },
+    )
+    binner.fit(demo_df, y="target", column="age", time_col="month")
+
+    score_table = binner.score_table()
+    audit_table = binner.audit_table()
+
+    assert not score_table.empty
+    assert not audit_table.empty
+    assert "weight_profile" in score_table.columns
+    assert "temporal_variance_weight" in score_table.iloc[0]["weight_profile"]
+    assert "objective_weight_temporal_variance_weight" in score_table.columns
+    assert "weight_profile" in audit_table.columns
+    assert "score_weights_input" in binner.metadata_
+    assert binner.metadata_["score_weights_input"]["temporal_variance_weight"] == 0.30
+    assert "score_weights" in binner.metadata_
+    assert "temporal_variance_weight" in binner.metadata_["score_weights"]
+
+
+def test_feature_binning_table_aliases_match_primary_method(demo_df: pd.DataFrame):
+    binner = Binner(strategy="supervised", max_bins=4)
+    binner.fit(demo_df, y="target", columns=["age", "income"])
+
+    base = binner.binning_table(column="age")
+    assert base.equals(binner.feature_binning_table(column="age"))
+    assert base.equals(binner.get_binning_table(column="age"))
+
+
 def test_diagnostics_requires_time_col_when_no_temporal_context_is_available(demo_df: pd.DataFrame):
     binner = Binner(strategy="supervised")
     binner.fit(demo_df, y="target", column="age")

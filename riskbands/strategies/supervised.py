@@ -41,7 +41,7 @@ class SupervisedBinning:
             if return_woe:
                 tr = ob.transform(X[col].values, metric="woe")
             else:
-                tr = ob.transform(X[col].values)
+                tr = ob.transform(X[col].values, metric="bins")
             dfs.append(pd.DataFrame({col: tr}, index=X.index))
         return pd.concat(dfs, axis=1)
 

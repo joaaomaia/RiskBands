@@ -181,6 +181,8 @@ def plot_event_rate_curves_by_approach(
         }
         for bin_label in ordered_bins:
             grp = diagnostics.loc[diagnostics["bin"].astype(str) == str(bin_label)].sort_values(time_col)
+            if grp["event_rate"].notna().sum() == 0:
+                continue
             fig.add_trace(
                 go.Scatter(
                     x=grp[time_col].astype(str).tolist(),
@@ -189,8 +191,8 @@ def plot_event_rate_curves_by_approach(
                     name=str(bin_label),
                     legendgroup=str(bin_label),
                     showlegend=row_idx == 1,
-                    line=dict(color=color_map.get(str(bin_label), "#607D8B"), width=2),
-                    marker=dict(size=7),
+                    line=dict(color=color_map.get(str(bin_label), "#607D8B"), width=2.5),
+                    marker=dict(size=8),
                     hovertemplate=f"{approach}<br>Bin={bin_label}<br>Vintage=%{{x}}<br>Event rate=%{{y:.2f}}%<extra></extra>",
                 ),
                 row=row_idx,
@@ -199,11 +201,11 @@ def plot_event_rate_curves_by_approach(
         fig.update_yaxes(title_text="Event rate (%)", row=row_idx, col=1)
     fig.update_layout(
         title=title,
-        height=max(360, 290 * len(approaches)),
+        height=max(440, 340 * len(approaches)),
         plot_bgcolor="white",
         paper_bgcolor="white",
-        margin=dict(l=50, r=30, t=90, b=60),
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="left", x=0.0),
+        margin=dict(l=60, r=40, t=100, b=70),
+        legend=dict(orientation="h", yanchor="bottom", y=1.03, xanchor="left", x=0.0),
     )
     fig.update_xaxes(title_text="Vintage")
     return fig
@@ -236,16 +238,17 @@ def plot_event_rate_heatmap(
                 y=pivot.index.tolist(),
                 colorscale="Teal",
                 colorbar=dict(title=colorbar_title),
+                hoverongaps=False,
                 hovertemplate="Bin=%{y}<br>Vintage=%{x}<br>Value=%{z:.2f}<extra></extra>",
             )
         ]
     )
     fig.update_layout(
         title=title,
-        height=340,
+        height=max(420, 95 * len(pivot.index) + 150),
         plot_bgcolor="white",
         paper_bgcolor="white",
-        margin=dict(l=40, r=20, t=70, b=40),
+        margin=dict(l=50, r=40, t=80, b=50),
     )
     return fig
 
@@ -451,7 +454,14 @@ def export_figure_pack(figures: dict[str, Any], output_dir: str | Path, *, prefi
         html = figure.to_html(include_plotlyjs="cdn", full_html=True)
         html = html.replace(
             "<head>",
-            '<head>\n<meta name="robots" content="noindex" />',
+            (
+                "<head>\n<meta name=\"robots\" content=\"noindex\" />\n"
+                "<style>"
+                "html, body { margin: 0; padding: 0; background: #ffffff; }"
+                "body { min-height: 100vh; }"
+                ".plotly-graph-div { width: 100% !important; }"
+                "</style>"
+            ),
             1,
         )
         html = html.replace(

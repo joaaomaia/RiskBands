@@ -14,7 +14,7 @@ from riskbands import (
 
 Current version:
 
-- `2.0.1`
+- `2.0.2`
 
 ## `Binner`
 
@@ -37,6 +37,7 @@ Common parameters:
 - `woe_shrinkage_strength`: shrink intensity applied before temporal scoring
 - `objective_kwargs`: advanced score configuration override
 - `strategy_kwargs`: strategy-specific parameters
+  - when `use_optuna=True`, `strategy_kwargs` can also carry search controls such as `n_trials` and `sampler_seed`
 
 Common methods:
 
@@ -47,13 +48,25 @@ Common methods:
 - `summary(...)`
 - `report(...)`
 - `score_details(...)`
+- `score_table(...)`
+- `audit_table(...)`
 - `diagnostics(kind="bin" | "variable", ...)`
 - `plot_stability(...)`
 - `stability_over_time(X, y, time_col, fill_value=None)`
 - `temporal_bin_diagnostics(X, y, time_col, dataset_name=None, ...)`
 - `temporal_variable_summary(X=None, y=None, diagnostics=None, time_col=None, ...)`
 - `variable_audit_report(X=None, y=None, time_col=None, diagnostics=None, summary=None, ...)`
+- `feature_binning_table(column=None, feature=None)`
+- `get_binning_table(column=None, feature=None)`
+- `export_binnings_json(path)`
+- `export_bundle(path)`
 - `plot_event_rate_stability(pivot=None, **kwargs)`
+- `plot_bad_rate_over_time(X=None, y=None, time_col=None, column=None, ...)`
+- `plot_bad_rate_heatmap(X=None, y=None, time_col=None, column=None, ...)`
+- `plot_bin_share_over_time(X=None, y=None, time_col=None, column=None, ...)`
+- `plot_score_components(column=None, feature=None, ...)`
+- `plot_event_rate_by_bin(column=None, feature=None, ...)`
+- `plot_woe(X=None, y=None, time_col=None, column=None, ...)`
 - `save_report(path)`
 - `describe_schema()`
 - `get_bin_mapping(column)`
@@ -72,6 +85,9 @@ Main attributes after `fit`:
 - `summary_`
 - `report_`
 - `score_details_`
+- `score_table_`
+- `audit_table_`
+- `metadata_`
 - `score_`
 - `comparison_score_`
 - `diagnostics_` when temporal context is available
@@ -123,6 +139,22 @@ Main attributes after `fit`:
 - `key_drivers`, `key_penalties`
 - `selection_basis`
 - `rationale_summary`
+
+`export_binnings_json(...)` creates a single JSON artifact with:
+
+- fit metadata and RiskBands version
+- strategy, score strategy, normalization mode, shrinkage configuration
+- target, time column, fitted features and generation timestamp
+- auditable score weights and effective score-weight profile
+- per-feature binning tables, score details and audit-friendly summaries
+
+`export_bundle(...)` creates a folder-oriented bundle with:
+
+- `metadata.json`
+- `binnings.json`
+- friendly CSV outputs such as `summary.csv`, `score_table.csv`, `audit_table.csv`, and `report.csv`
+- per-feature tables under `feature_tables/`
+- parquet artifacts when the environment has parquet support available
 
 ## Credit-Oriented Optimization
 

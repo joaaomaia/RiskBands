@@ -89,7 +89,7 @@ Ela costuma ser mais parecida com:
 
 É esse espaço que o RiskBands foi desenhado para ocupar.
 
-<figure class="rb-figure rb-figure--medium">
+<figure class="rb-figure rb-figure--wide rb-figure--medium">
   <iframe
     src="../../benchmark-assets/temporal_reversal_aggregate_vs_vintage.html"
     title="Agregado versus leitura por safra no benchmark"

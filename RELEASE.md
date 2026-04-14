@@ -1,262 +1,98 @@
 # RiskBands Release Runbook
 
-## Project Identity
+## Current Target
 
-- Project name: `RiskBands`
-- Distribution name: `riskbands`
-- Import name: `riskbands`
-- Current version in the repository: `1.0.0`
-- GitHub owner: `joaaomaia`
-- GitHub repository: `RiskBands`
-- Default branch currently in use: `master`
+- Project: `RiskBands`
+- Distribution: `riskbands`
+- Repository version: `2.0.2`
+- Release tag: `v2.0.2`
+- Default branch: `master`
 
-## Release Flow
+## Workflows In Use
 
-The intended release path is:
+- `tests.yml`: regular CI test suite
+- `release-validation.yml`: release-oriented pytest subset, package build, `twine check`, wheel smoke, and sdist smoke
+- `docs-deploy.yml`: Astro/Starlight build plus GitHub Pages deploy on pushes to `master`
+- `publish-testpypi.yml`: optional TestPyPI publication via Trusted Publishing
+- `publish-pypi.yml`: PyPI publication via Trusted Publishing
 
-1. run local and CI release validation
-2. publish to TestPyPI
-3. run post-upload smoke tests against TestPyPI
-4. publish the approved version to PyPI
+## Release Sequence
 
-## Recommended Versioning Strategy
+1. Update versioned files and release notes to the target version.
+2. Run local validation aligned with `release-validation.yml`.
+3. Commit the release candidate changes.
+4. Create the annotated git tag `v<version>`.
+5. Push `master` and the tag.
+6. Confirm `release-validation.yml` is green for the pushed tag.
+7. Optionally run `publish-testpypi.yml` on the tag.
+8. Run `publish-pypi.yml` on the same stable tag.
+9. Confirm `docs-deploy.yml` is green after the push to `master`.
 
-Recommended first rehearsal: keep the current stable version `1.0.0` for the
-first controlled TestPyPI upload.
+## Local Validation
 
-Why this is the recommended path:
+Recommended command sequence:
 
-- the repository is already internally consistent at `1.0.0`
-- it avoids a churn-only version bump before the first rehearsal
-- it allows the exact same tag to be promoted to PyPI if TestPyPI smoke tests pass
-
-If the TestPyPI rehearsal exposes a defect:
-
-- do not reuse `v1.0.0`
-- fix forward to `1.0.1rc1` for the next rehearsal, or straight to `1.0.1` if the fixes are minimal and the release is immediately stable
-
-## GitHub Environments
-
-Create these GitHub environments in `Settings -> Environments`:
-
-### `testpypi`
-
-- Environment name: `testpypi`
-- Recommended protection: optional reviewer approval
-- Purpose: adds a manual checkpoint before any TestPyPI upload
-
-### `pypi`
-
-- Environment name: `pypi`
-- Recommended protection: at least one required reviewer
-- Purpose: protects the real release more strongly than TestPyPI
-
-## Workflow Files
-
-- `tests.yml`: regular test workflow
-- `docs-deploy.yml`: docs site build and deploy
-- `release-validation.yml`: build, `twine check`, selected pytest subset, smoke install via wheel, smoke install via sdist
-- `publish-testpypi.yml`: trusted-publishing workflow for TestPyPI
-- `publish-pypi.yml`: trusted-publishing workflow for PyPI
-
-## Trusted Publisher Setup on TestPyPI
-
-If `riskbands` already exists on TestPyPI:
-
-1. Log in to TestPyPI.
-2. Open the project page for `riskbands`.
-3. Go to `Your account -> Publishing`.
-4. Add a trusted publisher with these exact values:
-
-- Project name: `riskbands`
-- Owner: `joaaomaia`
-- Repository name: `RiskBands`
-- Workflow name: `publish-testpypi.yml`
-- Environment name: `testpypi`
-
-If `riskbands` does not yet exist on TestPyPI:
-
-1. Log in to TestPyPI.
-2. Open `Your account -> Publishing`.
-3. Create a pending publisher with these exact values:
-
-- Project name: `riskbands`
-- Owner: `joaaomaia`
-- Repository name: `RiskBands`
-- Workflow name: `publish-testpypi.yml`
-- Environment name: `testpypi`
-
-## Trusted Publisher Setup on PyPI
-
-If `riskbands` already exists on PyPI:
-
-1. Log in to PyPI.
-2. Open the project page for `riskbands`.
-3. Go to `Your account -> Publishing`.
-4. Add a trusted publisher with these exact values:
-
-- Project name: `riskbands`
-- Owner: `joaaomaia`
-- Repository name: `RiskBands`
-- Workflow name: `publish-pypi.yml`
-- Environment name: `pypi`
-
-If `riskbands` does not yet exist on PyPI:
-
-1. Log in to PyPI.
-2. Open `Your account -> Publishing`.
-3. Create a pending publisher with these exact values:
-
-- Project name: `riskbands`
-- Owner: `joaaomaia`
-- Repository name: `RiskBands`
-- Workflow name: `publish-pypi.yml`
-- Environment name: `pypi`
-
-## Step-by-Step TestPyPI Rehearsal
-
-This repository is currently prepared for the first controlled TestPyPI upload with:
-
-- version: `1.0.0`
-- tag: `v1.0.0`
-- workflow: `publish-testpypi.yml`
-
-### 1. Review the repository state
-
-Confirm:
-
-- `pyproject.toml` version is `1.0.0`
-- `riskbands.__version__` resolves to `1.0.0`
-- `release-validation.yml` is green
-
-### 2. Create the release commit and tag
-
-```bash
-git add .
-git commit -m "release: prepare 1.0.0"
-git tag v1.0.0
+```powershell
+C:\Users\JM\AppData\Local\anaconda3\python.exe -m pip install -e .[dev]
+C:\Users\JM\AppData\Local\anaconda3\python.exe -m pytest -q tests\test_public_api.py tests\test_api_usability.py tests\test_binning_engine.py tests\test_compare.py tests\test_examples_smoke.py tests\test_stable_score.py tests\test_temporal_stability.py --basetemp .pytest_tmp_release
+C:\Users\JM\AppData\Local\anaconda3\python.exe -m build
+C:\Users\JM\AppData\Local\anaconda3\python.exe -m twine check dist\*
 ```
 
-### 3. Push the branch and tag
+This mirrors the key steps enforced by the release workflow.
 
-```bash
-git push origin master
-git push origin v1.0.0
-```
+## Tag Rules
 
-### 4. Dispatch the TestPyPI workflow
+Both publication workflows require:
 
-1. Open `Actions -> publish-testpypi`
-2. Click `Run workflow`
-3. Select the tag ref `v1.0.0`
-4. Confirm the environment approval if GitHub asks for it
+- the workflow to run against a git tag, not a branch
+- the tag name to match `v<pyproject version>`
 
-The workflow refuses to run unless:
+`publish-pypi.yml` also requires a stable semantic version such as `2.0.2`.
 
-- the selected ref is a git tag
-- the tag matches `v<pyproject version>`
+## TestPyPI
 
-## Post-TestPyPI Smoke Tests
+`publish-testpypi.yml` is optional but recommended when the release changes packaging, metadata, or installation behaviour.
 
-Base install smoke:
-
-```bash
-python -m venv .venv-testpypi
-source .venv-testpypi/bin/activate
-python -m pip install --upgrade pip
-python -m pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ riskbands==1.0.0
-python scripts/smoke_test_installed_package.py --expected-version 1.0.0
-```
-
-Base install smoke on Windows PowerShell:
+After a successful TestPyPI upload, smoke test with:
 
 ```powershell
 python -m venv .venv-testpypi
 .\.venv-testpypi\Scripts\python.exe -m pip install --upgrade pip
-.\.venv-testpypi\Scripts\python.exe -m pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ riskbands==1.0.0
-.\.venv-testpypi\Scripts\python.exe .\scripts\smoke_test_installed_package.py --expected-version 1.0.0
+.\.venv-testpypi\Scripts\python.exe -m pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ riskbands==2.0.2
+.\.venv-testpypi\Scripts\python.exe .\scripts\smoke_test_installed_package.py --expected-version 2.0.2
 ```
 
-Optional Plotly benchmark smoke:
-
-```bash
-python -m pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ "riskbands[viz]==1.0.0"
-python scripts/smoke_test_installed_package.py --expected-version 1.0.0 --check-viz
-```
-
-Optional Plotly benchmark smoke on Windows PowerShell:
+Optional visualization extra:
 
 ```powershell
-.\.venv-testpypi\Scripts\python.exe -m pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ "riskbands[viz]==1.0.0"
-.\.venv-testpypi\Scripts\python.exe .\scripts\smoke_test_installed_package.py --expected-version 1.0.0 --check-viz
+.\.venv-testpypi\Scripts\python.exe -m pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ "riskbands[viz]==2.0.2"
+.\.venv-testpypi\Scripts\python.exe .\scripts\smoke_test_installed_package.py --expected-version 2.0.2 --check-viz
 ```
 
-What this extra smoke validates:
+## PyPI
 
-- Plotly extra installation through `riskbands[viz]`
-- benchmark plotting helpers import successfully
-- HTML export through `export_figure_pack()` works in a clean environment
+Run `publish-pypi.yml` manually on `v2.0.2` only after:
 
-No Kaleido-based static export path was detected in the current repository, so the optional smoke focus is Plotly visualization plus HTML export.
+- `release-validation.yml` is green
+- the tag points to the intended release commit
+- the PyPI trusted publisher is configured for repository `joaaomaia/RiskBands`
+- the `pypi` GitHub environment is approved when required
 
-## Promotion to PyPI
+## Docs Site
 
-Promote only after TestPyPI smoke tests succeed.
+`docs-deploy.yml` builds the site from `docs-site/` and deploys automatically on pushes to `master`.
 
-If the TestPyPI rehearsal is clean and no code changes are required:
+To validate locally:
 
-1. keep the same version `1.0.0`
-2. keep the same tag `v1.0.0`
-3. open `Actions -> publish-pypi`
-4. run the workflow on `v1.0.0`
-
-The PyPI workflow refuses to run unless:
-
-- the selected ref is a git tag
-- the tag matches `v<pyproject version>`
-- the version is stable, such as `1.0.0` or `1.0.1`
+```powershell
+cd docs-site
+npm ci
+npm run build
+```
 
 ## Failure Handling
 
-If TestPyPI publication fails before any files are uploaded:
-
-- fix the workflow or metadata issue
-- keep the same version if the tag was not used
-
-If TestPyPI publication succeeds but smoke tests fail:
-
-- do not promote to PyPI
-- prepare a new version such as `1.0.1rc1`
-- repeat validation and TestPyPI publication
-
-If PyPI publication succeeds but an issue is found immediately afterwards:
-
-- yank the bad release on PyPI
-- prepare the next fixed release instead of trying to overwrite artifacts
-
-## Minimum Pre-Release Checklist
-
-Before TestPyPI:
-
-- trusted publisher configured on TestPyPI
-- GitHub environment `testpypi` created
-- `release-validation.yml` green
-- package builds locally
-- `twine check` passes
-- wheel smoke install passes
-- sdist smoke install passes
-
-Before PyPI:
-
-- TestPyPI smoke tests green
-- trusted publisher configured on PyPI
-- GitHub environment `pypi` created
-- TestPyPI artifact is the exact one you want to promote
-
-## References
-
-- Trusted publishing overview: https://docs.pypi.org/trusted-publishers/
-- Existing project trusted publisher setup: https://docs.pypi.org/trusted-publishers/adding-a-publisher/
-- Pending publisher setup: https://docs.pypi.org/trusted-publishers/creating-a-project-through-oidc/
-- Publishing from GitHub Actions: https://docs.pypi.org/trusted-publishers/using-a-publisher/
-- Trusted publisher troubleshooting: https://docs.pypi.org/trusted-publishers/troubleshooting/
+- If validation or packaging fails before publication, fix forward on the branch and retag only when the final version is ready.
+- If TestPyPI succeeds but smoke tests fail, do not publish to PyPI; prepare the next version instead.
+- If PyPI succeeds and a defect is found afterwards, yank the bad release on PyPI and cut a new stable version rather than replacing artifacts.

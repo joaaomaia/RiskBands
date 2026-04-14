@@ -184,7 +184,10 @@ def build_champion_challenger_board(
             {
                 "profile": profile_name,
                 "candidate_name": candidate_name,
-                "selected_final_candidate": candidate_name == winner_row["selected_candidate"],
+                "selected_final_candidate": (
+                    profile_name == "balanced_champion"
+                    and candidate_name == winner_row["selected_candidate"]
+                ),
                 "iv": candidate_row["iv"],
                 "ks": candidate_row["ks"],
                 "temporal_score": candidate_row["temporal_score"],

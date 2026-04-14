@@ -50,7 +50,7 @@ IV e KS continuam importantes. O que muda é a forma de leitura:
 ## Dois cenários que ajudam a calibrar a leitura
 
 <div class="rb-grid rb-grid--2">
-  <figure class="rb-figure rb-figure--compact">
+  <figure class="rb-figure rb-figure--wide rb-figure--compact">
     <iframe
       src="../../benchmark-assets/stable_credit_metric_comparison.html"
       title="Cenario estavel - comparacao de metricas"
@@ -62,7 +62,7 @@ IV e KS continuam importantes. O que muda é a forma de leitura:
       não pede mudança.
     </figcaption>
   </figure>
-  <figure class="rb-figure rb-figure--compact">
+  <figure class="rb-figure rb-figure--wide rb-figure--compact">
     <iframe
       src="../../benchmark-assets/temporal_reversal_metric_comparison.html"
       title="Cenario temporal reversal - comparacao de metricas"
@@ -77,7 +77,7 @@ IV e KS continuam importantes. O que muda é a forma de leitura:
 
 ## Onde a fragilidade costuma aparecer
 
-<figure class="rb-figure rb-figure--medium">
+<figure class="rb-figure rb-figure--wide rb-figure--medium">
   <iframe
     src="../../benchmark-assets/temporal_reversal_selected_heatmap.html"
     title="Heatmap de robustez temporal no benchmark"

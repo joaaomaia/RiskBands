@@ -30,16 +30,18 @@ def _make_bin_reference(binner, variable: str) -> pd.DataFrame:
     if ref.empty:
         raise KeyError(f"Variable '{variable}' not found in bin_summary.")
 
-    for candidate in ("bin_code", "bin_code_float", "bin_code_int"):
-        if candidate in ref.columns:
-            ref["bin_code"] = ref[candidate]
-            break
-    else:
-        ref["bin_code"] = ref.index.astype(float)
-
     ref["bin"] = ref["bin"].astype(str)
-    ref["bin_order"] = ref.index.astype(int)
-    return ref[["variable", "bin_code", "bin", "bin_order"]]
+    if "bin_code" not in ref.columns:
+        for candidate in ("bin_code_float", "bin_code_int"):
+            if candidate in ref.columns:
+                ref["bin_code"] = ref[candidate]
+                break
+        else:
+            ref["bin_code"] = ref.index.astype(float)
+    if "bin_order" not in ref.columns:
+        ref["bin_order"] = ref.index.astype(int)
+    ref["transform_value"] = ref["bin"].astype(str)
+    return ref[["variable", "bin_code", "bin", "bin_order", "transform_value"]]
 
 
 def _resolve_expected_trend(binner, df_var: pd.DataFrame) -> str:
@@ -209,13 +211,13 @@ def build_temporal_bin_diagnostics(
         observed = pd.DataFrame(
             {
                 time_col: X[time_col].values,
-                "bin_code": X_bins[variable].values,
+                "transform_value": pd.Series(X_bins[variable], index=X.index).astype(str).values,
                 "target": y.values,
             }
         )
 
         agg = (
-            observed.groupby([time_col, "bin_code"])["target"]
+            observed.groupby([time_col, "transform_value"])["target"]
             .agg(total_count="count", event_count="sum")
             .reset_index()
         )
@@ -223,19 +225,19 @@ def build_temporal_bin_diagnostics(
 
         grid = (
             pd.MultiIndex.from_product(
-                [periods, ref["bin_code"].tolist()],
-                names=[time_col, "bin_code"],
+                [periods, ref["transform_value"].tolist()],
+                names=[time_col, "transform_value"],
             )
             .to_frame(index=False)
         )
-        df_var = grid.merge(agg, on=[time_col, "bin_code"], how="left")
+        df_var = grid.merge(agg, on=[time_col, "transform_value"], how="left")
         df_var[["total_count", "event_count", "non_event_count"]] = df_var[
             ["total_count", "event_count", "non_event_count"]
         ].fillna(0)
         df_var[["total_count", "event_count", "non_event_count"]] = df_var[
             ["total_count", "event_count", "non_event_count"]
         ].astype(int)
-        df_var = df_var.merge(ref, on="bin_code", how="left")
+        df_var = df_var.merge(ref, on="transform_value", how="left")
         df_var["dataset"] = dataset_name
 
         period_totals = (

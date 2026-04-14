@@ -1,21 +1,20 @@
 ---
-title: "Visao geral da API"
-description: "Mapa da superficie publica do RiskBands, com foco em onboarding, pandas-first e acesso simples ao score `stable`."
+title: "Visão geral da API"
+description: "Mapa da superfície pública do RiskBands, com foco em onboarding, auditoria e leitura temporal amigável."
 ---
 
 ## Porta de entrada recomendada
 
-Na maior parte dos casos, o fluxo ideal para um usuario novo eh:
+Na maior parte dos casos, o fluxo ideal para um usuário novo é:
 
 1. instanciar `Binner`
 2. rodar `fit(...)`
-3. inspecionar `summary()`, `score_details()` e `report()`
-4. aplicar `transform(...)` no mesmo formato de entrada que voce ja usa no pandas
+3. inspecionar `summary()`, `score_table()` e `audit_table()`
+4. aplicar `transform(...)`
+5. exportar os artefatos auditáveis
+6. usar os plots públicos para leitura temporal
 
-O projeto agora favorece esse caminho sem esconder configuracoes avancadas do
-score.
-
-## Superficie publica principal
+## Superfície pública principal
 
 ```python
 from riskbands import Binner, BinComparator
@@ -26,24 +25,30 @@ from riskbands.temporal_stability import (
 )
 ```
 
-## O que ficou mais amigavel
+## O que ficou mais amigável
 
-Sem mexer agressivamente no core, a API publica do `Binner` ficou mais proxima
-de padroes familiares de sklearn e pandas:
+Sem mexer agressivamente no core, a API pública do `Binner` ficou mais próxima de padrões familiares de sklearn e pandas:
 
 - `fit(df, y="target", column="score")`
 - `fit(df["score"], y=df["target"])`
 - `transform(df)` ou `transform(df["score"])`
 - `fit_transform(...)`
 - `summary()`
-- `report()`
 - `score_details()`
+- `score_table()`
+- `report()`
+- `audit_table()`
 - `diagnostics()`
 - `binning_table()`
-- `plot_stability()`
-- `get_params()` e `set_params(...)`
+- `feature_binning_table()`
+- `plot_bad_rate_over_time()`
+- `plot_bad_rate_heatmap()`
+- `plot_bin_share_over_time()`
+- `plot_score_components()`
+- `export_binnings_json()`
+- `export_bundle()`
 
-Tambem foram adicionados aliases mais amigaveis para configuracao:
+Também foram adicionados aliases mais amigáveis para configuração:
 
 - `max_n_bins` como alias de `max_bins`
 - `monotonic_trend` como alias de `monotonic`
@@ -52,14 +57,16 @@ Tambem foram adicionados aliases mais amigaveis para configuracao:
 
 | Componente | Papel no fluxo | Por que importa |
 | --- | --- | --- |
-| `Binner` | Porta de entrada principal | Ajusta, transforma, resume e expoe score e diagnostico em uma superficie mais amigavel |
-| `summary()` | Resumo curto pos-fit | Ajuda a entender rapidamente bins, IV e score |
-| `score_details()` | Detalhamento do objective | Expoe score final, componentes, normalizacao e pesos |
-| `diagnostics()` | Leitura temporal rapida | Evita navegar por estruturas internas para abrir estabilidade por bin ou por variavel |
-| `report()` | Relatorio auditavel consolidado | Junta score, penalidades, cortes e racional em uma tabela unica |
-| `BinComparator` | Comparacao champion challenger | Continua sendo a peca central quando o problema eh escolher entre multiplos candidatos |
+| `Binner` | Porta de entrada principal | Ajusta, transforma, resume, exporta e plota sem exigir estruturas internas |
+| `summary()` | Resumo curto pós-fit | Ajuda a entender rapidamente bins, IV e score |
+| `score_table()` | Explicação curta do objective | Expõe score final, pesos e componentes mais relevantes |
+| `audit_table()` | Revisão auditável consolidada | Junta cuts, score, penalidades, cobertura e rationale |
+| `diagnostics()` | Leitura temporal detalhada | Abre estabilidade por bin ou por variável |
+| `export_binnings_json()` | Artefato único em JSON | Facilita versionamento e governança |
+| `export_bundle()` | Pacote completo de auditoria | Gera JSON, CSV e tabelas por feature |
+| `BinComparator` | Comparação champion/challenger | Continua sendo a peça central quando o problema é escolher entre múltiplos candidatos |
 
-## Fluxo recomendado para candidato unico
+## Fluxo recomendado para candidato único
 
 ```python
 binner = Binner(
@@ -70,41 +77,24 @@ binner = Binner(
 )
 
 binner.fit(df, y="target", column="score", time_col="month")
+
 score_bins = binner.transform(df["score"])
 summary = binner.summary()
-score_details = binner.score_details()
-diagnostics = binner.diagnostics(kind="bin")
-report = binner.report()
+score_table = binner.score_table()
+audit_table = binner.audit_table()
+
+binner.export_binnings_json("artifacts/riskbands_binnings.json")
+binner.export_bundle("artifacts/run_2026_04_14")
 ```
 
-Esse fluxo preserva o core introduzido nas releases recentes:
+## Estratégias de score
+
+Hoje a API expõe duas estratégias explícitas:
 
 - `legacy`
+  Mantém o score histórico orientado a maximização.
 - `stable`
-- `score_weights`
-- `normalization_strategy`
-- `woe_shrinkage_strength`
-- `objective_kwargs`
-
-## Onde o Optuna entra
-
-O Optuna continua sendo uma camada opcional de busca.
-
-A melhoria recente foi de ergonomia da API publica, nao de mudanca conceitual
-do objective. Ou seja:
-
-- o score continua o mesmo
-- o acesso ao score ficou mais simples
-- o uso com e sem Optuna continua suportado
-
-## Estrategias de score
-
-Hoje a API expoe duas estrategias explicitas:
-
-- `legacy`
-  Mantem o score historico orientado a maximizacao.
-- `stable`
-  Introduz o objective orientado a robustez temporal e minimizacao.
+  Introduz o objective orientado a robustez temporal e minimização.
 
 Exemplo:
 
@@ -112,7 +102,6 @@ Exemplo:
 binner = Binner(
     strategy="supervised",
     check_stability=True,
-    use_optuna=True,
     time_col="month",
     score_strategy="stable",
     score_weights={
@@ -125,22 +114,20 @@ binner = Binner(
     },
     normalization_strategy="absolute",
     woe_shrinkage_strength=40.0,
-    strategy_kwargs={"n_trials": 10},
 )
 ```
 
 ## O que olhar em seguida
 
-Depois do primeiro `fit`, o trio mais util costuma ser:
+Depois do primeiro `fit`, o trio mais útil costuma ser:
 
 - `summary()` para uma leitura curta
-- `score_details()` para entender o score
-- `diagnostics()` para abrir a estabilidade temporal
+- `score_table()` para entender o score e os pesos
+- `audit_table()` para abrir a revisão auditável
 
-## Proximos passos
+## Próximos passos
 
 - [Quickstart](../quickstart/)
-- [Score e estrategias](../score-strategy/)
-- [Outputs e diagnostico](../outputs/)
+- [Auditoria e plots](../audit-and-plots/)
+- [Outputs e diagnóstico](../outputs/)
 - [Exemplos](../examples/)
-- [Benchmark PD vintage](../methodology/pd-vintage-benchmark/)

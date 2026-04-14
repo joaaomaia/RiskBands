@@ -37,7 +37,7 @@ Use-o para inspecionar:
 
 Cruzamentos frequentes são um sinal prático de fragilidade para PD e scorecards.
 
-<figure class="rb-figure rb-figure--tall">
+<figure class="rb-figure rb-figure--wide rb-figure--tall">
   <iframe
     src="../../benchmark-assets/temporal_reversal_event_rate_curves.html"
     title="Como ler as curvas de event rate do benchmark"
@@ -59,7 +59,7 @@ O heatmap ajuda a enxergar:
 - bins que mudam demais de comportamento
 - safras em que a narrativa agregada deixa de combinar com a realidade local
 
-<figure class="rb-figure rb-figure--medium">
+<figure class="rb-figure rb-figure--wide rb-figure--medium">
   <iframe
     src="../../benchmark-assets/temporal_reversal_selected_heatmap.html"
     title="Como ler o heatmap de bin por safra"
@@ -77,7 +77,7 @@ Este é o ponto em que a tese do benchmark costuma ficar mais clara.
 
 Se a visão agregada parece limpa, mas as curvas por safra parecem desorganizadas, você encontrou exatamente o tipo de desencontro que o RiskBands foi feito para expor.
 
-<figure class="rb-figure rb-figure--medium">
+<figure class="rb-figure rb-figure--wide rb-figure--medium">
   <iframe
     src="../../benchmark-assets/temporal_reversal_aggregate_vs_vintage.html"
     title="Comparacao entre agregado e leitura por safra"
@@ -105,7 +105,7 @@ As penalizações costumam capturar sinais como:
 
 Essa leitura costuma ser a mais útil em challenge, validação interna e governança.
 
-<figure class="rb-figure rb-figure--medium">
+<figure class="rb-figure rb-figure--wide rb-figure--medium">
   <iframe
     src="../../benchmark-assets/temporal_reversal_penalty_breakdown.html"
     title="Breakdown de penalizacoes do benchmark"
@@ -125,7 +125,7 @@ Esse gráfico ajuda a ligar a decisão estatística à forma bruta da variável:
 - as caudas ficaram finas demais?
 - a estrutura final parece operacionalmente razoável quando você pensa em safras diferentes?
 
-<figure class="rb-figure rb-figure--medium">
+<figure class="rb-figure rb-figure--wide rb-figure--medium">
   <iframe
     src="../../benchmark-assets/temporal_reversal_score_distribution.html"
     title="Distribuicao do score com cortes selecionados"

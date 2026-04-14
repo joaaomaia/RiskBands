@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from pathlib import Path
 import sys
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -33,7 +34,12 @@ def make_temporal_toy_data(seed: int = 0, n: int = 800) -> tuple[pd.DataFrame, p
     return X, y
 
 
-def run_temporal_stability_demo(seed: int = 0, n: int = 800) -> dict[str, object]:
+def run_temporal_stability_demo(
+    seed: int = 0,
+    n: int = 800,
+    *,
+    export_dir: str | Path | None = None,
+) -> dict[str, Any]:
     """Run the temporal quickstart and return the main artifacts."""
     X, y = make_temporal_toy_data(seed=seed, n=n)
 
@@ -44,6 +50,7 @@ def run_temporal_stability_demo(seed: int = 0, n: int = 800) -> dict[str, object
         time_col="month",
         strategy_kwargs={
             "n_trials": 10,
+            "sampler_seed": seed,
             "objective_kwargs": {
                 "minimums": {"iv": 0.05, "coverage_ratio": 0.75},
             },
@@ -66,6 +73,8 @@ def run_temporal_stability_demo(seed: int = 0, n: int = 800) -> dict[str, object
         time_col="month",
         dataset_name="train",
     )
+    score_table = binner.score_table()
+    audit_table = binner.audit_table()
     ks = ks_over_time(pivot)
 
     bins = binner.transform(X)["x"]
@@ -77,6 +86,24 @@ def run_temporal_stability_demo(seed: int = 0, n: int = 800) -> dict[str, object
         "time",
     )
 
+    figures = {
+        "bad_rate_over_time": binner.plot_bad_rate_over_time(X, y, time_col="month", column="x"),
+        "bad_rate_heatmap": binner.plot_bad_rate_heatmap(X, y, time_col="month", column="x"),
+        "bin_share_over_time": binner.plot_bin_share_over_time(X, y, time_col="month", column="x"),
+        "score_components": binner.plot_score_components(column="x"),
+    }
+
+    exported_paths = {}
+    if export_dir is not None:
+        export_root = Path(export_dir)
+        export_root.mkdir(parents=True, exist_ok=True)
+        binner.export_binnings_json(export_root / "temporal_stability_binnings.json")
+        binner.export_bundle(export_root / "temporal_stability_bundle")
+        exported_paths = {
+            "binnings_json": export_root / "temporal_stability_binnings.json",
+            "bundle_dir": export_root / "temporal_stability_bundle",
+        }
+
     return {
         "X": X,
         "y": y,
@@ -84,29 +111,37 @@ def run_temporal_stability_demo(seed: int = 0, n: int = 800) -> dict[str, object
         "pivot": pivot,
         "diagnostics": diagnostics,
         "summary": summary,
+        "score_table": score_table,
+        "audit_table": audit_table,
         "audit_report": audit_report,
         "ks_over_time": ks,
         "temporal_separability": separability,
+        **figures,
+        "exported_paths": exported_paths,
     }
 
 
 def main() -> None:
-    results = run_temporal_stability_demo()
+    results = run_temporal_stability_demo(export_dir=Path("reports") / "temporal_stability_demo")
     binner = results["binner"]
 
     print(f"Temporal separability: {results['temporal_separability']:.3f}")
     print(f"IV: {binner.iv_:.3f}")
     print(f"KS over time: {results['ks_over_time']:.3f}")
-    print("Best params:", binner.best_params_)
-    print("Objective summaries:", binner.objective_summaries_)
+    if hasattr(binner, "best_params_"):
+        print("Best params:", binner.best_params_)
+    if hasattr(binner, "objective_summaries_"):
+        print("Objective summaries:", binner.objective_summaries_)
     print(results["diagnostics"].head())
     print(results["summary"][["variable", "temporal_score", "alert_flags"]])
+    print(results["score_table"][["variable", "objective_score", "weight_profile", "key_penalties"]])
     print(
         results["audit_report"][
             ["variable", "objective_score", "key_penalties", "rationale_summary"]
         ]
     )
 
+    print("Exported paths:", results["exported_paths"])
     binner.plot_event_rate_stability(results["pivot"])
     binner.save_report("reports/temporal_stability_example.xlsx")
 

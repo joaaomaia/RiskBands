@@ -35,8 +35,8 @@ def test_pd_vintage_champion_challenger_example_flow_smoke():
     winner_row = results["winner_summary"].iloc[0]
     assert winner_row["best_static_candidate"] == "static_aggressive"
     assert winner_row["best_temporal_candidate"] == "temporal_quantile_3"
-    assert winner_row["best_balanced_candidate"] == "static_compact"
-    assert winner_row["selected_candidate"] == "static_compact"
+    assert winner_row["best_balanced_candidate"] == "temporal_quantile_3"
+    assert winner_row["selected_candidate"] == "temporal_quantile_3"
 
     champion_board = results["champion_board"]
     assert set(champion_board["profile"]) == {
@@ -60,9 +60,16 @@ def test_temporal_stability_example_flow_smoke():
         "pivot",
         "diagnostics",
         "summary",
+        "score_table",
+        "audit_table",
         "audit_report",
         "ks_over_time",
         "temporal_separability",
+        "bad_rate_over_time",
+        "bad_rate_heatmap",
+        "bin_share_over_time",
+        "score_components",
+        "exported_paths",
     } <= set(results)
     assert not results["pivot"].empty
     assert not results["diagnostics"].empty
@@ -85,8 +92,8 @@ def test_pd_vintage_benchmark_example_flow_smoke():
         "composition_shift",
     }
     assert summary.loc["stable_credit", "selected_candidate"] == "riskbands_temporal_uniform"
-    assert summary.loc["temporal_reversal", "selected_candidate"] == "riskbands_static"
-    assert summary.loc["composition_shift", "selected_candidate"] == "riskbands_static"
+    assert summary.loc["temporal_reversal", "selected_candidate"] == "riskbands_temporal_quantile"
+    assert summary.loc["composition_shift", "selected_candidate"] == "riskbands_temporal_quantile"
 
     anchor = suite["scenarios"]["temporal_reversal"]
     assert {

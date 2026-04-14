@@ -1,35 +1,35 @@
 ---
-title: "Evolucao apos v1.0.0"
-description: "Guia amigavel para entender o que mudou no RiskBands depois de v1.0.0 e como isso afeta o uso da biblioteca hoje."
+title: "Evolução após v1.0.0"
+description: "Guia amigável para entender o que mudou no RiskBands depois de v1.0.0 e como isso afeta o uso da biblioteca hoje."
 ---
 
 ## O que mudou desde `v1.0.0`
 
-Depois de `v1.0.0`, o RiskBands passou por tres movimentos importantes:
+Depois de `v1.0.0`, o RiskBands passou por quatro movimentos importantes:
 
 1. amadureceu a camada de score
-2. deixou a API publica mais amigavel
-3. organizou melhor a documentacao e o fluxo de release
+2. deixou a API pública mais amigável
+3. ganhou uma camada real de auditoria e export
+4. fortaleceu a documentação e o fluxo público de release
 
-O objetivo dessas mudancas foi simples: facilitar o onboarding sem perder a
-profundidade tecnica do projeto.
+O objetivo dessas mudanças foi simples: facilitar onboarding, governança e interpretação sem perder profundidade técnica.
 
-## v1.1.0: objective temporal auditavel
+## v1.1.0: objective temporal auditável
 
-O projeto passou a expor um objective temporal mais explicavel, com:
+O projeto passou a expor um objective temporal mais explicável, com:
 
 - componentes normalizados
-- pesos configuraveis
+- pesos configuráveis
 - shrink de WoE
-- integracao consistente com `Binner`, `BinComparator` e Optuna
+- integração consistente com `Binner`, `BinComparator` e Optuna
 
-Hoje, essa estrategia publica aparece como `score_strategy="stable"`.
+Hoje, essa estratégia pública aparece como `score_strategy="stable"`.
 
 ## v1.2.0: ergonomia no estilo sklearn e pandas
 
-O `Binner` ficou mais natural para quem ja usa bibliotecas maduras de Python.
+O `Binner` ficou mais natural para quem já usa bibliotecas maduras de Python.
 
-Exemplos do que ficou mais facil:
+Exemplos do que ficou mais fácil:
 
 - `fit(df, y="target", column="score")`
 - `transform(df)` ou `transform(df["score"])`
@@ -37,45 +37,43 @@ Exemplos do que ficou mais facil:
 - `summary()`, `report()`, `score_details()` e `diagnostics()`
 - `get_params()` e `set_params(...)`
 
-Tambem ficaram mais claros:
+## v2.0.0 a v2.0.2: consolidação pública
 
-- atributos pos-fit
-- retorno em `DataFrame` e `Series`
-- notebook de onboarding com Plotly
-
-## v2.0.0: consolidacao publica
-
-Nesta release, o foco passa a ser clareza para usuario novo e consistencia de
-release.
+Nessa etapa, o foco passou a ser clareza para usuário novo e consistência de release.
 
 Principais pontos:
 
-- o nome publico antigo `generalization_v1` sai de cena
-- `stable` passa a ser o unico nome publico correto para a estrategia temporal
-- docs-site reorganizado com paginas de primeiros passos, score, outputs e Optuna
+- o nome público antigo `generalization_v1` saiu de cena
+- `stable` passou a ser o único nome público correto para a estratégia temporal
+- docs-site reorganizado com páginas de primeiros passos, score, outputs e Optuna
 - exemplos e notebooks atualizados para refletir a API atual
-- fluxo de release alinhado a tag, build validado e publicacao via Trusted Publishing
+- patch posterior para garantir que `riskbands.__version__` reflita a versão correta fora do repositório
 
-## v2.0.1: acabamento da release
+## v2.0.2: auditoria e visualização maduras
 
-Depois da primeira publicacao da serie `v2`, o projeto recebeu um patch de
-acabamento para garantir que `riskbands.__version__` reflita a versao correta
-quando o pacote eh instalado fora do repositorio.
+Nesta release, o projeto ganhou uma camada mais forte para inspeção e governança:
+
+- `export_binnings_json(...)` para gerar um JSON único e legível
+- `export_bundle(...)` para produzir um pacote completo de auditoria
+- `score_table()` e `audit_table()` para notebook e revisão técnica
+- plots públicos para bad rate, heatmap, share temporal e score components
+- metadata pós-fit com pesos do score e contexto efetivo do fit
+- correção do alinhamento temporal da estratégia supervisionada
 
 ## O que usar hoje
 
-Se voce estiver chegando agora ao projeto, o caminho recomendado eh:
+Se você estiver chegando agora ao projeto, o caminho recomendado é:
 
 1. instalar a biblioteca
 2. seguir o [Quickstart](../technical/quickstart/)
-3. usar `score_strategy="stable"` quando quiser equilibrio entre separacao e robustez temporal
-4. abrir [Outputs e diagnostico](../technical/outputs/) para aprender a ler o resultado
+3. usar `score_strategy="stable"` quando quiser equilíbrio entre separação e robustez temporal
+4. abrir [Auditoria e plots](../technical/audit-and-plots/) e [Outputs e diagnóstico](../technical/outputs/) para aprender a ler o resultado
 
-## O que permaneceu estavel
+## O que permaneceu estável
 
-Apesar da evolucao, a direcao do projeto continua a mesma:
+Apesar da evolução, a direção do projeto continua a mesma:
 
-- foco em binning, nao em pipeline completo de PD
+- foco em binning, não em pipeline completo de PD
 - leitura por safra e robustez temporal
-- comparacao auditavel entre candidatos
-- integracao opcional com Optuna, sem acoplar o score a ele
+- comparação auditável entre candidatos
+- integração opcional com Optuna, sem acoplar o score a ele

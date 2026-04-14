@@ -486,6 +486,126 @@ class Binner(BaseEstimator, TransformerMixin):
         return series
 
     # ------------------------------------------------------------------
+    @staticmethod
+    def _prepare_binning_summary(summary: pd.DataFrame) -> pd.DataFrame:
+        summary = summary.copy().reset_index(drop=True)
+        if "bin_order" not in summary.columns:
+            summary["bin_order"] = range(len(summary))
+        if "bin_code" not in summary.columns:
+            summary["bin_code"] = summary["bin_order"].astype(float)
+        return summary
+
+    # ------------------------------------------------------------------
+    @staticmethod
+    def _profile_from_columns(row: pd.Series, prefix: str) -> str:
+        items = []
+        for column, value in row.items():
+            if not column.startswith(prefix):
+                continue
+            score = pd.to_numeric(pd.Series([value]), errors="coerce").iloc[0]
+            if pd.isna(score):
+                continue
+            items.append((column.replace(prefix, ""), float(score)))
+        if not items:
+            return ""
+        items.sort(key=lambda item: abs(item[1]), reverse=True)
+        return "; ".join(f"{name}={value:.3f}" for name, value in items)
+
+    # ------------------------------------------------------------------
+    @classmethod
+    def _build_score_table_view(cls, report: pd.DataFrame | None) -> pd.DataFrame:
+        if report is None or report.empty:
+            return pd.DataFrame()
+
+        table = report.copy()
+        table["weight_profile"] = table.apply(
+            lambda row: cls._profile_from_columns(row, "objective_weight_"),
+            axis=1,
+        )
+        table["normalized_component_profile"] = table.apply(
+            lambda row: cls._profile_from_columns(row, "objective_norm_"),
+            axis=1,
+        )
+        table["raw_component_profile"] = table.apply(
+            lambda row: cls._profile_from_columns(row, "objective_raw_"),
+            axis=1,
+        )
+
+        fixed_columns = [
+            "variable",
+            "score_strategy",
+            "objective_direction",
+            "objective_score",
+            "objective_preference_score",
+            "objective_base_score",
+            "objective_total_penalty",
+            "objective_normalization_strategy",
+            "woe_shrinkage_strength",
+            "selection_basis",
+            "weight_profile",
+            "normalized_component_profile",
+            "raw_component_profile",
+            "key_drivers",
+            "key_penalties",
+            "alert_flags",
+        ]
+        dynamic_columns = [
+            column
+            for column in table.columns
+            if column.startswith("objective_weight_")
+            or column.startswith("objective_norm_")
+            or column.startswith("objective_raw_")
+        ]
+        ordered = [column for column in fixed_columns if column in table.columns]
+        ordered.extend(column for column in dynamic_columns if column not in ordered)
+        return table.loc[:, ordered].copy()
+
+    # ------------------------------------------------------------------
+    @classmethod
+    def _build_audit_table_view(cls, report: pd.DataFrame | None) -> pd.DataFrame:
+        if report is None or report.empty:
+            return pd.DataFrame()
+
+        table = report.copy()
+        table["weight_profile"] = table.apply(
+            lambda row: cls._profile_from_columns(row, "objective_weight_"),
+            axis=1,
+        )
+        fixed_columns = [
+            "dataset",
+            "variable",
+            "candidate_name",
+            "selected_strategy",
+            "cut_summary",
+            "n_bins",
+            "iv",
+            "temporal_score",
+            "score_strategy",
+            "objective_direction",
+            "objective_score",
+            "objective_preference_score",
+            "objective_total_penalty",
+            "weight_profile",
+            "coverage_ratio_min",
+            "coverage_ratio_mean",
+            "rare_bin_count",
+            "ranking_reversal_period_count",
+            "selection_basis",
+            "alert_flags",
+            "key_drivers",
+            "key_penalties",
+            "rationale_summary",
+        ]
+        dynamic_columns = [
+            column
+            for column in table.columns
+            if column not in fixed_columns
+        ]
+        ordered = [column for column in fixed_columns if column in table.columns]
+        ordered.extend(column for column in dynamic_columns if column not in ordered)
+        return table.loc[:, ordered].copy()
+
+    # ------------------------------------------------------------------
     def _refresh_cached_outputs(
         self,
         X: pd.DataFrame | None = None,
@@ -493,24 +613,14 @@ class Binner(BaseEstimator, TransformerMixin):
         *,
         time_col: str | None = None,
     ) -> None:
-        from .objectives import resolve_objective_config
-
         self.binning_table_ = self.binning_table()
         self.bins_ = {
             variable: self.binning_table(column=variable)
             for variable in getattr(self, "feature_names_in_", [])
         }
-        self.metadata_ = {
-            "strategy": self.strategy,
-            "score_strategy": self.score_strategy,
-            "objective_direction": resolve_objective_config(self._resolved_objective_kwargs())[
-                "objective_direction"
-            ],
-            "features": list(getattr(self, "feature_names_in_", [])),
-            "target": getattr(self, "target_name_", None),
-            "time_col": time_col,
-            "n_features": getattr(self, "n_features_in_", 0),
-        }
+        from .reporting import build_binner_metadata
+
+        self.metadata_ = build_binner_metadata(self, time_col=time_col)
 
         report = None
         report_error = None
@@ -541,6 +651,8 @@ class Binner(BaseEstimator, TransformerMixin):
         self.report_ = report
         self.summary_ = self._build_summary_view(report)
         self.score_details_ = self._build_score_details_view(report)
+        self.score_table_ = self._build_score_table_view(report)
+        self.audit_table_ = self._build_audit_table_view(report)
         self.score_ = self._collapse_metric(self.score_details_, "objective_score")
         self.comparison_score_ = self._collapse_metric(
             self.score_details_,
@@ -607,6 +719,9 @@ class Binner(BaseEstimator, TransformerMixin):
 
             optuna_kwargs = dict(self.strategy_kwargs)
             n_trials = optuna_kwargs.pop("n_trials", 20)
+            sampler_seed = optuna_kwargs.pop("sampler_seed", None)
+            if sampler_seed is None:
+                sampler_seed = optuna_kwargs.pop("random_state", None)
             objective_kwargs = self._resolved_objective_kwargs(optuna_kwargs.pop("objective_kwargs", None))
             base_kwargs = dict(
                 strategy=self.strategy,
@@ -626,6 +741,7 @@ class Binner(BaseEstimator, TransformerMixin):
                     time_col=time_col,
                     time_values=time_values,
                     n_trials=n_trials,
+                    sampler_seed=sampler_seed,
                     objective_kwargs=objective_kwargs,
                     **base_kwargs,
                 )
@@ -635,6 +751,13 @@ class Binner(BaseEstimator, TransformerMixin):
 
             self.bin_summary = pd.concat(
                 [binner.bin_summary for binner in self._per_feature_binners.values()],
+                ignore_index=True,
+            )
+            self.bin_summary = pd.concat(
+                [
+                    self._prepare_binning_summary(group)
+                    for _, group in self.bin_summary.groupby("variable", sort=False)
+                ],
                 ignore_index=True,
             )
             self._compute_iv_metrics()
@@ -671,6 +794,7 @@ class Binner(BaseEstimator, TransformerMixin):
                 & (summary["bin"] != summary["variable"])
                 & (summary["bin"] != "")
             ].reset_index(drop=True)
+            summary = self._prepare_binning_summary(summary)
 
             self._per_feature_binners[col] = strat
             summaries.append(summary)
@@ -695,11 +819,19 @@ class Binner(BaseEstimator, TransformerMixin):
                 & (summary["bin"] != "")
             ].reset_index(drop=True)
             summary = summary.sort_values("event_rate", ascending=False).reset_index(drop=True)
+            summary = self._prepare_binning_summary(summary)
 
             self._per_feature_binners[col] = strat
             summaries.append(summary)
 
         self.bin_summary = pd.concat(summaries, ignore_index=True)
+        self.bin_summary = pd.concat(
+            [
+                self._prepare_binning_summary(group)
+                for _, group in self.bin_summary.groupby("variable", sort=False)
+            ],
+            ignore_index=True,
+        )
         self._compute_iv_metrics()
         from .objectives import resolve_objective_config
 
@@ -827,6 +959,40 @@ class Binner(BaseEstimator, TransformerMixin):
         if selected_columns is not None:
             table = table.loc[table["variable"].isin(selected_columns)].reset_index(drop=True)
         return table
+
+    # ------------------------------------------------------------------
+    def feature_binning_table(
+        self,
+        *,
+        column: str | None = None,
+        columns: Sequence[str] | None = None,
+        feature: str | None = None,
+        features: Sequence[str] | None = None,
+    ) -> pd.DataFrame:
+        """Friendly alias for :meth:`binning_table`."""
+        return self.binning_table(
+            column=column,
+            columns=columns,
+            feature=feature,
+            features=features,
+        )
+
+    # ------------------------------------------------------------------
+    def get_binning_table(
+        self,
+        *,
+        column: str | None = None,
+        columns: Sequence[str] | None = None,
+        feature: str | None = None,
+        features: Sequence[str] | None = None,
+    ) -> pd.DataFrame:
+        """Alias for :meth:`binning_table` aimed at discoverability."""
+        return self.binning_table(
+            column=column,
+            columns=columns,
+            feature=feature,
+            features=features,
+        )
 
     # ------------------------------------------------------------------
     def diagnostics(
@@ -1008,6 +1174,58 @@ class Binner(BaseEstimator, TransformerMixin):
         return score_details
 
     # ------------------------------------------------------------------
+    def score_table(
+        self,
+        X: pd.DataFrame | pd.Series | None = None,
+        y: pd.Series | Sequence[Any] | str | None = None,
+        *,
+        target: pd.Series | Sequence[Any] | str | None = None,
+        time_col: str | None = None,
+        dataset_name: str | None = None,
+        refresh: bool = False,
+    ) -> pd.DataFrame:
+        """Return a notebook-friendly score breakdown with weights and diagnostics."""
+        if not refresh and X is None and y is None and target is None and hasattr(self, "score_table_"):
+            return self.score_table_
+        report = self.report(
+            X,
+            y,
+            target=target,
+            time_col=time_col,
+            dataset_name=dataset_name,
+            refresh=refresh,
+        )
+        score_table = self._build_score_table_view(report)
+        self.score_table_ = score_table
+        return score_table
+
+    # ------------------------------------------------------------------
+    def audit_table(
+        self,
+        X: pd.DataFrame | pd.Series | None = None,
+        y: pd.Series | Sequence[Any] | str | None = None,
+        *,
+        target: pd.Series | Sequence[Any] | str | None = None,
+        time_col: str | None = None,
+        dataset_name: str | None = None,
+        refresh: bool = False,
+    ) -> pd.DataFrame:
+        """Return a consolidated audit table with cuts, score, and temporal diagnostics."""
+        if not refresh and X is None and y is None and target is None and hasattr(self, "audit_table_"):
+            return self.audit_table_
+        report = self.report(
+            X,
+            y,
+            target=target,
+            time_col=time_col,
+            dataset_name=dataset_name,
+            refresh=refresh,
+        )
+        audit_table = self._build_audit_table_view(report)
+        self.audit_table_ = audit_table
+        return audit_table
+
+    # ------------------------------------------------------------------
     def plot_stability(
         self,
         X: pd.DataFrame | pd.Series | None = None,
@@ -1118,46 +1336,26 @@ class Binner(BaseEstimator, TransformerMixin):
         if not hasattr(self, "_per_feature_binners"):
             raise RuntimeError("Binner ainda nao foi treinado. Chame .fit() antes.")
 
-        parts = []
-        for col, binner in self._per_feature_binners.items():
-            if col not in X.columns:
-                raise KeyError(f"Feature '{col}' nao esta presente em X.")
-
-            sig = inspect.signature(binner.transform)
-            kwargs = {"return_woe": False} if "return_woe" in sig.parameters else {}
-            transformed = binner.transform(X[[col]], **kwargs)
-            series = transformed if isinstance(transformed, pd.Series) else transformed[col]
-            parts.append(series.rename(col))
-
-        X_bins = pd.concat(parts, axis=1)
-
-        df_aux = pd.concat([X_bins, y.rename("target"), X[time_col]], axis=1)
-
-        out = []
-        for var in X_bins.columns:
-            grp = (
-                df_aux.groupby([time_col, var])["target"]
-                .agg(["sum", "count"])
-                .reset_index()
-                .rename(columns={"sum": "event", "count": "total", var: "bin"})
+        diagnostics = self.temporal_bin_diagnostics(
+            X,
+            y,
+            time_col=time_col,
+            dataset_name="stability_over_time",
+        )
+        pivot = (
+            diagnostics.pivot_table(
+                index=["variable", "bin"],
+                columns=time_col,
+                values="event_rate",
+                aggfunc="first",
             )
-            grp["event_rate"] = grp["event"] / grp["total"]
-            grp["variable"] = var
-            out.append(grp)
-
-        df_rate = pd.concat(out, ignore_index=True)
-
-        pivot_kwargs = {
-            "index": ["variable", "bin"],
-            "columns": time_col,
-            "values": "event_rate",
-        }
+            .sort_index(axis=1)
+            .sort_index()
+        )
         if fill_value is not None:
-            pivot_kwargs["fill_value"] = fill_value
-
-        pivot = df_rate.pivot_table(**pivot_kwargs).sort_index(axis=1).sort_index()
+            pivot = pivot.fillna(fill_value)
         self._pivot_ = pivot
-        self._stability_table_ = df_rate
+        self._stability_table_ = diagnostics
         return pivot
 
     # ------------------------------------------------------------------
@@ -1192,6 +1390,280 @@ class Binner(BaseEstimator, TransformerMixin):
                 "Passe um pivot explicitamente ou chame stability_over_time antes de plotar."
             )
         return plot_event_rate_stability(pivot, binner=self, **kwargs)
+
+    # ------------------------------------------------------------------
+    def _resolve_plot_diagnostics(
+        self,
+        X: pd.DataFrame | pd.Series | None,
+        y: pd.Series | Sequence[Any] | str | None,
+        *,
+        target: pd.Series | Sequence[Any] | str | None = None,
+        time_col: str | None = None,
+        dataset_name: str | None = None,
+        column: str | None = None,
+        columns: Sequence[str] | None = None,
+        feature: str | None = None,
+        features: Sequence[str] | None = None,
+        refresh: bool = False,
+    ) -> tuple[pd.DataFrame, str]:
+        diagnostics = self.diagnostics(
+            X,
+            y,
+            target=target,
+            time_col=time_col,
+            dataset_name=dataset_name,
+            kind="bin",
+            refresh=refresh,
+        )
+        resolved_time_col = time_col or diagnostics.attrs.get("time_col") or self.time_col
+        selected_columns = self._resolve_feature_selection(
+            column=column,
+            columns=columns,
+            feature=feature,
+            features=features,
+        )
+        if selected_columns is not None and not diagnostics.empty:
+            diagnostics = diagnostics.loc[diagnostics["variable"].isin(selected_columns)].reset_index(
+                drop=True
+            )
+        return diagnostics, resolved_time_col
+
+    # ------------------------------------------------------------------
+    def plot_bad_rate_over_time(
+        self,
+        X: pd.DataFrame | pd.Series | None = None,
+        y: pd.Series | Sequence[Any] | str | None = None,
+        *,
+        target: pd.Series | Sequence[Any] | str | None = None,
+        time_col: str | None = None,
+        dataset_name: str | None = None,
+        column: str | None = None,
+        columns: Sequence[str] | None = None,
+        feature: str | None = None,
+        features: Sequence[str] | None = None,
+        refresh: bool = False,
+        title_prefix: str | None = "Bad rate por bin ao longo do tempo",
+        figsize: tuple[float, float] = (13.5, 6.5),
+    ):
+        """Plot bad rate by bin over time with a notebook-friendly public API."""
+        from .visualizations import plot_metric_over_time
+
+        diagnostics, resolved_time_col = self._resolve_plot_diagnostics(
+            X,
+            y,
+            target=target,
+            time_col=time_col,
+            dataset_name=dataset_name,
+            column=column,
+            columns=columns,
+            feature=feature,
+            features=features,
+            refresh=refresh,
+        )
+        return plot_metric_over_time(
+            diagnostics,
+            time_col=resolved_time_col,
+            value_col="event_rate",
+            title_prefix=title_prefix,
+            ylabel="Bad rate (%)",
+            legend_title="Bin",
+            percent=True,
+            figsize=figsize,
+        )
+
+    # ------------------------------------------------------------------
+    def plot_bad_rate_heatmap(
+        self,
+        X: pd.DataFrame | pd.Series | None = None,
+        y: pd.Series | Sequence[Any] | str | None = None,
+        *,
+        target: pd.Series | Sequence[Any] | str | None = None,
+        time_col: str | None = None,
+        dataset_name: str | None = None,
+        column: str | None = None,
+        columns: Sequence[str] | None = None,
+        feature: str | None = None,
+        features: Sequence[str] | None = None,
+        refresh: bool = False,
+        title_prefix: str | None = "Heatmap de bad rate por bin e safra",
+        figsize: tuple[float, float] = (12.5, 6.0),
+        annotate: bool = True,
+    ):
+        """Plot a bad-rate heatmap without requiring manual pivot logic."""
+        from .visualizations import plot_metric_heatmap
+
+        diagnostics, resolved_time_col = self._resolve_plot_diagnostics(
+            X,
+            y,
+            target=target,
+            time_col=time_col,
+            dataset_name=dataset_name,
+            column=column,
+            columns=columns,
+            feature=feature,
+            features=features,
+            refresh=refresh,
+        )
+        return plot_metric_heatmap(
+            diagnostics,
+            time_col=resolved_time_col,
+            value_col="event_rate",
+            title_prefix=title_prefix,
+            colorbar_label="Bad rate (%)",
+            percent=True,
+            figsize=figsize,
+            annotate=annotate,
+        )
+
+    # ------------------------------------------------------------------
+    def plot_bin_share_over_time(
+        self,
+        X: pd.DataFrame | pd.Series | None = None,
+        y: pd.Series | Sequence[Any] | str | None = None,
+        *,
+        target: pd.Series | Sequence[Any] | str | None = None,
+        time_col: str | None = None,
+        dataset_name: str | None = None,
+        column: str | None = None,
+        columns: Sequence[str] | None = None,
+        feature: str | None = None,
+        features: Sequence[str] | None = None,
+        refresh: bool = False,
+        title_prefix: str | None = "Share dos bins ao longo do tempo",
+        figsize: tuple[float, float] = (13.5, 6.5),
+    ):
+        """Plot bin share trajectories over time to highlight sparse or unstable bins."""
+        from .visualizations import plot_metric_over_time
+
+        diagnostics, resolved_time_col = self._resolve_plot_diagnostics(
+            X,
+            y,
+            target=target,
+            time_col=time_col,
+            dataset_name=dataset_name,
+            column=column,
+            columns=columns,
+            feature=feature,
+            features=features,
+            refresh=refresh,
+        )
+        return plot_metric_over_time(
+            diagnostics,
+            time_col=resolved_time_col,
+            value_col="bin_share",
+            title_prefix=title_prefix,
+            ylabel="Bin share (%)",
+            legend_title="Bin",
+            percent=True,
+            figsize=figsize,
+        )
+
+    # ------------------------------------------------------------------
+    def plot_score_components(
+        self,
+        *,
+        column: str | None = None,
+        feature: str | None = None,
+        title: str | None = None,
+        figsize: tuple[float, float] = (13.5, 7.5),
+    ):
+        """Plot weighted objective components and score weights for one fitted feature."""
+        from .visualizations import plot_score_components
+
+        selected = self._resolve_feature_selection(column=column, feature=feature)
+        score_table = self.score_table()
+        audit_table = self.audit_table()
+        if score_table.empty:
+            raise ValueError("No score table is available. Fit the binner before plotting score components.")
+        feature_name = (
+            selected[0]
+            if selected is not None
+            else score_table["variable"].iloc[0]
+        )
+        score_row = score_table.loc[score_table["variable"] == feature_name]
+        audit_row = audit_table.loc[audit_table["variable"] == feature_name]
+        if score_row.empty:
+            raise KeyError(f"Feature '{feature_name}' was not found in the fitted score table.")
+        return plot_score_components(
+            score_row.iloc[0],
+            audit_row.iloc[0] if not audit_row.empty else None,
+            title=title,
+            figsize=figsize,
+        )
+
+    # ------------------------------------------------------------------
+    def plot_event_rate_by_bin(
+        self,
+        *,
+        column: str | None = None,
+        feature: str | None = None,
+        title: str | None = None,
+        figsize: tuple[float, float] = (11.5, 5.5),
+    ):
+        """Plot event rate by fitted bin for one feature."""
+        from .visualizations import plot_bin_summary_metric
+
+        selected = self._resolve_feature_selection(column=column, feature=feature)
+        feature_name = (
+            selected[0]
+            if selected is not None
+            else (self.feature_name_ or self.feature_names_in_[0])
+        )
+        table = self.binning_table(column=feature_name)
+        return plot_bin_summary_metric(
+            table,
+            feature_name=feature_name,
+            value_col="event_rate",
+            ylabel="Event rate (%)",
+            title=title or f"Event rate por bin - {feature_name}",
+            percent=True,
+            figsize=figsize,
+        )
+
+    # ------------------------------------------------------------------
+    def plot_woe(
+        self,
+        X: pd.DataFrame | pd.Series | None = None,
+        y: pd.Series | Sequence[Any] | str | None = None,
+        *,
+        target: pd.Series | Sequence[Any] | str | None = None,
+        time_col: str | None = None,
+        dataset_name: str | None = None,
+        column: str | None = None,
+        feature: str | None = None,
+        refresh: bool = False,
+        title: str | None = None,
+        figsize: tuple[float, float] = (11.5, 5.5),
+    ):
+        """Plot average WoE by bin using the temporal diagnostics layer."""
+        from .visualizations import plot_bin_diagnostics_metric
+
+        diagnostics, _ = self._resolve_plot_diagnostics(
+            X,
+            y,
+            target=target,
+            time_col=time_col,
+            dataset_name=dataset_name,
+            column=column,
+            feature=feature,
+            refresh=refresh,
+        )
+        if diagnostics.empty:
+            raise ValueError("WoE plotting requires temporal diagnostics for at least one feature.")
+        feature_name = (
+            diagnostics["variable"].iloc[0]
+            if column is None and feature is None
+            else (column or feature)
+        )
+        return plot_bin_diagnostics_metric(
+            diagnostics.loc[diagnostics["variable"] == feature_name].reset_index(drop=True),
+            feature_name=feature_name,
+            value_col="woe",
+            ylabel="WoE",
+            title=title or f"WoE medio por bin - {feature_name}",
+            percent=False,
+            figsize=figsize,
+        )
 
     # ------------------------------------------------------------------
     def temporal_bin_diagnostics(
@@ -1299,6 +1771,22 @@ class Binner(BaseEstimator, TransformerMixin):
             candidate_name=candidate_name,
             objective_kwargs=objective_kwargs,
         )
+
+    # ------------------------------------------------------------------
+    def export_binnings_json(self, path: str) -> None:
+        """Export the fitted binnings as a single human-readable JSON artifact."""
+        from .reporting import export_binnings_json
+
+        self._ensure_fitted()
+        export_binnings_json(self, path)
+
+    # ------------------------------------------------------------------
+    def export_bundle(self, path: str) -> None:
+        """Export a complete audit bundle with JSON and tabular artifacts."""
+        from .reporting import export_binner_bundle
+
+        self._ensure_fitted()
+        export_binner_bundle(self, path)
 
     # ------------------------------------------------------------------
     def save_report(self, path: str) -> None:

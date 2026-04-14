@@ -80,7 +80,7 @@ Depois vá para os gráficos por safra.
 
 ## Board executivo do cenário-âncora
 
-<figure class="rb-figure rb-figure--medium">
+<figure class="rb-figure rb-figure--wide rb-figure--medium">
   <iframe
     src="../../benchmark-assets/temporal_reversal_benchmark_board.html"
     title="Benchmark board do cenário temporal reversal"
@@ -116,7 +116,7 @@ O ponto é entender por que o vencedor final:
 
 ## Onde a diferença aparece visualmente
 
-<figure class="rb-figure rb-figure--tall">
+<figure class="rb-figure rb-figure--wide rb-figure--tall">
   <iframe
     src="../../benchmark-assets/temporal_reversal_event_rate_curves.html"
     title="Curvas de event rate por abordagem no cenário temporal reversal"
@@ -129,7 +129,7 @@ O ponto é entender por que o vencedor final:
   </figcaption>
 </figure>
 
-<figure class="rb-figure rb-figure--medium">
+<figure class="rb-figure rb-figure--wide rb-figure--medium">
   <iframe
     src="../../benchmark-assets/temporal_reversal_selected_heatmap.html"
     title="Heatmap do candidato selecionado no cenário temporal reversal"

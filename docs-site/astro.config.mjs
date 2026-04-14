@@ -126,6 +126,7 @@ export default defineConfig({
             { label: 'Quickstart', link: '/technical/quickstart/' },
             { label: 'Score e estratégias', link: '/technical/score-strategy/' },
             { label: 'Outputs e diagnóstico', link: '/technical/outputs/' },
+            { label: 'Auditoria e plots', link: '/technical/audit-and-plots/' },
             { label: 'Optuna', link: '/technical/optuna/' },
             { label: 'Visão geral da API', link: '/technical/api-overview/' },
             { label: 'Exemplos', link: '/technical/examples/' },

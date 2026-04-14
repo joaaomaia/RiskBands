@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from datetime import datetime, timezone
 from importlib.util import find_spec
 from pathlib import Path
 from typing import Any, Union
@@ -10,10 +11,12 @@ from typing import Any, Union
 import numpy as np
 import pandas as pd
 
+from ._version import resolve_version
 from .binning_engine import Binner
 from .objectives import (
     build_objective_components,
     build_objective_components_from_diagnostics,
+    resolve_objective_config,
     score_objective_components,
 )
 from .temporal_stability import event_rate_by_time, ks_over_time, temporal_separability_score
@@ -192,7 +195,45 @@ def _build_rationale_summary(row: dict[str, Any]) -> str:
 def _json_ready_records(df: pd.DataFrame) -> list[dict[str, Any]]:
     clean = df.copy()
     clean = clean.where(pd.notna(clean), None)
-    return clean.to_dict(orient="records")
+    return _json_safe(clean.to_dict(orient="records"))
+
+
+def _json_safe(value: Any) -> Any:
+    if isinstance(value, dict):
+        return {str(key): _json_safe(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple, set)):
+        return [_json_safe(item) for item in value]
+    if isinstance(value, Path):
+        return str(value)
+    if isinstance(value, pd.Timestamp):
+        return value.isoformat()
+    if isinstance(value, pd.Series):
+        return {str(key): _json_safe(item) for key, item in value.to_dict().items()}
+    if isinstance(value, pd.DataFrame):
+        return _json_ready_records(value)
+    if isinstance(value, np.ndarray):
+        return [_json_safe(item) for item in value.tolist()]
+    if isinstance(value, np.generic):
+        value = value.item()
+    if isinstance(value, float) and not np.isfinite(value):
+        return None
+    try:
+        if pd.isna(value):
+            return None
+    except Exception:
+        pass
+    return value
+
+
+def _format_key_value_profile(mapping: dict[str, Any] | None) -> str:
+    cleaned = []
+    for key, value in (mapping or {}).items():
+        score = _safe_float(value, default=np.nan)
+        if np.isfinite(score):
+            cleaned.append((key, float(score)))
+    if not cleaned:
+        return ""
+    return "; ".join(f"{key}={value:.3f}" for key, value in cleaned)
 
 
 def _resolve_effective_objective_kwargs(
@@ -762,6 +803,225 @@ def _resolve_variable_audit_report(binner: Binner) -> pd.DataFrame | None:
     return audit if not audit.empty else None
 
 
+def build_binner_metadata(
+    binner: Binner,
+    *,
+    time_col: str | None = None,
+) -> dict[str, Any]:
+    objective_config = getattr(binner, "objective_config_", None)
+    if objective_config is None and hasattr(binner, "_resolved_objective_kwargs"):
+        try:
+            objective_config = resolve_objective_config(binner._resolved_objective_kwargs())
+        except Exception:  # pragma: no cover - metadata should be best effort
+            objective_config = None
+
+    objective_direction = None
+    normalization_strategy = getattr(binner, "normalization_strategy", None)
+    woe_shrinkage_strength = getattr(binner, "woe_shrinkage_strength", None)
+    score_weights_input = (
+        dict(getattr(binner, "score_weights", {}) or {})
+        if getattr(binner, "score_weights", None) is not None
+        else {}
+    )
+    score_weights = {}
+    if isinstance(objective_config, dict):
+        objective_direction = objective_config.get("objective_direction")
+        normalization_strategy = objective_config.get(
+            "normalization_strategy",
+            normalization_strategy,
+        )
+        woe_shrinkage_strength = objective_config.get(
+            "woe_shrinkage_strength",
+            woe_shrinkage_strength,
+        )
+        score_weights_input = dict(objective_config.get("weights_input", {}) or score_weights_input)
+        score_weights = dict(objective_config.get("weights", {}) or {})
+
+    metadata = {
+        "riskbands_version": resolve_version(),
+        "strategy": getattr(binner, "strategy", None),
+        "score_strategy": getattr(binner, "score_strategy", None),
+        "objective_direction": objective_direction,
+        "normalization_strategy": normalization_strategy,
+        "woe_shrinkage_strength": (
+            _safe_float(woe_shrinkage_strength, default=np.nan)
+            if woe_shrinkage_strength is not None
+            else None
+        ),
+        "score_weights_input": score_weights_input,
+        "score_weights": score_weights,
+        "score_weights_profile": _format_key_value_profile(score_weights),
+        "target_name": getattr(binner, "target_name_", None),
+        "time_col": time_col if time_col is not None else getattr(binner, "time_col", None),
+        "features": list(getattr(binner, "feature_names_in_", [])),
+        "selected_columns": list(getattr(binner, "selected_columns_", []) or []),
+        "n_features": int(getattr(binner, "n_features_in_", 0)),
+        "input_type": getattr(binner, "input_type_", None),
+        "iv_total": _safe_float(getattr(binner, "iv_", np.nan), default=np.nan),
+    }
+    if objective_config is not None:
+        metadata["objective_config"] = _json_safe(objective_config)
+    return _json_safe(metadata)
+
+
+def _resolve_optional_table(
+    binner: Binner,
+    *,
+    kind: str,
+) -> pd.DataFrame:
+    try:
+        return binner.diagnostics(kind=kind)
+    except Exception:
+        return pd.DataFrame()
+
+
+def build_binnings_json_artifact(binner: Binner) -> dict[str, Any]:
+    metadata = build_binner_metadata(binner)
+    generated_at = datetime.now(timezone.utc).isoformat()
+    binning_table = binner.binning_table()
+    summary = binner.summary()
+    score_table = binner.score_table()
+    audit_table = binner.audit_table()
+    diagnostics = _resolve_optional_table(binner, kind="bin")
+    temporal_summary = _resolve_optional_table(binner, kind="variable")
+
+    features = {}
+    ordered_features = metadata.get("features") or (
+        binning_table["variable"].drop_duplicates().tolist()
+        if not binning_table.empty and "variable" in binning_table.columns
+        else []
+    )
+    for feature in ordered_features:
+        feature_payload = {
+            "binning_table": _json_ready_records(binner.binning_table(column=feature)),
+        }
+        if not summary.empty and "variable" in summary.columns:
+            feature_summary = summary.loc[summary["variable"] == feature]
+            if not feature_summary.empty:
+                feature_payload["summary"] = _json_safe(feature_summary.iloc[0].to_dict())
+        if not score_table.empty and "variable" in score_table.columns:
+            feature_score = score_table.loc[score_table["variable"] == feature]
+            if not feature_score.empty:
+                feature_payload["score_details"] = _json_safe(feature_score.iloc[0].to_dict())
+        if not audit_table.empty and "variable" in audit_table.columns:
+            feature_audit = audit_table.loc[audit_table["variable"] == feature]
+            if not feature_audit.empty:
+                feature_payload["audit"] = _json_safe(feature_audit.iloc[0].to_dict())
+        if not temporal_summary.empty and "variable" in temporal_summary.columns:
+            feature_temporal = temporal_summary.loc[temporal_summary["variable"] == feature]
+            if not feature_temporal.empty:
+                feature_payload["temporal_summary"] = _json_safe(feature_temporal.iloc[0].to_dict())
+        if not diagnostics.empty and "variable" in diagnostics.columns:
+            feature_diag = diagnostics.loc[diagnostics["variable"] == feature]
+            if not feature_diag.empty:
+                feature_payload["diagnostics"] = _json_ready_records(feature_diag)
+        features[str(feature)] = feature_payload
+
+    return {
+        "artifact_type": "riskbands_binning_bundle",
+        "artifact_version": "1.0",
+        "riskbands_version": resolve_version(),
+        "generated_at": generated_at,
+        "metadata": metadata,
+        "features": features,
+    }
+
+
+def export_binnings_json(binner: Binner, path: PathLike) -> Path:
+    target = Path(path)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    payload = build_binnings_json_artifact(binner)
+    target.write_text(json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
+    return target
+
+
+def _write_csv(df: pd.DataFrame, path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    df.to_csv(path, index=False)
+
+
+def _try_write_parquet(df: pd.DataFrame, path: Path) -> bool:
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        df.to_parquet(path, index=False)
+        return True
+    except Exception:
+        return False
+
+
+def export_binner_bundle(binner: Binner, path: PathLike) -> Path:
+    target_dir = Path(path)
+    target_dir.mkdir(parents=True, exist_ok=True)
+
+    binnings_path = export_binnings_json(binner, target_dir / "binnings.json")
+    metadata = build_binner_metadata(binner)
+    summary = binner.summary()
+    score_details = binner.score_details()
+    score_table = binner.score_table()
+    audit_table = binner.audit_table()
+    report = binner.report()
+    diagnostics = _resolve_optional_table(binner, kind="bin")
+    diagnostics_variable = _resolve_optional_table(binner, kind="variable")
+
+    _write_csv(summary, target_dir / "summary.csv")
+    _write_csv(score_details, target_dir / "score_details.csv")
+    _write_csv(score_table, target_dir / "score_table.csv")
+    _write_csv(audit_table, target_dir / "audit_table.csv")
+    if not diagnostics.empty:
+        _write_csv(diagnostics, target_dir / "diagnostics.csv")
+    if not diagnostics_variable.empty:
+        _write_csv(diagnostics_variable, target_dir / "diagnostics_variable.csv")
+    _write_csv(report, target_dir / "report.csv")
+
+    feature_dir = target_dir / "feature_tables"
+    feature_dir.mkdir(parents=True, exist_ok=True)
+    feature_artifacts = {}
+    for feature in metadata.get("features", []):
+        feature_path = feature_dir / f"{feature}.csv"
+        _write_csv(binner.binning_table(column=feature), feature_path)
+        feature_artifacts[str(feature)] = str(feature_path.relative_to(target_dir))
+
+    written_optional = []
+    skipped_optional = []
+    if _try_write_parquet(report, target_dir / "report.parquet"):
+        written_optional.append("report.parquet")
+    else:
+        skipped_optional.append("report.parquet")
+    if not diagnostics.empty:
+        if _try_write_parquet(diagnostics, target_dir / "diagnostics.parquet"):
+            written_optional.append("diagnostics.parquet")
+        else:
+            skipped_optional.append("diagnostics.parquet")
+
+    manifest = {
+        "artifact_type": "riskbands_audit_bundle",
+        "artifact_version": "1.0",
+        "riskbands_version": resolve_version(),
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "metadata": metadata,
+        "artifacts": {
+            "binnings_json": str(binnings_path.relative_to(target_dir)),
+            "summary_csv": "summary.csv",
+            "score_details_csv": "score_details.csv",
+            "score_table_csv": "score_table.csv",
+            "audit_table_csv": "audit_table.csv",
+            "report_csv": "report.csv",
+            "diagnostics_csv": "diagnostics.csv" if not diagnostics.empty else None,
+            "diagnostics_variable_csv": (
+                "diagnostics_variable.csv" if not diagnostics_variable.empty else None
+            ),
+            "feature_tables": feature_artifacts,
+            "optional_parquet": written_optional,
+        },
+        "skipped_optional_artifacts": skipped_optional,
+    }
+    (target_dir / "metadata.json").write_text(
+        json.dumps(_json_safe(manifest), indent=2, ensure_ascii=False),
+        encoding="utf-8",
+    )
+    return target_dir
+
+
 # ------------------------------------------------------------------ #
 def save_binner_report(binner: Binner, path: PathLike) -> None:
     """
@@ -828,13 +1088,15 @@ def _save_json(binner: Binner, path: Path) -> None:
         "n_bins": len(bin_summary),
         "psi_over_time": bin_summary.attrs.get("psi_over_time"),
         "bin_table": _json_ready_records(bin_summary),
+        "metadata": build_binner_metadata(binner),
+        "score_table": _json_ready_records(binner.score_table()) if hasattr(binner, "score_table") else [],
     }
     if getattr(binner, "objective_config_", None) is not None:
-        info["objective_config"] = binner.objective_config_
+        info["objective_config"] = _json_safe(binner.objective_config_)
     if getattr(binner, "objective_summary_", None) is not None:
-        info["objective_summary"] = binner.objective_summary_
+        info["objective_summary"] = _json_safe(binner.objective_summary_)
     if getattr(binner, "objective_summaries_", None) is not None:
-        info["objective_summaries"] = binner.objective_summaries_
+        info["objective_summaries"] = _json_safe(binner.objective_summaries_)
     pivot = getattr(binner, "_pivot_", None)
     if pivot is not None:
         info["pivot_event_rate"] = _json_ready_records(pivot.reset_index())
@@ -847,6 +1109,7 @@ def _save_json(binner: Binner, path: Path) -> None:
     audit = _resolve_variable_audit_report(binner)
     if audit is not None:
         info["variable_audit_report"] = _json_ready_records(audit)
-    path.write_text(json.dumps(info, indent=2, ensure_ascii=False), encoding="utf-8")
+    info["binnings_artifact"] = build_binnings_json_artifact(binner)
+    path.write_text(json.dumps(_json_safe(info), indent=2, ensure_ascii=False), encoding="utf-8")
 
 

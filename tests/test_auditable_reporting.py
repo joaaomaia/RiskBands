@@ -1,5 +1,6 @@
-﻿import json
+import json
 
+from matplotlib.figure import Figure
 import numpy as np
 import pandas as pd
 
@@ -243,3 +244,76 @@ def test_save_report_exports_variable_audit_layer(tmp_path):
     assert len(payload["variable_audit_report"]) == 1
 
 
+def test_export_binnings_json_contains_metadata_weights_and_feature_payload(tmp_path):
+    X, y = _make_vintage_dataset(sparse_last_period=True)
+    binner = Binner(
+        strategy="unsupervised",
+        max_bins=3,
+        min_event_rate_diff=0.0,
+        monotonic="ascending",
+        check_stability=True,
+        score_strategy="stable",
+        score_weights={
+            "temporal_variance_weight": 0.30,
+            "window_drift_weight": 0.10,
+            "rank_inversion_weight": 0.15,
+            "separation_weight": 0.20,
+            "entropy_weight": 0.10,
+            "psi_weight": 0.15,
+        },
+    )
+    binner.fit(X, y, time_col="month")
+
+    artifact_path = tmp_path / "binnings.json"
+    binner.export_binnings_json(artifact_path)
+    payload = json.loads(artifact_path.read_text(encoding="utf-8"))
+
+    assert payload["artifact_type"] == "riskbands_binning_bundle"
+    assert payload["metadata"]["score_strategy"] == "stable"
+    assert payload["metadata"]["score_weights_input"]["temporal_variance_weight"] == 0.30
+    assert "score_weights" in payload["metadata"]
+    assert "score" in payload["features"]
+    assert "binning_table" in payload["features"]["score"]
+    assert "score_details" in payload["features"]["score"]
+    assert "objective_weight_temporal_variance_weight" in payload["features"]["score"]["score_details"]
+
+
+def test_export_bundle_writes_friendly_audit_artifacts(tmp_path):
+    X, y = _make_vintage_dataset(sparse_last_period=True)
+    binner = _fit_reference_binner(X, y)
+    binner.temporal_bin_diagnostics(X, y, time_col="month", dataset_name="train")
+    binner.temporal_variable_summary(time_col="month", diagnostics=binner._temporal_bin_diagnostics_)
+    binner.variable_audit_report(X, y, time_col="month", dataset_name="train")
+
+    bundle_dir = tmp_path / "bundle"
+    binner.export_bundle(bundle_dir)
+
+    assert (bundle_dir / "metadata.json").exists()
+    assert (bundle_dir / "binnings.json").exists()
+    assert (bundle_dir / "summary.csv").exists()
+    assert (bundle_dir / "score_details.csv").exists()
+    assert (bundle_dir / "score_table.csv").exists()
+    assert (bundle_dir / "audit_table.csv").exists()
+    assert (bundle_dir / "report.csv").exists()
+    assert (bundle_dir / "feature_tables" / "score.csv").exists()
+
+    manifest = json.loads((bundle_dir / "metadata.json").read_text(encoding="utf-8"))
+    assert manifest["artifact_type"] == "riskbands_audit_bundle"
+    assert "feature_tables" in manifest["artifacts"]
+
+
+def test_public_plot_helpers_return_matplotlib_figures():
+    X, y = _make_vintage_dataset(sparse_last_period=True)
+    binner = _fit_reference_binner(X, y)
+    binner.temporal_bin_diagnostics(X, y, time_col="month", dataset_name="train")
+
+    figures = [
+        binner.plot_bad_rate_over_time(X, y, time_col="month", column="score"),
+        binner.plot_bad_rate_heatmap(X, y, time_col="month", column="score"),
+        binner.plot_bin_share_over_time(X, y, time_col="month", column="score"),
+        binner.plot_score_components(column="score"),
+        binner.plot_event_rate_by_bin(column="score"),
+        binner.plot_woe(X, y, time_col="month", column="score"),
+    ]
+
+    assert all(isinstance(figure, Figure) for figure in figures)

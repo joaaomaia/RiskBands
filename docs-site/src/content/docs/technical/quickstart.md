@@ -1,16 +1,18 @@
 ---
 title: Quickstart
-description: "Ajuste seu primeiro Binner com a API mais amigável do RiskBands e entenda os outputs principais em poucos passos."
+description: "Ajuste seu primeiro Binner com a API mais amigável do RiskBands e inspecione score, auditoria, export e plots em poucos passos."
 ---
 
 ## O fluxo recomendado hoje
 
-Para um usuário novo, o caminho mais fácil é:
+Para um usuário novo, o caminho mais simples e completo é:
 
 1. criar um `Binner`
 2. ajustar com `fit(df, y="target", column="score", time_col="month")`
 3. olhar `summary()`
-4. abrir `score_details()` ou `diagnostics()` quando precisar aprofundar
+4. abrir `score_table()` e `audit_table()`
+5. exportar os artefatos auditáveis
+6. usar os plots públicos para leitura temporal
 
 ```python
 import numpy as np
@@ -33,13 +35,24 @@ binner = Binner(
     max_n_bins=5,
     check_stability=True,
     score_strategy="stable",
+    normalization_strategy="absolute",
+    woe_shrinkage_strength=35.0,
 )
 
 binner.fit(df, y="target", column="score", time_col="month")
+
 score_bins = binner.transform(df["score"])
 summary = binner.summary()
-score_details = binner.score_details()
-diagnostics = binner.diagnostics(kind="bin")
+score_table = binner.score_table()
+audit_table = binner.audit_table()
+
+binner.export_binnings_json("artifacts/riskbands_binnings.json")
+binner.export_bundle("artifacts/quickstart_run")
+
+binner.plot_bad_rate_over_time(df, y="target", column="score", time_col="month")
+binner.plot_bad_rate_heatmap(df, y="target", column="score", time_col="month")
+binner.plot_bin_share_over_time(df, y="target", column="score", time_col="month")
+binner.plot_score_components(column="score")
 ```
 
 ## Por que esse fluxo é mais amigável
@@ -49,40 +62,48 @@ Ele segue convenções familiares:
 - `fit(...)`
 - `transform(...)`
 - `fit_transform(...)`
-- `get_params()` / `set_params(...)`
 - `DataFrame` e `Series` do pandas como primeira opção
+- tabelas curtas para notebook antes de abrir o detalhe completo
 
-Também evita exigir que você memorize estruturas internas logo no começo.
+Também evita exigir que você monte pivots, bundles ou dicionários internos logo no começo.
 
 ## O que olhar primeiro
 
 ### `summary()`
 
-É a melhor primeira parada após o ajuste.
+É a melhor primeira parada depois do ajuste.
 
 Use quando quiser responder rapidamente:
 
 - quantos bins ficaram?
 - qual foi o IV?
 - qual estratégia de score está ativa?
-- qual foi o score final?
-- existem alertas temporais importantes?
+- existem alertas temporais relevantes?
 
-### `score_details()`
+### `score_table()`
 
-Use quando a pergunta for:
+É a leitura mais curta para explicar o objective.
 
-- por que esse score saiu assim?
-- o que entrou no objective?
-- quais pesos foram usados?
-- qual normalização está ativa?
-- qual `woe_shrinkage_strength` foi aplicado?
+Ela ajuda a enxergar:
 
-### `diagnostics()`
+- score final
+- score de comparação
+- direção do objective
+- pesos usados
+- componentes e penalidades mais relevantes
 
-Use `diagnostics(kind="bin")` para abrir a granularidade por variável x bin x período.
+### `audit_table()`
 
-Use `diagnostics(kind="variable")` para um resumo temporal por variável.
+É a visão consolidada para revisão auditável.
+
+Ela junta:
+
+- cortes finais
+- score
+- cobertura
+- bins raros
+- reversões
+- rationale resumido
 
 ## Quando usar `stable`
 
@@ -96,6 +117,7 @@ Se você precisa reproduzir um comportamento mais histórico ou comparar com a a
 
 ## Próximos passos
 
-- [Score e estratégias](../score-strategy/)
+- [Auditoria e plots](../audit-and-plots/)
 - [Outputs e diagnóstico](../outputs/)
-- [Optuna](../optuna/)
+- [Score e estratégias](../score-strategy/)
+- [Exemplos](../examples/)

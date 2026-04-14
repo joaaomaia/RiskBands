@@ -6,6 +6,7 @@ candidatos e racional auditavel.
 [Documentacao oficial](https://joaaomaia.github.io/RiskBands/) |
 [Benchmark PD vintage](https://joaaomaia.github.io/RiskBands/methodology/pd-vintage-benchmark/) |
 [Quickstart](https://joaaomaia.github.io/RiskBands/technical/quickstart/) |
+[Auditoria e plots](https://joaaomaia.github.io/RiskBands/technical/audit-and-plots/) |
 [API](https://joaaomaia.github.io/RiskBands/technical/api-overview/)
 
 ---
@@ -158,8 +159,16 @@ binner = Binner(
 binner.fit(df, y="target", column="score", time_col="month")
 score_bins = binner.transform(df["score"])
 summary = binner.summary()
-score_details = binner.score_details()
-diagnostics = binner.diagnostics(kind="bin")
+score_table = binner.score_table()
+audit_table = binner.audit_table()
+
+binner.export_binnings_json("artifacts/riskbands_binnings.json")
+binner.export_bundle("artifacts/quickstart_run")
+
+binner.plot_bad_rate_over_time(df, y="target", column="score", time_col="month")
+binner.plot_bad_rate_heatmap(df, y="target", column="score", time_col="month")
+binner.plot_bin_share_over_time(df, y="target", column="score", time_col="month")
+binner.plot_score_components(column="score")
 ```
 
 Fluxo mais amigavel, no estilo sklearn/pandas:
@@ -167,7 +176,9 @@ Fluxo mais amigavel, no estilo sklearn/pandas:
 - `fit(df, y="target", column="score", time_col="month")`
 - `transform(df)` ou `transform(df["score"])`
 - `fit_transform(df["score"], y=df["target"])`
-- `binning_table()`, `summary()`, `report()`, `score_details()`, `diagnostics()`
+- `binning_table()`, `score_table()`, `audit_table()`, `report()`, `diagnostics()`
+- `export_binnings_json()` e `export_bundle()` para auditoria e governanca
+- plots diretos para bad rate, heatmap, share temporal e score components
 - `get_params()` e `set_params(...)` com aliases como `max_n_bins` e `monotonic_trend`
 
 ## Customização do objective

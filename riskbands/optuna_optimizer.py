@@ -111,6 +111,7 @@ def optimize_bins(
     time_col: str | None = None,
     time_values: Optional[pd.Series] = None,
     n_trials: int = 20,
+    sampler_seed: int | None = None,
     objective_kwargs: dict[str, Any] | None = None,
     **base_kwargs,
 ) -> tuple[dict[str, Any], Binner]:
@@ -122,7 +123,15 @@ def optimize_bins(
     Optuna specifics.
     """
     resolved_objective_kwargs = resolve_objective_config(objective_kwargs)
-    study = optuna.create_study(direction=resolved_objective_kwargs["objective_direction"])
+    sampler = (
+        optuna.samplers.TPESampler(seed=sampler_seed)
+        if sampler_seed is not None
+        else None
+    )
+    study = optuna.create_study(
+        direction=resolved_objective_kwargs["objective_direction"],
+        sampler=sampler,
+    )
     optuna.logging.set_verbosity(optuna.logging.WARNING)
 
     study.optimize(
