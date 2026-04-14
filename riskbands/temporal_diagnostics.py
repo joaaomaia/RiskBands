@@ -63,19 +63,43 @@ def _resolve_expected_trend(binner, df_var: pd.DataFrame) -> str:
     return "none"
 
 
-def _build_reference_rank_signs(df_var: pd.DataFrame) -> dict[tuple[int, int], float]:
-    ref_rates = (
-        df_var.groupby("bin_order")["event_rate"]
-        .mean()
-        .sort_index()
-        .dropna()
-    )
+def _pair_signs_from_rates(ref_rates: pd.Series) -> dict[tuple[int, int], float]:
     reference = {}
     for left, right in combinations(ref_rates.index.tolist(), 2):
         sign = float(np.sign(ref_rates.loc[left] - ref_rates.loc[right]))
         if sign != 0:
             reference[(left, right)] = sign
     return reference
+
+
+def _build_reference_rank_signs(
+    df_var: pd.DataFrame,
+    *,
+    time_col: str,
+) -> dict[tuple[int, int], float]:
+    ref_rates = (
+        df_var.groupby("bin_order")["event_rate"]
+        .mean()
+        .sort_index()
+        .dropna()
+    )
+    reference = _pair_signs_from_rates(ref_rates)
+    if reference:
+        return reference
+
+    # When the global average collapses to ties, fall back to the first period
+    # that still shows a clear ordering so reversals remain auditable.
+    for _period, grp in df_var.groupby(time_col, sort=True):
+        period_rates = (
+            grp.loc[grp["coverage_flag"]]
+            .set_index("bin_order")["event_rate"]
+            .sort_index()
+            .dropna()
+        )
+        reference = _pair_signs_from_rates(period_rates)
+        if reference:
+            return reference
+    return {}
 
 
 def _period_flags(
@@ -300,7 +324,7 @@ def build_temporal_bin_diagnostics(
         df_var["min_bin_share"] = min_bin_share
 
         expected_trend = _resolve_expected_trend(binner, df_var)
-        reference_rank_signs = _build_reference_rank_signs(df_var)
+        reference_rank_signs = _build_reference_rank_signs(df_var, time_col=time_col)
         period_flags = _period_flags(df_var, time_col, expected_trend, reference_rank_signs)
         df_var = df_var.merge(period_flags, on=time_col, how="left")
         df_var["expected_trend"] = expected_trend

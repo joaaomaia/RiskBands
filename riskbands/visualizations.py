@@ -165,7 +165,9 @@ def plot_event_rate_stability(
         _remove_background_grid(ax)
         figures[var] = _finish_figure(fig)
 
-    return _finalize_plot_payload(figures)
+    if not figures:
+        raise ValueError("No plottable data was found for the requested feature(s).")
+    return figures
 
 
 def plot_metric_over_time(
