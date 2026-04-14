@@ -9,6 +9,8 @@ category_encoders>=2.6
 matplotlib>=3.8
 seaborn>=0.13
 tqdm>=4.66
+plotly>=6.7.0
+nbformat>=4.2.0
 
 # itens opcionais / dev
 ipykernel>=6.29
