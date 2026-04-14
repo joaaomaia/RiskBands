@@ -78,8 +78,11 @@ jobs:
         run: |
           pytest -q \
             tests/test_public_api.py \
+            tests/test_api_usability.py \
             tests/test_binning_engine.py \
             tests/test_compare.py \
+            tests/test_examples_smoke.py \
+            tests/test_stable_score.py \
             tests/test_temporal_stability.py \
             --basetemp .pytest_tmp_release
 

@@ -15,10 +15,10 @@ from .temporal_stability import event_rate_by_time, ks_over_time, temporal_separ
 EPSILON = 1e-9
 
 LEGACY_SCORE_STRATEGY = "legacy"
-GENERALIZATION_V1_SCORE_STRATEGY = "generalization_v1"
+STABLE_SCORE_STRATEGY = "stable"
 DEFAULT_SCORE_STRATEGY = LEGACY_SCORE_STRATEGY
 
-GENERALIZATION_COMPONENT_TO_WEIGHT = {
+STABLE_COMPONENT_TO_WEIGHT = {
     "temporal_variance": "temporal_variance_weight",
     "window_drift": "window_drift_weight",
     "rank_inversion": "rank_inversion_weight",
@@ -27,7 +27,7 @@ GENERALIZATION_COMPONENT_TO_WEIGHT = {
     "psi": "psi_weight",
 }
 
-GENERALIZATION_WEIGHT_ALIASES = {
+STABLE_WEIGHT_ALIASES = {
     "temporal_variance": "temporal_variance_weight",
     "window_drift": "window_drift_weight",
     "rank_inversion": "rank_inversion_weight",
@@ -80,7 +80,7 @@ class TemporalDiagnosticsConfig:
 
 
 @dataclass(frozen=True)
-class GeneralizationScoreWeights:
+class StableScoreWeights:
     temporal_variance_weight: float = 0.22
     window_drift_weight: float = 0.18
     rank_inversion_weight: float = 0.20
@@ -90,7 +90,7 @@ class GeneralizationScoreWeights:
 
 
 @dataclass(frozen=True)
-class GeneralizationNormalizationConfig:
+class StableNormalizationConfig:
     temporal_variance_scale: float = 0.0625
     window_drift_scale: float = 0.25
     separation_scale: float = 0.10
@@ -98,13 +98,13 @@ class GeneralizationNormalizationConfig:
 
 
 @dataclass(frozen=True)
-class GeneralizationObjectiveConfig:
-    score_strategy: str = GENERALIZATION_V1_SCORE_STRATEGY
+class StableObjectiveConfig:
+    score_strategy: str = STABLE_SCORE_STRATEGY
     objective_direction: str = "minimize"
-    weights: GeneralizationScoreWeights = field(default_factory=GeneralizationScoreWeights)
+    weights: StableScoreWeights = field(default_factory=StableScoreWeights)
     normalization_strategy: str = "absolute"
-    normalization: GeneralizationNormalizationConfig = field(
-        default_factory=GeneralizationNormalizationConfig
+    normalization: StableNormalizationConfig = field(
+        default_factory=StableNormalizationConfig
     )
     woe_shrinkage_strength: float = 25.0
     diagnostics: TemporalDiagnosticsConfig = field(default_factory=TemporalDiagnosticsConfig)
@@ -184,10 +184,10 @@ def resolve_score_strategy(
     score_strategy: str | None = None,
 ) -> str:
     strategy = score_strategy or (objective_kwargs or {}).get("score_strategy") or DEFAULT_SCORE_STRATEGY
-    if strategy not in {LEGACY_SCORE_STRATEGY, GENERALIZATION_V1_SCORE_STRATEGY}:
+    if strategy not in {LEGACY_SCORE_STRATEGY, STABLE_SCORE_STRATEGY}:
         raise ValueError(
             f"Unsupported score strategy '{strategy}'. "
-            f"Use '{LEGACY_SCORE_STRATEGY}' or '{GENERALIZATION_V1_SCORE_STRATEGY}'."
+            f"Use '{LEGACY_SCORE_STRATEGY}' or '{STABLE_SCORE_STRATEGY}'."
         )
     return strategy
 
@@ -195,24 +195,24 @@ def resolve_score_strategy(
 def _normalize_weight_keys(raw: dict[str, Any]) -> dict[str, Any]:
     normalized = {}
     for key, value in raw.items():
-        normalized_key = GENERALIZATION_WEIGHT_ALIASES.get(key, key)
+        normalized_key = STABLE_WEIGHT_ALIASES.get(key, key)
         normalized[normalized_key] = value
     return normalized
 
 
-def _resolve_generalization_weight_inputs(
+def _resolve_stable_weight_inputs(
     objective_kwargs: dict[str, Any] | None = None,
     *,
-    score_weights: dict[str, Any] | GeneralizationScoreWeights | None = None,
+    score_weights: dict[str, Any] | StableScoreWeights | None = None,
 ) -> tuple[dict[str, float], dict[str, float]]:
-    weight_defaults = asdict(GeneralizationScoreWeights())
+    weight_defaults = asdict(StableScoreWeights())
     merged_inputs = dict(weight_defaults)
 
     raw_weights = (objective_kwargs or {}).get("weights")
     if raw_weights:
         merged_inputs.update(_normalize_weight_keys(dict(raw_weights)))
 
-    if isinstance(score_weights, GeneralizationScoreWeights):
+    if isinstance(score_weights, StableScoreWeights):
         merged_inputs.update(asdict(score_weights))
     elif score_weights:
         merged_inputs.update(_normalize_weight_keys(dict(score_weights)))
@@ -254,14 +254,14 @@ def resolve_legacy_objective_config(
     return config
 
 
-def resolve_generalization_objective_config(
+def resolve_stable_objective_config(
     objective_kwargs: dict[str, Any] | None = None,
     *,
-    score_weights: dict[str, Any] | GeneralizationScoreWeights | None = None,
+    score_weights: dict[str, Any] | StableScoreWeights | None = None,
     normalization_strategy: str | None = None,
     woe_shrinkage_strength: float | None = None,
 ) -> dict[str, Any]:
-    config = asdict(GeneralizationObjectiveConfig())
+    config = asdict(StableObjectiveConfig())
 
     if objective_kwargs:
         filtered = {
@@ -271,7 +271,7 @@ def resolve_generalization_objective_config(
         }
         _deep_update(config, filtered)
 
-    raw_weight_inputs, normalized_weights = _resolve_generalization_weight_inputs(
+    raw_weight_inputs, normalized_weights = _resolve_stable_weight_inputs(
         objective_kwargs,
         score_weights=score_weights,
     )
@@ -281,7 +281,7 @@ def resolve_generalization_objective_config(
     if woe_shrinkage_strength is not None:
         config["woe_shrinkage_strength"] = _safe_float(woe_shrinkage_strength, default=25.0)
 
-    config["score_strategy"] = GENERALIZATION_V1_SCORE_STRATEGY
+    config["score_strategy"] = STABLE_SCORE_STRATEGY
     config["objective_direction"] = "minimize"
     config["woe_shrinkage_strength"] = max(
         _safe_float(config.get("woe_shrinkage_strength"), default=25.0),
@@ -296,7 +296,7 @@ def resolve_objective_config(
     objective_kwargs: dict[str, Any] | None = None,
     *,
     score_strategy: str | None = None,
-    score_weights: dict[str, Any] | GeneralizationScoreWeights | None = None,
+    score_weights: dict[str, Any] | StableScoreWeights | None = None,
     normalization_strategy: str | None = None,
     woe_shrinkage_strength: float | None = None,
 ) -> dict[str, Any]:
@@ -304,7 +304,7 @@ def resolve_objective_config(
     if strategy == LEGACY_SCORE_STRATEGY:
         return resolve_legacy_objective_config(objective_kwargs)
 
-    return resolve_generalization_objective_config(
+    return resolve_stable_objective_config(
         objective_kwargs,
         score_weights=score_weights,
         normalization_strategy=normalization_strategy,
@@ -460,7 +460,7 @@ def _resolve_single_variable_diagnostics(
     if not time_col or time_col not in X.columns:
         return None, components
 
-    config = resolve_generalization_objective_config(objective_kwargs)
+    config = resolve_stable_objective_config(objective_kwargs)
     diagnostics_cfg = config["diagnostics"]
     diagnostics = binner.temporal_bin_diagnostics(
         X,
@@ -506,7 +506,7 @@ def _entropy_penalty_from_counts(counts: pd.Series) -> float:
     return float(np.clip(1.0 - entropy_norm, 0.0, 1.0))
 
 
-def _prepare_generalization_frames(
+def _prepare_stable_frames(
     diagnostics: pd.DataFrame,
     *,
     time_col: str,
@@ -760,7 +760,7 @@ def _compute_psi_metrics(df: pd.DataFrame, *, time_col: str) -> tuple[float, flo
     return float(combined), adjacent_mean, float(reference)
 
 
-def _build_generalization_objective_components(
+def _build_stable_objective_components(
     binner,
     X: pd.DataFrame,
     y: pd.Series,
@@ -768,7 +768,7 @@ def _build_generalization_objective_components(
     time_col: str | None = None,
     objective_kwargs: dict[str, Any] | None = None,
 ) -> dict[str, float]:
-    config = resolve_generalization_objective_config(objective_kwargs)
+    config = resolve_stable_objective_config(objective_kwargs)
     diagnostics, summary_components = _resolve_single_variable_diagnostics(
         binner,
         X,
@@ -793,7 +793,7 @@ def _build_generalization_objective_components(
     if diagnostics is None or not time_col or time_col not in X.columns:
         return components
 
-    df, global_bin_totals, bin_weights = _prepare_generalization_frames(
+    df, global_bin_totals, bin_weights = _prepare_stable_frames(
         diagnostics,
         time_col=time_col,
         woe_shrinkage_strength=config["woe_shrinkage_strength"],
@@ -831,7 +831,7 @@ def build_objective_components(
     time_col: str | None = None,
     objective_kwargs: dict[str, Any] | None = None,
     score_strategy: str | None = None,
-    score_weights: dict[str, Any] | GeneralizationScoreWeights | None = None,
+    score_weights: dict[str, Any] | StableScoreWeights | None = None,
     normalization_strategy: str | None = None,
     woe_shrinkage_strength: float | None = None,
 ) -> dict[str, float]:
@@ -850,7 +850,7 @@ def build_objective_components(
             time_col=time_col,
             objective_kwargs=config,
         )
-    return _build_generalization_objective_components(
+    return _build_stable_objective_components(
         binner,
         X,
         y,
@@ -882,7 +882,7 @@ def build_objective_components_from_diagnostics(
     time_col: str | None = None,
     objective_kwargs: dict[str, Any] | None = None,
     score_strategy: str | None = None,
-    score_weights: dict[str, Any] | GeneralizationScoreWeights | None = None,
+    score_weights: dict[str, Any] | StableScoreWeights | None = None,
     normalization_strategy: str | None = None,
     woe_shrinkage_strength: float | None = None,
 ) -> dict[str, float]:
@@ -953,7 +953,7 @@ def build_objective_components_from_diagnostics(
     )
     components["ks"] = _safe_float(ks_over_time(pivot))
 
-    df, global_bin_totals, bin_weights = _prepare_generalization_frames(
+    df, global_bin_totals, bin_weights = _prepare_stable_frames(
         diagnostics,
         time_col=time_col,
         woe_shrinkage_strength=config["woe_shrinkage_strength"],
@@ -1049,12 +1049,12 @@ def _score_legacy_objective_components(
     }
 
 
-def _score_generalization_objective_components(
+def _score_stable_objective_components(
     components: dict[str, Any],
     *,
     objective_kwargs: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    config = resolve_generalization_objective_config(objective_kwargs)
+    config = resolve_stable_objective_config(objective_kwargs)
     if config["normalization_strategy"] != "absolute":
         raise ValueError(
             f"Unsupported normalization strategy '{config['normalization_strategy']}'. "
@@ -1123,7 +1123,7 @@ def _score_generalization_objective_components(
         "total_penalty": score,
         "comparison_score": float(-score),
         "objective_direction": "minimize",
-        "score_strategy": GENERALIZATION_V1_SCORE_STRATEGY,
+        "score_strategy": STABLE_SCORE_STRATEGY,
         "components": comps,
         "normalized_components": normalized_components,
         "weights": weights,
@@ -1143,7 +1143,7 @@ def score_objective_components(
     *,
     objective_kwargs: dict[str, Any] | None = None,
     score_strategy: str | None = None,
-    score_weights: dict[str, Any] | GeneralizationScoreWeights | None = None,
+    score_weights: dict[str, Any] | StableScoreWeights | None = None,
     normalization_strategy: str | None = None,
     woe_shrinkage_strength: float | None = None,
 ) -> dict[str, Any]:
@@ -1156,4 +1156,4 @@ def score_objective_components(
     )
     if config["score_strategy"] == LEGACY_SCORE_STRATEGY:
         return _score_legacy_objective_components(components, objective_kwargs=config)
-    return _score_generalization_objective_components(components, objective_kwargs=config)
+    return _score_stable_objective_components(components, objective_kwargs=config)

@@ -1,51 +1,62 @@
 ---
 title: "Release Notes"
-description: "Marcos de release em alto nível para o pacote público e para a documentação oficial."
+description: "Marcos de release em alto nivel para o pacote publico e para a documentacao oficial."
 ---
 
-## Próximos passos
+## Proximos passos
 
-- benchmark com write-ups metodológicos mais ricos
-- figuras exportadas para páginas da documentação
-- referência de API mais profunda
-- curadoria de publicações e notas técnicas
+- benchmark com write-ups metodologicos mais ricos
+- figuras exportadas para paginas da documentacao
+- referencia de API mais profunda
+- curadoria de publicacoes e notas tecnicas
+
+## v2.0.0
+
+Release de consolidacao publica:
+
+- renomeacao definitiva do valor publico de `score_strategy` de `generalization_v1` para `stable`
+- remocao do nome antigo da API publica, exemplos, smoke tests, labels e documentacao principal
+- docs-site reorganizado para onboarding, primeiros passos e navegacao mais clara para novos usuarios
+- paginas dedicadas para `score_strategy`, `normalization_strategy`, `woe_shrinkage_strength`, Optuna e interpretacao de outputs
+- notebook e exemplos alinhados ao fluxo amigavel no estilo sklearn e pandas
+- preparacao explicita do fluxo de release para validacao, GitHub Pages e publicacao em PyPI via Trusted Publishing
 
 ## v1.2.0
 
-Evolução importante da ergonomia da API pública:
+Evolucao importante da ergonomia da API publica:
 
-- `Binner` mais alinhado a convenções de sklearn e pandas
-- suporte amigável a `fit(df, y="target", column="feature")`
-- `transform(...)` e `fit_transform(...)` com comportamento mais previsível para `DataFrame` e `Series`
-- aliases públicos como `max_n_bins` e `monotonic_trend`
-- novos métodos de inspeção: `binning_table()`, `summary()`, `report()`, `score_details()`, `diagnostics()` e `plot_stability()`
-- atributos pós-fit mais fáceis de descobrir
-- notebook novo com Plotly e dados sintéticos para onboarding da biblioteca
+- `Binner` mais alinhado a convencoes de sklearn e pandas
+- suporte amigavel a `fit(df, y="target", column="feature")`
+- `transform(...)` e `fit_transform(...)` com comportamento mais previsivel para `DataFrame` e `Series`
+- aliases publicos como `max_n_bins` e `monotonic_trend`
+- novos metodos de inspecao: `binning_table()`, `summary()`, `report()`, `score_details()`, `diagnostics()` e `plot_stability()`
+- atributos pos-fit mais faceis de descobrir
+- notebook novo com Plotly e dados sinteticos para onboarding da biblioteca
 
 ## v1.1.0
 
-Evolução importante da camada de scoring:
+Evolucao importante da camada de scoring:
 
 - caminho legado preservado explicitamente como `legacy`
-- novo objective `generalization_v1` para generalização temporal
-- pesos configuráveis, normalização `absolute` e shrink de WoE
-- integração consistente com `Binner`, `BinComparator`, relatórios auditáveis e Optuna
-- novo exemplo mínimo comparando `legacy` versus `generalization_v1`
+- novo objective temporal introduzido e hoje exposto publicamente como `stable`
+- pesos configuraveis, normalizacao `absolute` e shrink de WoE
+- integracao consistente com `Binner`, `BinComparator`, relatorios auditaveis e Optuna
+- novo exemplo minimo comparando `legacy` versus `stable`
 
 ## v1.0.0
 
-Mudanças estruturais importantes já refletidas no repositório:
+Mudancas estruturais importantes ja refletidas no repositorio:
 
 - rename destrutivo para `riskbands`
-- `Binner` estabelecido como classe principal pública
+- `Binner` estabelecido como classe principal publica
 - namespace legado `nasabinning` removido
-- direção de documentação orientada a benchmark estabelecida nos exemplos do repositório
+- direcao de documentacao orientada a benchmark estabelecida nos exemplos do repositorio
 
-## Fundação da documentação
+## Fundacao da documentacao
 
-Este site em Starlight é a primeira fundação oficial da documentação pública do RiskBands:
+Este site em Starlight e a primeira fundacao oficial da documentacao publica do RiskBands:
 
-- porta técnica
-- porta metodológica
+- porta tecnica
+- porta metodologica
 - deploy em GitHub Pages
-- narrativa orientada a benchmark para usuários de risco de crédito
+- narrativa orientada a benchmark para usuarios de risco de credito

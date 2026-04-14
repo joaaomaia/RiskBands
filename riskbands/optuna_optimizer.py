@@ -118,7 +118,7 @@ def optimize_bins(
     Execute Optuna and return the best parameters and fitted binner.
 
     ``objective_kwargs`` is strategy-aware and can configure either the legacy
-    score or ``generalization_v1`` without coupling the rest of the package to
+    score or ``stable`` without coupling the rest of the package to
     Optuna specifics.
     """
     resolved_objective_kwargs = resolve_objective_config(objective_kwargs)

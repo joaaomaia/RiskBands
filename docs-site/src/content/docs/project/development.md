@@ -1,16 +1,16 @@
 ---
 title: "Desenvolvimento"
-description: "Como manter o site da documentação, adicionar páginas e entender o deploy em GitHub Pages."
+description: "Como manter a documentacao, validar releases e entender o deploy do site e do pacote."
 ---
 
 ## Biblioteca versus site da docs
 
-O repositório agora tem duas camadas de documentação:
+O repositorio tem duas camadas de documentacao:
 
-- `docs/` mantém material Markdown mais leve, já existente no projeto Python
-- `docs-site/` é o site oficial em Astro + Starlight pensado para publicação em GitHub Pages
+- `docs/` mantem material Markdown mais leve, ja existente no projeto Python
+- `docs-site/` eh o site oficial em Astro + Starlight pensado para publicacao em GitHub Pages
 
-## Fluxo local da documentação
+## Fluxo local da documentacao
 
 ```bash
 cd docs-site
@@ -18,7 +18,7 @@ npm install
 npm run dev
 ```
 
-Para gerar build de produção:
+Para gerar build de producao:
 
 ```bash
 cd docs-site
@@ -26,68 +26,61 @@ npm install
 npm run build
 ```
 
-## Onde adicionar páginas
+## Onde adicionar paginas
 
-Crie páginas em:
+Crie paginas em:
 
 `docs-site/src/content/docs/`
 
-Regra prática:
+Regra pratica:
 
-- use `technical/` quando a página ajudar alguém a instalar, rodar ou usar a API
-- use `methodology/` quando a página ajudar alguém a entender a tese e a história do benchmark
+- use `technical/` quando a pagina ajudar alguem a instalar, rodar ou usar a API
+- use `methodology/` quando a pagina ajudar alguem a entender a tese e a historia do benchmark
 
-## Atualizando a navegação
+## Atualizando a navegacao
 
-A navegação principal fica em:
+A navegacao principal fica em:
 
 `docs-site/astro.config.mjs`
 
-Se você adicionar uma página e quiser deixá-la encontrável, atualize o sidebar do Starlight ali.
+Se voce adicionar uma pagina e quiser deixa-la encontravel, atualize o sidebar do
+Starlight ali.
 
 ## Deploy em GitHub Pages
 
-O deploy está configurado em:
+O deploy esta configurado em:
 
 `.github/workflows/docs-deploy.yml`
 
 O workflow:
 
 - roda em pushes para `master`
-- instala dependências com `npm ci` dentro de `docs-site/`
+- instala dependencias com `npm ci` dentro de `docs-site/`
 - builda o site Astro com `npm run build` dentro de `docs-site/`
 - publica `docs-site/dist/` no GitHub Pages
 - depende de `Settings > Pages > Source = GitHub Actions`
 
-## Checklist de readiness para publicação
+## Release do pacote
 
-Antes de tratar a docs como pública, revise:
+O repositorio tambem possui workflows separados para validacao e publicacao:
 
-1. GitHub Pages apontando para GitHub Actions.
-2. `DOCS_SITE_URL` e `DOCS_BASE_PATH` coerentes com a URL final.
-3. Home, benchmark e páginas metodológicas abrindo corretamente.
-4. Search index gerado sem erros de build.
-5. Preview social da docs apontando para o asset esperado.
+- `.github/workflows/release-validation.yml`
+- `.github/workflows/publish-testpypi.yml`
+- `.github/workflows/publish-pypi.yml`
 
-## Figuras do benchmark na documentação
+Fluxo esperado:
 
-Os embeds metodológicos da docs usam assets reais exportados pelo benchmark para:
+1. atualizar versao em `pyproject.toml`
+2. rodar testes, build e `twine check`
+3. criar commit
+4. criar tag `vX.Y.Z`
+5. executar o workflow de publicacao na tag correspondente
 
-`docs-site/public/benchmark-assets/`
+Os workflows de publicacao validam que:
 
-Comando de regeneração:
+- a execucao acontece sobre uma tag
+- a tag bate com a versao do `pyproject.toml`
+- a distribuicao foi construida e validada antes de publicar
 
-```bash
-C:\Users\JM\AppData\Local\anaconda3\python.exe examples\pd_vintage_benchmark\pd_vintage_benchmark.py --all-scenarios --samples-per-period 180 --export-html-dir docs-site\public\benchmark-assets
-```
-
-Isso mantém a Home e as páginas metodológicas conectadas a saídas reais do repositório, e não a mockups.
-
-## Domínio customizado no futuro
-
-A configuração do Astro já está parametrizada para:
-
-- `DOCS_SITE_URL`
-- `DOCS_BASE_PATH`
-
-Isso facilita uma futura migração para `docs.riskbands.dev` ou `riskbands.dev` sem reestruturação maior.
+As publicacoes em TestPyPI e PyPI usam Trusted Publishing, sem hardcode de
+token no repositorio.

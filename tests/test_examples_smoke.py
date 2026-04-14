@@ -117,25 +117,25 @@ def test_pd_vintage_benchmark_example_flow_smoke():
     } <= set(figures)
 
 
-def test_generalization_objective_example_flow_smoke():
+def test_stable_score_example_flow_smoke():
     module = _load_example_module(
-        "examples/generalization_objective/generalization_objective_demo.py"
+        "examples/stable_score/stable_score_demo.py"
     )
 
-    results = module.run_generalization_objective_demo(seed=11)
+    results = module.run_stable_score_demo(seed=11)
 
     assert {
         "legacy_fit_summary",
         "legacy_candidate_audit",
         "legacy_winner_summary",
-        "generalization_fit_summary",
-        "generalization_candidate_audit",
-        "generalization_winner_summary",
+        "stable_fit_summary",
+        "stable_candidate_audit",
+        "stable_winner_summary",
         "selection_comparison",
         "baseline_note",
     } <= set(results)
     assert not results["legacy_candidate_audit"].empty
-    assert not results["generalization_candidate_audit"].empty
+    assert not results["stable_candidate_audit"].empty
     assert len(results["baseline_note"]) > 20
 
 

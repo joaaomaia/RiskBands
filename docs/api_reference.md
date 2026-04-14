@@ -1,4 +1,4 @@
-﻿# API Reference
+# API Reference
 
 ## Public Surface
 
@@ -14,7 +14,7 @@ from riskbands import (
 
 Current version:
 
-- `1.2.0`
+- `2.0.0`
 
 ## `Binner`
 
@@ -31,8 +31,8 @@ Common parameters:
 - `check_stability`: enables temporal checks in the flow
 - `use_optuna`: enables hyperparameter search for `strategy="supervised"`
 - `time_col`: period column used by temporal diagnostics
-- `score_strategy`: `"legacy"` or `"generalization_v1"`
-- `score_weights`: optional weights for `generalization_v1`
+- `score_strategy`: `"legacy"` or `"stable"`
+- `score_weights`: optional weights for `stable`
 - `normalization_strategy`: currently `absolute` for standalone-safe normalization
 - `woe_shrinkage_strength`: shrink intensity applied before temporal scoring
 - `objective_kwargs`: advanced score configuration override
@@ -131,11 +131,12 @@ Main attributes after `fit`:
 - `legacy`
   - maximize-oriented
   - keeps the historical score based on positive components and penalties
-- `generalization_v1`
+- `stable`
   - minimize-oriented
-  - explicit generalization objective with normalized components
+  - explicit stable objective with normalized components
+  - from `2.0.0` onward, this is the only public name for the temporal objective
 
-`generalization_v1` combines:
+`stable` combines:
 
 - temporal weighted variance of shrinked WoE
 - adjacent window drift
@@ -174,7 +175,7 @@ The final winner summary is stored in `objective_summary_`.
 Interpretation:
 
 - in `legacy`, higher `objective_score` is better
-- in `generalization_v1`, lower `objective_score` is better
+- in `stable`, lower `objective_score` is better
 - `objective_preference_score` keeps comparisons consistent across strategies
 
 ## `BinComparator`

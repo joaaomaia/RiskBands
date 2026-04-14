@@ -55,11 +55,12 @@ O repositório agora expõe dois caminhos explícitos de score:
 
 - `legacy`
   Mantém o objetivo histórico baseado em componentes positivos menos penalidades.
-- `generalization_v1`
-  Introduz uma função objetivo de generalização temporal orientada a minimização,
-  com componentes normalizados e focada em equilíbrio entre separação e robustez.
+- `stable`
+  Introduz a estratégia pública recomendada para robustez temporal, orientada a
+  minimização, com componentes normalizados e foco em equilíbrio entre
+  separação e estabilidade.
 
-O `generalization_v1` combina:
+O `stable` combina:
 
 - variância temporal ponderada do WoE shrinkado
 - drift entre janelas adjacentes
@@ -149,7 +150,7 @@ binner = Binner(
     check_stability=True,
     monotonic="ascending",
     min_event_rate_diff=0.03,
-    score_strategy="generalization_v1",
+    score_strategy="stable",
     normalization_strategy="absolute",
     woe_shrinkage_strength=40.0,
 )
@@ -177,7 +178,7 @@ binner = Binner(
     check_stability=True,
     use_optuna=True,
     time_col="month",
-    score_strategy="generalization_v1",
+    score_strategy="stable",
     score_weights={
         "temporal_variance_weight": 0.18,
         "window_drift_weight": 0.16,
@@ -195,7 +196,7 @@ binner = Binner(
 Leitura rápida:
 
 - no `legacy`, maiores scores continuam melhores
-- no `generalization_v1`, menores scores são melhores
+- no `stable`, menores scores são melhores
 - relatórios auditáveis expõem score final, componentes raw, componentes normalizados, pesos, estratégia e parâmetros de shrink
 
 ## Benchmark principal do repositorio
@@ -211,7 +212,7 @@ Materiais principais:
 - [pd_vintage_benchmark.py](https://github.com/joaaomaia/RiskBands/blob/master/examples/pd_vintage_benchmark/pd_vintage_benchmark.py)
 - [pd_vintage_benchmark.ipynb](https://github.com/joaaomaia/RiskBands/blob/master/examples/pd_vintage_benchmark/pd_vintage_benchmark.ipynb)
 - [riskbands_synthetic_plotly_comparative_demo.ipynb](https://github.com/joaaomaia/RiskBands/blob/master/examples/riskbands_synthetic_plotly_comparative_demo.ipynb)
-- [generalization_objective_demo.py](https://github.com/joaaomaia/RiskBands/blob/master/examples/generalization_objective/generalization_objective_demo.py)
+- [stable_score_demo.py](https://github.com/joaaomaia/RiskBands/blob/master/examples/stable_score/stable_score_demo.py)
 - [pd_vintage_champion_challenger.py](https://github.com/joaaomaia/RiskBands/blob/master/examples/pd_vintage_champion_challenger/pd_vintage_champion_challenger.py)
 - [temporal_stability_example.py](https://github.com/joaaomaia/RiskBands/blob/master/examples/temporal_stability/temporal_stability_example.py)
 

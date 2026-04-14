@@ -1,16 +1,16 @@
 ---
 title: Quickstart
-description: "Ajuste seu primeiro Binner com uma API mais pandas-first, inspecione o score e abra o diagnóstico temporal quando necessário."
+description: "Ajuste seu primeiro Binner com a API mais amigável do RiskBands e entenda os outputs principais em poucos passos."
 ---
 
-## Fluxo mínimo
+## O fluxo recomendado hoje
 
-O fluxo recomendado agora é curto e familiar para quem já usa pandas e sklearn:
+Para um usuário novo, o caminho mais fácil é:
 
-1. ajustar um `Binner`
-2. transformar a coluna quando quiser
-3. inspecionar `summary()` e `score_details()`
-4. abrir `diagnostics()` ou `report()` quando precisar aprofundar
+1. criar um `Binner`
+2. ajustar com `fit(df, y="target", column="score", time_col="month")`
+3. olhar `summary()`
+4. abrir `score_details()` ou `diagnostics()` quando precisar aprofundar
 
 ```python
 import numpy as np
@@ -32,9 +32,7 @@ binner = Binner(
     strategy="supervised",
     max_n_bins=5,
     check_stability=True,
-    monotonic="ascending",
-    min_event_rate_diff=0.03,
-    score_strategy="generalization_v1",
+    score_strategy="stable",
 )
 
 binner.fit(df, y="target", column="score", time_col="month")
@@ -42,61 +40,62 @@ score_bins = binner.transform(df["score"])
 summary = binner.summary()
 score_details = binner.score_details()
 diagnostics = binner.diagnostics(kind="bin")
-audit = binner.report()
 ```
+
+## Por que esse fluxo é mais amigável
+
+Ele segue convenções familiares:
+
+- `fit(...)`
+- `transform(...)`
+- `fit_transform(...)`
+- `get_params()` / `set_params(...)`
+- `DataFrame` e `Series` do pandas como primeira opção
+
+Também evita exigir que você memorize estruturas internas logo no começo.
 
 ## O que olhar primeiro
 
 ### `summary()`
 
-Use `summary()` para uma leitura curta por variável:
+É a melhor primeira parada após o ajuste.
 
-- IV
-- score temporal
-- score final do objective
-- cobertura mínima
-- contagem de bins raros
-- reversões de ranking
+Use quando quiser responder rapidamente:
 
-É a melhor primeira parada depois do `fit`.
+- quantos bins ficaram?
+- qual foi o IV?
+- qual estratégia de score está ativa?
+- qual foi o score final?
+- existem alertas temporais importantes?
 
 ### `score_details()`
 
-Use `score_details()` quando a pergunta for:
+Use quando a pergunta for:
 
-- qual foi o score final?
-- qual estratégia está ativa: `legacy` ou `generalization_v1`?
-- quais componentes e pesos entraram na decisão?
+- por que esse score saiu assim?
+- o que entrou no objective?
+- quais pesos foram usados?
+- qual normalização está ativa?
+- qual `woe_shrinkage_strength` foi aplicado?
 
 ### `diagnostics()`
 
-Use `diagnostics(kind="bin")` para abrir a granularidade de variável x bin x período sem precisar lembrar do caminho interno completo.
+Use `diagnostics(kind="bin")` para abrir a granularidade por variável x bin x período.
 
-### `report()`
+Use `diagnostics(kind="variable")` para um resumo temporal por variável.
 
-Use `report()` quando você precisar de uma tabela única que consolide:
+## Quando usar `stable`
 
-- cortes
-- IV e KS
-- score temporal
-- score objetivo
-- penalizações
-- resumo textual do racional
+Para um novo usuário, `stable` costuma ser a melhor estratégia pública para começar quando:
 
-## Compatibilidade com o objective novo
+- existe coluna temporal
+- estabilidade importa de verdade
+- você quer equilibrar separação e robustez
 
-O quickstart mais amigável não remove nenhuma capacidade do core pós-`v1.1.0`.
-
-Você continua controlando normalmente:
-
-- `score_strategy`
-- `score_weights`
-- `normalization_strategy`
-- `woe_shrinkage_strength`
-- `objective_kwargs`
+Se você precisa reproduzir um comportamento mais histórico ou comparar com a abordagem anterior, use `legacy`.
 
 ## Próximos passos
 
-- [Visão geral da API](../api-overview/)
-- [Exemplos](../examples/)
-- [Benchmark PD vintage](../../methodology/pd-vintage-benchmark/)
+- [Score e estratégias](../score-strategy/)
+- [Outputs e diagnóstico](../outputs/)
+- [Optuna](../optuna/)

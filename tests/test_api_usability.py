@@ -39,7 +39,7 @@ def test_dataframe_first_fit_populates_friendly_cached_artifacts(demo_df: pd.Dat
         strategy="supervised",
         max_n_bins=5,
         check_stability=True,
-        score_strategy="generalization_v1",
+        score_strategy="stable",
     )
 
     binner.fit(demo_df, y="target", column="age", time_col="month")
@@ -55,11 +55,11 @@ def test_dataframe_first_fit_populates_friendly_cached_artifacts(demo_df: pd.Dat
     assert isinstance(binner.score_, float)
     assert isinstance(binner.comparison_score_, float)
     assert {"variable", "objective_score", "objective_preference_score"} <= set(binner.score_details_.columns)
-    assert binner.metadata_["score_strategy"] == "generalization_v1"
+    assert binner.metadata_["score_strategy"] == "stable"
 
 
 def test_series_fit_transform_returns_series_and_preserves_index(demo_df: pd.DataFrame):
-    binner = Binner(strategy="supervised", max_bins=4, score_strategy="generalization_v1")
+    binner = Binner(strategy="supervised", max_bins=4, score_strategy="stable")
 
     transformed = binner.fit_transform(demo_df["age"], y=demo_df["target"])
 
@@ -95,7 +95,7 @@ def test_get_params_and_set_params_sync_sklearn_style_aliases():
     binner = Binner(
         max_bins=4,
         monotonic="ascending",
-        score_strategy="generalization_v1",
+        score_strategy="stable",
         score_weights={"psi_weight": 0.22},
     )
 
@@ -105,7 +105,7 @@ def test_get_params_and_set_params_sync_sklearn_style_aliases():
     assert params["max_n_bins"] == 4
     assert params["monotonic"] == "ascending"
     assert params["monotonic_trend"] == "ascending"
-    assert params["score_strategy"] == "generalization_v1"
+    assert params["score_strategy"] == "stable"
 
     binner.set_params(max_n_bins=6, monotonic_trend="descending", woe_shrinkage_strength=10.0)
 
@@ -160,5 +160,5 @@ def test_plotly_notebook_exists_and_references_the_friendly_api():
     assert "Binner" in text
     assert "fit(" in text
     assert "summary()" in text
-    assert "generalization_v1" in text
+    assert "stable" in text
     assert "legacy" in text

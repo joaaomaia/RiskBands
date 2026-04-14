@@ -11,6 +11,7 @@ import pandas as pd
 from sklearn.base import BaseEstimator, TransformerMixin
 
 from .metrics import iv
+from .objectives import resolve_score_strategy
 from .refinement import refine_bins
 from .strategies import get_strategy
 from .utils.dtypes import search_dtypes
@@ -59,11 +60,17 @@ class Binner(BaseEstimator, TransformerMixin):
         self.time_col = time_col
         self.force_categorical = force_categorical or []
         self.force_numeric = force_numeric or []
+        self.objective_kwargs = objective_kwargs or {}
+        resolve_score_strategy(score_strategy=score_strategy)
+        if "score_strategy" in self.objective_kwargs:
+            resolve_score_strategy(
+                {"score_strategy": self.objective_kwargs["score_strategy"]},
+                score_strategy=None,
+            )
         self.score_strategy = score_strategy
         self.score_weights = score_weights
         self.normalization_strategy = normalization_strategy
         self.woe_shrinkage_strength = woe_shrinkage_strength
-        self.objective_kwargs = objective_kwargs or {}
 
         strategy_kwargs = strategy_kwargs or {}
         if "strategy_kwargs" in strategy_kwargs:
@@ -91,6 +98,13 @@ class Binner(BaseEstimator, TransformerMixin):
         if "monotonic_trend" in params and "monotonic" in params and params["monotonic_trend"] != params["monotonic"]:
             raise ValueError(
                 "`monotonic` and `monotonic_trend` must match when both are provided."
+            )
+        if "score_strategy" in params:
+            resolve_score_strategy(score_strategy=params["score_strategy"])
+        if "objective_kwargs" in params and "score_strategy" in (params["objective_kwargs"] or {}):
+            resolve_score_strategy(
+                {"score_strategy": params["objective_kwargs"]["score_strategy"]},
+                score_strategy=None,
             )
 
         if "max_n_bins" in params and "max_bins" not in params:

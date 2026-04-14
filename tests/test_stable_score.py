@@ -62,7 +62,7 @@ def _make_vintage_dataset(mode: str = "stable") -> tuple[pd.DataFrame, pd.Series
     return X, y
 
 
-def _fit_reference_binner(X: pd.DataFrame, y: pd.Series, *, score_strategy: str = "generalization_v1") -> Binner:
+def _fit_reference_binner(X: pd.DataFrame, y: pd.Series, *, score_strategy: str = "stable") -> Binner:
     binner = Binner(
         strategy="unsupervised",
         max_bins=3,
@@ -109,7 +109,7 @@ def test_legacy_strategy_remains_default_and_maximization_oriented():
     assert stable_score["score"] > unstable_score["score"]
 
 
-def test_generalization_v1_runs_without_optuna_and_emits_detailed_audit_columns():
+def test_stable_runs_without_optuna_and_emits_detailed_audit_columns():
     X, y = _make_vintage_dataset(mode="inversion")
     binner = _fit_reference_binner(X, y)
 
@@ -121,7 +121,7 @@ def test_generalization_v1_runs_without_optuna_and_emits_detailed_audit_columns(
     )
 
     row = report.iloc[0]
-    assert row["score_strategy"] == "generalization_v1"
+    assert row["score_strategy"] == "stable"
     assert row["objective_direction"] == "minimize"
     assert np.isfinite(row["objective_score"])
     assert np.isfinite(row["objective_preference_score"])
@@ -137,7 +137,7 @@ def test_generalization_v1_runs_without_optuna_and_emits_detailed_audit_columns(
     } <= set(report.columns)
 
 
-def test_generalization_v1_integrates_with_optuna():
+def test_stable_integrates_with_optuna():
     X, y = _make_vintage_dataset(mode="stable")
 
     best, binner = optimize_bins(
@@ -146,17 +146,17 @@ def test_generalization_v1_integrates_with_optuna():
         time_col="month",
         time_values=X["month"],
         n_trials=2,
-        objective_kwargs={"score_strategy": "generalization_v1"},
+        objective_kwargs={"score_strategy": "stable"},
         strategy="supervised",
     )
 
     assert 3 <= best["max_bins"] <= 10
-    assert binner.objective_summary_["score_strategy"] == "generalization_v1"
+    assert binner.objective_summary_["score_strategy"] == "stable"
     assert binner.objective_summary_["objective_direction"] == "minimize"
     assert np.isfinite(binner.objective_summary_["score"])
 
 
-def test_generalization_weights_change_final_score():
+def test_stable_weights_change_final_score():
     components = {
         "temporal_variance": 0.03,
         "window_drift": 0.04,
@@ -168,12 +168,12 @@ def test_generalization_weights_change_final_score():
 
     default_score = score_objective_components(
         components,
-        objective_kwargs={"score_strategy": "generalization_v1"},
+        objective_kwargs={"score_strategy": "stable"},
     )
     weighted_score = score_objective_components(
         components,
         objective_kwargs={
-            "score_strategy": "generalization_v1",
+            "score_strategy": "stable",
             "weights": {
                 "separation_weight": 0.40,
                 "temporal_variance_weight": 0.15,
@@ -188,7 +188,7 @@ def test_generalization_weights_change_final_score():
     assert default_score["score"] != weighted_score["score"]
 
 
-def test_generalization_normalization_is_finite_on_degenerate_inputs():
+def test_stable_normalization_is_finite_on_degenerate_inputs():
     details = score_objective_components(
         {
             "temporal_variance": 0.0,
@@ -198,7 +198,7 @@ def test_generalization_normalization_is_finite_on_degenerate_inputs():
             "entropy": 0.0,
             "psi": 0.0,
         },
-        objective_kwargs={"score_strategy": "generalization_v1"},
+        objective_kwargs={"score_strategy": "stable"},
     )
 
     assert np.isfinite(details["score"])
@@ -215,7 +215,7 @@ def test_woe_shrinkage_reduces_noisy_temporal_components():
         y,
         time_col="month",
         objective_kwargs={
-            "score_strategy": "generalization_v1",
+            "score_strategy": "stable",
             "woe_shrinkage_strength": 0.0,
         },
     )
@@ -225,7 +225,7 @@ def test_woe_shrinkage_reduces_noisy_temporal_components():
         y,
         time_col="month",
         objective_kwargs={
-            "score_strategy": "generalization_v1",
+            "score_strategy": "stable",
             "woe_shrinkage_strength": 120.0,
         },
     )
@@ -244,7 +244,7 @@ def test_separation_prevents_stable_but_useless_candidate_from_winning():
             "entropy": 0.03,
             "psi": 0.005,
         },
-        objective_kwargs={"score_strategy": "generalization_v1"},
+        objective_kwargs={"score_strategy": "stable"},
     )
     useful_but_slightly_noisier = score_objective_components(
         {
@@ -255,7 +255,7 @@ def test_separation_prevents_stable_but_useless_candidate_from_winning():
             "entropy": 0.05,
             "psi": 0.03,
         },
-        objective_kwargs={"score_strategy": "generalization_v1"},
+        objective_kwargs={"score_strategy": "stable"},
     )
 
     assert useful_but_slightly_noisier["score"] < stable_but_useless["score"]
@@ -285,14 +285,14 @@ def test_rank_inversion_penalty_reacts_to_real_inversions():
         stable_X,
         stable_y,
         time_col="month",
-        objective_kwargs={"score_strategy": "generalization_v1"},
+        objective_kwargs={"score_strategy": "stable"},
     )
     inversion_components = build_objective_components(
         inversion_binner,
         inversion_X,
         inversion_y,
         time_col="month",
-        objective_kwargs={"score_strategy": "generalization_v1"},
+        objective_kwargs={"score_strategy": "stable"},
     )
 
     assert inversion_components["rank_inversion"] > stable_components["rank_inversion"]

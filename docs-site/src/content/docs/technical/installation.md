@@ -1,66 +1,81 @@
 ---
 title: "Instalação"
-description: "Como instalar o RiskBands para uso da biblioteca, desenvolvimento local e manutenção da documentação."
+description: "Como instalar o RiskBands a partir do PyPI, preparar o ambiente de desenvolvimento e rodar a documentação localmente."
 ---
 
-## Caminho recomendado hoje
+## Instalação recomendada
 
-O RiskBands está estruturado primeiro como biblioteca Python. Neste momento, o caminho mais seguro é instalar a partir do código-fonte do repositório.
+Para usar a biblioteca no dia a dia:
+
+```bash
+pip install riskbands
+```
+
+Se você também quiser os extras visuais usados em notebooks e demos com Plotly:
+
+```bash
+pip install "riskbands[viz]"
+```
+
+## Ambiente de desenvolvimento
+
+Para trabalhar no repositório local, rodar testes e executar notebooks:
 
 ```bash
 git clone https://github.com/joaaomaia/RiskBands.git
 cd RiskBands
-pip install -e .
-```
-
-Se você também pretende rodar testes, notebooks, benchmark e material de documentação:
-
-```bash
 pip install -e .[dev]
 ```
 
-## O que entra na instalação principal
+O extra `dev` adiciona ferramentas úteis para:
 
-A instalação principal cobre as dependências necessárias para:
+- testes com `pytest`
+- notebooks com `ipykernel`
+- exportação `.xlsx`
+- visualizações com Plotly
+- build e validação de release
 
-- binning supervisionado e não supervisionado
-- diagnósticos temporais
-- comparação entre candidatos
-- reporting auditável
-- exemplos e benchmark já presentes no repositório
+## Dependências principais da biblioteca
 
-## O que entra no extra de desenvolvimento
+A instalação principal cobre o núcleo do projeto:
 
-O extra `dev` adiciona dependências úteis para validação e authoring, incluindo:
-
-- `pytest`
-- `ipykernel`
-- `plotly`
-- `openpyxl`
-
-Isso é especialmente útil se você quiser:
-
-- rodar a suíte de testes
-- executar os notebooks
-- exportar relatórios em Excel
-- visualizar o benchmark PD vintage com os gráficos atuais
+- `pandas`
+- `numpy`
+- `scikit-learn`
+- `optbinning`
+- `optuna`
+- `category_encoders`
 
 ## Observações práticas
 
-- Exportação `.xlsx` exige uma engine compatível, como `openpyxl` ou `xlsxwriter`.
-- O benchmark visual atual usa Plotly.
-- No fluxo supervisionado numérico, o projeto depende de `optbinning`.
+- Exportação `.xlsx` exige uma engine compatível, como `openpyxl`.
+- O fluxo supervisionado numérico reaproveita `optbinning`.
+- O uso de Optuna é opcional.
 
-## Instalação da documentação
+## Documentação local
 
-O site oficial da documentação vive em `docs-site/` e usa um toolchain separado em Node.js.
+O site da documentação vive em `docs-site/` e usa Astro + Starlight.
 
-Para rodar a docs localmente:
+Para rodar localmente:
 
 ```bash
 cd docs-site
-npm install
+npm ci
 npm run dev
 ```
 
-Se você estiver mexendo na documentação, veja também [Desenvolvimento](../../project/development/).
+Para gerar build de produção:
+
+```bash
+cd docs-site
+npm ci
+npm run build
+```
+
+## Depois da instalação
+
+O melhor próximo passo costuma ser:
+
+1. [Quickstart](../quickstart/)
+2. [Score e estratégias](../score-strategy/)
+3. [Outputs e diagnóstico](../outputs/)

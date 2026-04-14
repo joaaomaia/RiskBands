@@ -1,9 +1,21 @@
 ---
-title: "Visão geral da API"
-description: "Mapa da superfície principal do pacote, com foco na camada pública mais amigável construída sobre o core de score pós-v1.1.0."
+title: "Visao geral da API"
+description: "Mapa da superficie publica do RiskBands, com foco em onboarding, pandas-first e acesso simples ao score `stable`."
 ---
 
-## Superfície pública principal
+## Porta de entrada recomendada
+
+Na maior parte dos casos, o fluxo ideal para um usuario novo eh:
+
+1. instanciar `Binner`
+2. rodar `fit(...)`
+3. inspecionar `summary()`, `score_details()` e `report()`
+4. aplicar `transform(...)` no mesmo formato de entrada que voce ja usa no pandas
+
+O projeto agora favorece esse caminho sem esconder configuracoes avancadas do
+score.
+
+## Superficie publica principal
 
 ```python
 from riskbands import Binner, BinComparator
@@ -14,9 +26,10 @@ from riskbands.temporal_stability import (
 )
 ```
 
-## O que mudou na ergonomia
+## O que ficou mais amigavel
 
-Sem mexer agressivamente no core, a API pública do `Binner` agora ficou mais próxima de padrões familiares de sklearn e pandas:
+Sem mexer agressivamente no core, a API publica do `Binner` ficou mais proxima
+de padroes familiares de sklearn e pandas:
 
 - `fit(df, y="target", column="score")`
 - `fit(df["score"], y=df["target"])`
@@ -30,7 +43,7 @@ Sem mexer agressivamente no core, a API pública do `Binner` agora ficou mais pr
 - `plot_stability()`
 - `get_params()` e `set_params(...)`
 
-Também foram adicionados aliases mais amigáveis para configuração:
+Tambem foram adicionados aliases mais amigaveis para configuracao:
 
 - `max_n_bins` como alias de `max_bins`
 - `monotonic_trend` como alias de `monotonic`
@@ -39,19 +52,19 @@ Também foram adicionados aliases mais amigáveis para configuração:
 
 | Componente | Papel no fluxo | Por que importa |
 | --- | --- | --- |
-| `Binner` | Porta de entrada principal | Ajusta, transforma, resume e expõe score/diagnóstico em uma superfície mais amigável |
-| `summary()` | Resumo curto pós-fit | Ajuda a entender rapidamente bins, IV e score |
-| `score_details()` | Detalhamento do objective | Expõe score final, componentes, normalização e pesos |
-| `diagnostics()` | Leitura temporal rápida | Evita navegar por estruturas internas para abrir estabilidade por bin ou por variável |
-| `report()` | Relatório auditável consolidado | Junta score, penalidades, cortes e racional em uma tabela única |
-| `BinComparator` | Comparação champion challenger | Continua sendo a peça central quando o problema é escolher entre múltiplos candidatos |
+| `Binner` | Porta de entrada principal | Ajusta, transforma, resume e expoe score e diagnostico em uma superficie mais amigavel |
+| `summary()` | Resumo curto pos-fit | Ajuda a entender rapidamente bins, IV e score |
+| `score_details()` | Detalhamento do objective | Expoe score final, componentes, normalizacao e pesos |
+| `diagnostics()` | Leitura temporal rapida | Evita navegar por estruturas internas para abrir estabilidade por bin ou por variavel |
+| `report()` | Relatorio auditavel consolidado | Junta score, penalidades, cortes e racional em uma tabela unica |
+| `BinComparator` | Comparacao champion challenger | Continua sendo a peca central quando o problema eh escolher entre multiplos candidatos |
 
-## Fluxo recomendado para candidato único
+## Fluxo recomendado para candidato unico
 
 ```python
 binner = Binner(
     strategy="supervised",
-    score_strategy="generalization_v1",
+    score_strategy="stable",
     max_n_bins=5,
     check_stability=True,
 )
@@ -64,10 +77,10 @@ diagnostics = binner.diagnostics(kind="bin")
 report = binner.report()
 ```
 
-Esse fluxo novo preserva o core introduzido em `v1.1.0`:
+Esse fluxo preserva o core introduzido nas releases recentes:
 
 - `legacy`
-- `generalization_v1`
+- `stable`
 - `score_weights`
 - `normalization_strategy`
 - `woe_shrinkage_strength`
@@ -77,20 +90,21 @@ Esse fluxo novo preserva o core introduzido em `v1.1.0`:
 
 O Optuna continua sendo uma camada opcional de busca.
 
-A melhoria recente foi de ergonomia da API pública, não de mudança conceitual do objective. Ou seja:
+A melhoria recente foi de ergonomia da API publica, nao de mudanca conceitual
+do objective. Ou seja:
 
-- o score pós-`v1.1.0` continua o mesmo
+- o score continua o mesmo
 - o acesso ao score ficou mais simples
 - o uso com e sem Optuna continua suportado
 
-## Estratégias de score
+## Estrategias de score
 
-Hoje a API expõe duas estratégias explícitas:
+Hoje a API expoe duas estrategias explicitas:
 
 - `legacy`
-  Mantém o score histórico orientado a maximização.
-- `generalization_v1`
-  Introduz um objective orientado a generalização temporal e minimização.
+  Mantem o score historico orientado a maximizacao.
+- `stable`
+  Introduz o objective orientado a robustez temporal e minimizacao.
 
 Exemplo:
 
@@ -100,7 +114,7 @@ binner = Binner(
     check_stability=True,
     use_optuna=True,
     time_col="month",
-    score_strategy="generalization_v1",
+    score_strategy="stable",
     score_weights={
         "temporal_variance_weight": 0.22,
         "window_drift_weight": 0.18,
@@ -115,8 +129,18 @@ binner = Binner(
 )
 ```
 
-## Próximos passos
+## O que olhar em seguida
+
+Depois do primeiro `fit`, o trio mais util costuma ser:
+
+- `summary()` para uma leitura curta
+- `score_details()` para entender o score
+- `diagnostics()` para abrir a estabilidade temporal
+
+## Proximos passos
 
 - [Quickstart](../quickstart/)
+- [Score e estrategias](../score-strategy/)
+- [Outputs e diagnostico](../outputs/)
 - [Exemplos](../examples/)
-- [Benchmark PD vintage](../../methodology/pd-vintage-benchmark/)
+- [Benchmark PD vintage](../methodology/pd-vintage-benchmark/)

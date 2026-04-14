@@ -1,208 +1,112 @@
 ---
 title: "Documentação RiskBands"
-description: "Documentação oficial do RiskBands para binning com robustez temporal em risco de crédito, PD, scorecards e seleção auditável de candidatos por safra."
+description: "Documentação oficial do RiskBands para binning com robustez temporal, score estável, onboarding amigável e fluxos prontos para crédito."
 template: splash
 hero:
   title: RiskBands
   tagline: >-
-    OptimalBinning resolve muito bem o corte estático. O RiskBands aproveita
-    essa força quando faz sentido e adiciona a camada que costuma faltar em
-    crédito: diagnóstico temporal, penalizações estruturais, comparação entre
-    candidatos e um racional mais defensável quando o portfólio muda ao longo
-    do tempo.
+    Binning para risco de crédito com foco em robustez temporal. O RiskBands
+    ajuda a sair de uma leitura estática de IV para uma decisão mais defensável
+    entre separação, estabilidade e auditabilidade.
   actions:
-    - text: Começar pelo Quickstart
+    - text: Primeiros passos
       link: ./technical/quickstart/
       icon: right-arrow
-    - text: Ver o benchmark PD vintage
-      link: ./methodology/pd-vintage-benchmark/
+    - text: Entender o score stable
+      link: ./technical/score-strategy/
       icon: right-arrow
       variant: minimal
 features:
-  - title: Porta técnica
-    description: Instalação, Quickstart, visão geral da API e exemplos para começar a usar rápido.
-    link: ./technical/installation/
-  - title: Porta metodológica
-    description: A trilha para quem precisa entender por que binning estático sozinho nem sempre basta em risco de crédito.
-    link: ./methodology/why-riskbands/
-  - title: Benchmarks
-    description: Benchmark PD vintage comparando OptimalBinning puro, baseline estática interna e seleção balanceada do RiskBands.
+  - title: Começo rápido
+    description: Instalação, primeiro exemplo mínimo e fluxo recomendado com `Binner` no estilo sklearn/pandas.
+    link: ./technical/quickstart/
+  - title: Score strategy
+    description: Entenda `legacy` vs `stable`, quando usar cada um e como pensar separação versus robustez temporal.
+    link: ./technical/score-strategy/
+  - title: Outputs fáceis de ler
+    description: Veja como interpretar `summary()`, `report()`, `score_details()`, `diagnostics()` e `binning_table()`.
+    link: ./technical/outputs/
+  - title: Optuna sem acoplamento
+    description: Descubra quando vale ligar a busca externa e como ela se encaixa no mesmo objective do fluxo sem Optuna.
+    link: ./technical/optuna/
+  - title: Benchmark PD vintage
+    description: A vitrine metodológica que mostra quando o binning estático deixa de contar a história inteira.
     link: ./methodology/pd-vintage-benchmark/
-  - title: Exemplos
-    description: Fluxos executáveis para estabilidade temporal, champion challenger e demonstrações orientadas a crédito.
-    link: ./technical/examples/
-  - title: API
-    description: Mapa da superfície principal em torno de Binner, BinComparator, diagnósticos temporais e reporting auditável.
-    link: ./technical/api-overview/
-  - title: Foco em risco de crédito
-    description: Pensado para PD, scorecards, safras, cobertura, bins raros, reversões e trade-offs defendíveis.
-    link: ./methodology/temporal-robustness-in-credit-risk/
-  - title: Publicações
-    description: Espaço preparado para notas técnicas, benchmarks publicados e materiais externos do projeto.
-    link: ./reference/publications/
+  - title: Evolução do projeto
+    description: Veja o que mudou desde `v1.0.0`, incluindo score estável, ergonomia nova e maturidade de release.
+    link: ./reference/after-v1-0/
 ---
 
-## Duas portas de entrada muito claras
+## O que é o RiskBands
 
-### Porta técnica
+O RiskBands é uma biblioteca Python para construir, comparar e auditar candidatos
+de binning quando a pergunta real não é apenas "qual corte tem IV maior?", mas:
 
-Use esta trilha se você já comprou a ideia e quer chegar rápido em código executável:
+> qual solução continua mais defensável quando o tempo entra na análise?
 
-- [Instalação](./technical/installation/)
-- [Quickstart](./technical/quickstart/)
-- [Visão geral da API](./technical/api-overview/)
-- [Exemplos](./technical/examples/)
+Ele foi pensado para casos como:
 
-### Porta metodológica
+- modelos de PD
+- scorecards de crédito
+- leitura por safra ou vintage
+- variáveis com drift temporal
+- estruturas com bins raros, cobertura frágil ou reversões de ranking
 
-Use esta trilha se a sua pergunta principal ainda é "por que eu precisaria de algo além do binning estático?":
+## Por que usar
 
-- [Por que RiskBands](./methodology/why-riskbands/)
-- [Por que não usar apenas OptimalBinning](./methodology/why-not-only-optimal-binning/)
-- [Benchmark PD vintage](./methodology/pd-vintage-benchmark/)
-- [Como ler os gráficos](./methodology/how-to-read-the-charts/)
-- [Robustez temporal em risco de crédito](./methodology/temporal-robustness-in-credit-risk/)
+O `OptimalBinning` já resolve muito bem o corte estático. O papel do RiskBands é
+ajudar a decidir se esse corte ainda é a melhor resposta quando você abre o
+comportamento por período.
 
-## O problema que o RiskBands tenta resolver
+Na prática, o projeto adiciona:
 
-Em muitos fluxos de modelagem de PD, uma variável parece ótima quando olhada no agregado:
-
-- IV forte
-- KS competitivo
-- cortes aparentemente limpos
-
-Mesmo assim, a leitura por safra pode revelar um quadro bem menos confortável:
-
-- inversões de ordenação entre bins
-- perda de separação em períodos mais recentes
-- bins que ficam raros ou mal cobertos
-- deterioração localizada em faixas específicas do score
-- racional difícil de defender em validação, comitê ou governança
-
-É exatamente nesse ponto que o RiskBands entra.
-
-## Onde o OptimalBinning entra de fato
-
-O posicionamento correto do projeto não é "substituir cegamente" o `OptimalBinning`.
-
-No repositório atual, a estratégia supervisionada numérica usa `optbinning.OptimalBinning` no backend do corte estático. Isso é importante porque reconhece um fato simples: o `OptimalBinning` já é muito bom para encontrar bons cortes estáticos.
-
-O papel do RiskBands é outro:
-
-- reaproveitar esse corte estático quando ele fizer sentido
-- auditar o comportamento temporal do candidato
-- comparar alternativas sob a mesma régua
-- penalizar fragilidades estruturais
-- apoiar uma decisão mais alinhada ao problema real de crédito
-
-## Onde o RiskBands adiciona valor
-
-O valor do projeto aparece mais claramente quando uma solução é sedutora no agregado, mas começa a levantar perguntas como:
-
-- a ordenação continua estável entre safras?
-- o event rate cruza entre bins ao longo do tempo?
-- alguns bins somem, ficam raros ou perdem representatividade?
-- o melhor IV agregado continua sendo a melhor resposta para crédito?
-- se dois candidatos parecem plausíveis, qual deles tem o racional mais defensável?
-
-O RiskBands adiciona essa camada por meio de:
-
-- diagnósticos temporais por variável, bin e período
-- penalizações estruturais para baixa cobertura, volatilidade e reversões
+- diagnóstico temporal por variável, bin e período
+- score orientado a robustez temporal com a estratégia `stable`
 - comparação entre candidatos via `BinComparator`
-- score objetivo mais próximo do trade-off real de crédito
 - relatórios auditáveis para explicar por que um candidato venceu
 
-## Mensagem central
+## Caminho recomendado para um usuário novo
 
-> OptimalBinning resolve muito bem o corte estático.  
-> O RiskBands ajuda a decidir se essa resposta continua sendo a resposta mais defensável quando o tempo passa a fazer parte do problema.
+1. Instale a biblioteca em Python.
+2. Rode o [Quickstart](./technical/quickstart/).
+3. Leia [Score e estratégias](./technical/score-strategy/) para entender `stable`.
+4. Use [Outputs e diagnóstico](./technical/outputs/) para aprender a interpretar o resultado.
+5. Vá para [Exemplos](./technical/examples/) ou para o [Benchmark PD vintage](./methodology/pd-vintage-benchmark/).
 
-## Quando o estático ainda pode bastar e quando a camada temporal pesa mais
+## Fluxo mínimo
 
-<div class="rb-grid rb-grid--2">
-  <div class="rb-card rb-card--positive">
-    <span class="rb-kicker">Quando o estático basta</span>
-    <h3>O candidato mais simples continua competitivo</h3>
-    <p>
-      Em cenários mais estáveis, o RiskBands pode confirmar que a solução
-      estática continua sendo a melhor resposta. Isso também é um bom resultado:
-      evita trocar de candidato sem necessidade.
-    </p>
-  </div>
-  <div class="rb-card rb-card--warn">
-    <span class="rb-kicker">Quando a camada temporal importa</span>
-    <h3>O agregado deixa de contar a história inteira</h3>
-    <p>
-      Quando surgem reversões por safra, perda de cobertura ou volatilidade de
-      event rate e WoE, a decisão deixa de ser apenas “quem ganhou no IV”. É
-      aí que a camada de auditoria do RiskBands começa a fazer diferença.
-    </p>
-  </div>
-</div>
+```python
+from riskbands import Binner
 
-## Quando o projeto tende a ser mais útil
+binner = Binner(
+    strategy="supervised",
+    score_strategy="stable",
+    max_n_bins=5,
+    check_stability=True,
+)
 
-- variáveis de bureau ou comportamento com drift temporal
-- modelos de PD e scorecards com leitura relevante por safra
-- situações em que o agregado esconde fragilidade local
-- estruturas com bins raros, baixa cobertura ou volatilidade alta
-- contextos em que a decisão precisa sobreviver a challenge, validação e governança
+binner.fit(df, y="target", column="score", time_col="month")
+summary = binner.summary()
+score_details = binner.score_details()
+```
 
-## Evidência visual do benchmark
+## O que torna o score `stable` diferente
 
-<div class="rb-callout">
-  <strong>Cenário de referência:</strong> no caso <em>Temporal Reversal</em>,
-  a baseline externa e a baseline estática interna preservam IV competitivo,
-  mas a leitura temporal expõe fragilidade suficiente para justificar uma
-  escolha diferente.
-</div>
+O `stable` não escolhe o melhor candidato apenas por IV estático.
 
-<figure class="rb-figure rb-figure--medium">
-  <iframe
-    src="benchmark-assets/temporal_reversal_metric_comparison.html"
-    title="Benchmark PD vintage - comparacao de metricas"
-    loading="lazy"
-  ></iframe>
-  <figcaption>
-    O board comparativo mostra o ponto central da tese: a melhor leitura para
-    crédito não depende apenas de IV e KS, mas também de score temporal,
-    cobertura mínima e penalizações estruturais.
-  </figcaption>
-</figure>
+Ele combina:
 
-<figure class="rb-figure rb-figure--tall">
-  <iframe
-    src="benchmark-assets/temporal_reversal_event_rate_curves.html"
-    title="Benchmark PD vintage - event rate por bin ao longo do tempo"
-    loading="lazy"
-  ></iframe>
-  <figcaption>
-    Quando o event rate cruza entre bins ao longo das safras, o agregado pode
-    continuar atraente enquanto a defendibilidade operacional se deteriora.
-  </figcaption>
-</figure>
+- variância temporal do WoE shrinkado
+- drift entre janelas
+- inversões de ranking entre bins
+- separação
+- entropia
+- PSI
 
-## Por onde começar
+Tudo isso em uma forma comparável e orientada a minimização.
 
-- Quer começar por código? Vá para [Quickstart](./technical/quickstart/).
-- Quer a narrativa com evidência? Vá para [Benchmark PD vintage](./methodology/pd-vintage-benchmark/).
-- Quer o enquadramento conceitual? Vá para [Por que não usar apenas OptimalBinning](./methodology/why-not-only-optimal-binning/).
+## Próximos passos
 
-<div class="rb-cta-row">
-  <div class="rb-cta">
-    <h3>Começar a usar</h3>
-    <p>Instale a biblioteca, ajuste um primeiro <code>Binner</code> e veja a API principal.</p>
-    <a href="./technical/quickstart/">Ir para o Quickstart</a>
-  </div>
-  <div class="rb-cta">
-    <h3>Comprar a tese</h3>
-    <p>Entenda o benchmark PD vintage e por que a visão temporal muda decisões reais.</p>
-    <a href="./methodology/pd-vintage-benchmark/">Abrir o benchmark</a>
-  </div>
-  <div class="rb-cta">
-    <h3>Explorar exemplos</h3>
-    <p>Veja scripts e notebooks para estabilidade temporal, champion challenger e benchmark.</p>
-    <a href="./technical/examples/">Ver exemplos</a>
-  </div>
-</div>
+- Quer começar a usar? Vá para [Quickstart](./technical/quickstart/).
+- Quer entender a estratégia recomendada? Vá para [Score e estratégias](./technical/score-strategy/).
+- Quer evidência metodológica? Vá para [Benchmark PD vintage](./methodology/pd-vintage-benchmark/).

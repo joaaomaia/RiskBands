@@ -1,4 +1,4 @@
-"""Minimal demo contrasting legacy scoring with generalization_v1."""
+"""Minimal demo contrasting legacy scoring with the stable strategy."""
 
 from __future__ import annotations
 
@@ -45,7 +45,7 @@ def _candidate_configs(score_strategy: str) -> list[dict]:
         "check_stability": True,
         "score_strategy": score_strategy,
     }
-    if score_strategy == "generalization_v1":
+    if score_strategy == "stable":
         shared.update(
             normalization_strategy="absolute",
             woe_shrinkage_strength=40.0,
@@ -92,10 +92,10 @@ def _run_single_comparison(X: pd.DataFrame, y: pd.Series, *, score_strategy: str
     }
 
 
-def run_generalization_objective_demo(seed: int = 21) -> dict[str, object]:
+def run_stable_score_demo(seed: int = 21) -> dict[str, object]:
     X, y = _make_demo_dataset(seed=seed)
     legacy = _run_single_comparison(X, y, score_strategy="legacy")
-    generalization = _run_single_comparison(X, y, score_strategy="generalization_v1")
+    stable = _run_single_comparison(X, y, score_strategy="stable")
 
     comparison = pd.DataFrame(
         [
@@ -106,10 +106,10 @@ def run_generalization_objective_demo(seed: int = 21) -> dict[str, object]:
                 "best_balanced_candidate": legacy["winner_summary"].iloc[0]["best_balanced_candidate"],
             },
             {
-                "score_strategy": "generalization_v1",
-                "selected_candidate": generalization["winner_summary"].iloc[0]["selected_candidate"],
-                "best_temporal_candidate": generalization["winner_summary"].iloc[0]["best_temporal_candidate"],
-                "best_balanced_candidate": generalization["winner_summary"].iloc[0]["best_balanced_candidate"],
+                "score_strategy": "stable",
+                "selected_candidate": stable["winner_summary"].iloc[0]["selected_candidate"],
+                "best_temporal_candidate": stable["winner_summary"].iloc[0]["best_temporal_candidate"],
+                "best_balanced_candidate": stable["winner_summary"].iloc[0]["best_balanced_candidate"],
             },
         ]
     )
@@ -119,9 +119,9 @@ def run_generalization_objective_demo(seed: int = 21) -> dict[str, object]:
         "legacy_fit_summary": legacy["fit_summary"],
         "legacy_candidate_audit": legacy["candidate_audit"],
         "legacy_winner_summary": legacy["winner_summary"],
-        "generalization_fit_summary": generalization["fit_summary"],
-        "generalization_candidate_audit": generalization["candidate_audit"],
-        "generalization_winner_summary": generalization["winner_summary"],
+        "stable_fit_summary": stable["fit_summary"],
+        "stable_candidate_audit": stable["candidate_audit"],
+        "stable_winner_summary": stable["winner_summary"],
         "selection_comparison": comparison,
         "baseline_note": (
             "For a pure OptimalBinning baseline, use the existing "
@@ -131,12 +131,12 @@ def run_generalization_objective_demo(seed: int = 21) -> dict[str, object]:
 
 
 if __name__ == "__main__":
-    results = run_generalization_objective_demo()
+    results = run_stable_score_demo()
     print("Selection comparison:")
     print(results["selection_comparison"])
     print("\nLegacy winner:")
     print(results["legacy_winner_summary"])
-    print("\nGeneralization winner:")
-    print(results["generalization_winner_summary"])
+    print("\nStable winner:")
+    print(results["stable_winner_summary"])
     print("\nBaseline note:")
     print(results["baseline_note"])
