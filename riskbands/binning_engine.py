@@ -138,6 +138,33 @@ class Binner(BaseEstimator, TransformerMixin):
         return kwargs
 
     # ------------------------------------------------------------------
+    def _coerce_force_numeric_columns(
+        self,
+        X: pd.DataFrame,
+        *,
+        columns: Sequence[str] | None = None,
+    ) -> pd.DataFrame:
+        forced = set(self.force_numeric or [])
+        if not forced:
+            return X
+
+        candidate_columns = list(columns) if columns is not None else list(X.columns)
+        present = [col for col in candidate_columns if col in forced and col in X.columns]
+        if not present:
+            return X
+
+        X_numeric = X.copy()
+        for col in present:
+            try:
+                X_numeric[col] = pd.to_numeric(X_numeric[col], errors="raise")
+            except Exception as exc:
+                raise ValueError(
+                    f"Column '{col}' listed in force_numeric could not be converted "
+                    "to numeric values."
+                ) from exc
+        return X_numeric
+
+    # ------------------------------------------------------------------
     def _resolved_objective_kwargs(self, override: dict | None = None) -> dict:
         def _merge_dicts(base: dict, extra: dict) -> dict:
             for key, value in extra.items():
@@ -696,8 +723,10 @@ class Binner(BaseEstimator, TransformerMixin):
             target_col="target",
             limite_categorico=50,
             force_categorical=self.force_categorical,
+            force_numeric=self.force_numeric,
             verbose=False,
         )
+        X_features = self._coerce_force_numeric_columns(X_features, columns=num_cols)
 
         self.numeric_cols_ = num_cols
         self.cat_cols_ = cat_cols
@@ -735,6 +764,11 @@ class Binner(BaseEstimator, TransformerMixin):
 
             for col in num_cols + cat_cols:
                 time_values = X[time_col] if time_col else None
+                feature_base_kwargs = dict(base_kwargs)
+                if col in self.force_numeric:
+                    feature_base_kwargs["force_numeric"] = [col]
+                if col in self.force_categorical:
+                    feature_base_kwargs["force_categorical"] = [col]
                 best, fitted_binner = optimize_bins(
                     X_features[[col]],
                     y,
@@ -743,7 +777,7 @@ class Binner(BaseEstimator, TransformerMixin):
                     n_trials=n_trials,
                     sampler_seed=sampler_seed,
                     objective_kwargs=objective_kwargs,
-                    **base_kwargs,
+                    **feature_base_kwargs,
                 )
                 self._per_feature_binners[col] = fitted_binner
                 self.best_params_[col] = best
@@ -861,6 +895,7 @@ class Binner(BaseEstimator, TransformerMixin):
             features=features,
             copy=copy,
         )
+        X = self._coerce_force_numeric_columns(X, columns=selected_columns)
 
         out = {}
         for col in selected_columns:
@@ -1293,6 +1328,19 @@ class Binner(BaseEstimator, TransformerMixin):
             if self._fitted_strategy is None:
                 raise RuntimeError("O binner ainda nao foi treinado.")
             binner_col = self._fitted_strategy
+
+        if hasattr(binner_col, "category_mapping_"):
+            mapping = binner_col.category_mapping_
+            return (
+                pd.DataFrame(
+                    {
+                        "categoria": list(mapping.keys()),
+                        "bin": list(mapping.values()),
+                    }
+                )
+                .sort_values(["bin", "categoria"], kind="mergesort")
+                .reset_index(drop=True)
+            )
 
         if not hasattr(binner_col, "_encoder"):
             raise ValueError(f"A coluna '{column}' nao passou por CategoricalBinning.")

@@ -11,7 +11,8 @@ def search_dtypes(
     force_categorical: Optional[List[str]] = None, 
     verbose: bool = True, 
     remove_ids: bool = False,
-    id_patterns: Optional[List[str]] = None
+    id_patterns: Optional[List[str]] = None,
+    force_numeric: Optional[List[str]] = None,
 ) -> Tuple[List[str], List[str]]:
     """
     Identifica e classifica colunas numÃ©ricas e categÃ³ricas em um DataFrame.
@@ -33,6 +34,8 @@ def search_dtypes(
         MÃ¡ximo de valores Ãºnicos para considerar coluna object como categÃ³rica
     force_categorical : List[str], optional
         Lista de colunas que devem ser forÃ§adas como categÃ³ricas
+    force_numeric : List[str], optional
+        Lista de colunas que devem ser forÃ§adas como numericas
     verbose : bool, default True
         Se True, imprime detalhes das decisÃµes tomadas
     remove_ids : bool, default False
@@ -82,20 +85,48 @@ def search_dtypes(
     
     # Tratamento de parÃ¢metros opcionais
     force_categorical = force_categorical or []
+    force_numeric = force_numeric or []
     id_patterns = id_patterns or ['client_id', '_id', 'id_', 'codigo', 'key']
     
     # ValidaÃ§Ã£o do force_categorical
     if not isinstance(force_categorical, list):
         raise TypeError("O parÃ¢metro 'force_categorical' deve ser uma lista de strings")
+    if not isinstance(force_numeric, list):
+        raise TypeError("O parametro 'force_numeric' deve ser uma lista de strings")
+    if not all(isinstance(col, str) for col in force_categorical):
+        raise TypeError("O parametro 'force_categorical' deve ser uma lista de strings")
+    if not all(isinstance(col, str) for col in force_numeric):
+        raise TypeError("O parametro 'force_numeric' deve ser uma lista de strings")
+
+    active_force_categorical = [col for col in force_categorical if col != target_col]
+    active_force_numeric = [col for col in force_numeric if col != target_col]
+
+    conflicts = sorted(set(active_force_numeric) & set(active_force_categorical))
+    if conflicts:
+        raise ValueError(
+            "Colunas em conflito entre force_numeric e force_categorical: "
+            f"{conflicts}. Remova cada coluna de uma das listas."
+        )
     
     # Verifica se colunas em force_categorical existem
-    missing_forced = [col for col in force_categorical if col not in df.columns]
+    missing_forced = [col for col in active_force_categorical if col not in df.columns]
     if missing_forced:
         warnings.warn(
             f"Colunas em force_categorical nÃ£o encontradas: {missing_forced}",
             UserWarning
         )
-        force_categorical = [col for col in force_categorical if col in df.columns]
+        active_force_categorical = [col for col in active_force_categorical if col in df.columns]
+
+    missing_force_numeric = [col for col in active_force_numeric if col not in df.columns]
+    if missing_force_numeric:
+        warnings.warn(
+            f"Colunas em force_numeric nao encontradas: {missing_force_numeric}",
+            UserWarning
+        )
+        active_force_numeric = [col for col in active_force_numeric if col in df.columns]
+
+    force_categorical_set = set(active_force_categorical)
+    force_numeric_set = set(active_force_numeric)
     
     # Cria DataFrame sem a coluna target
     try:
@@ -116,8 +147,15 @@ def search_dtypes(
             total_count = len(df_work)
             missing_pct = ((total_count - non_null_count) / total_count) * 100
             
+            # Forca colunas explicitamente marcadas como numericas
+            if col in force_numeric_set:
+                num_cols.append(col)
+                if verbose:
+                    print(f"'{col}' -> NUMERICA (forcada por force_numeric)")
+                continue
+
             # ForÃ§a colunas explicitamente marcadas como categÃ³ricas
-            if col in force_categorical:
+            if col in force_categorical_set:
                 cat_cols.append(col)
                 if verbose:
                     print(f"âœ“ '{col}' -> CATEGÃ“RICA (forÃ§ada)")

@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+import re
+import unicodedata
 from datetime import datetime, timezone
 from importlib.util import find_spec
 from pathlib import Path
@@ -70,6 +72,17 @@ TEMPORAL_PROFILE_PENALTIES = [
     "psi_penalty",
 ]
 
+_SAFE_ARTIFACT_RE = re.compile(r"[^A-Za-z0-9._-]+")
+_SAFE_ARTIFACT_MAX_LENGTH = 100
+_WINDOWS_RESERVED_FILENAMES = {
+    "CON",
+    "PRN",
+    "AUX",
+    "NUL",
+    *(f"COM{i}" for i in range(1, 10)),
+    *(f"LPT{i}" for i in range(1, 10)),
+}
+
 
 def _require_bin_summary(binner: Binner) -> pd.DataFrame:
     bin_summary = getattr(binner, "bin_summary", None)
@@ -102,6 +115,46 @@ def _coalesce_text(*values: Any) -> str:
 
 def _candidate_name(candidate_name: str | None) -> str:
     return candidate_name or "selected_candidate"
+
+
+def _safe_artifact_name(name: object, *, fallback: str = "feature") -> str:
+    text = unicodedata.normalize("NFKD", str(name))
+    text = "".join(char for char in text if not unicodedata.combining(char))
+    text = text.replace("/", "_").replace("\\", "_")
+    while ".." in text:
+        text = text.replace("..", "_")
+    text = _SAFE_ARTIFACT_RE.sub("_", text)
+    text = re.sub(r"_+", "_", text).strip("._- ")
+
+    if not text:
+        text = _SAFE_ARTIFACT_RE.sub("_", str(fallback)).strip("._- ") or "feature"
+
+    text = text[:_SAFE_ARTIFACT_MAX_LENGTH].rstrip("._- ")
+    if not text:
+        text = "feature"
+    if text.upper().split(".", 1)[0] in _WINDOWS_RESERVED_FILENAMES:
+        text = f"{text}_"
+    return text
+
+
+def _unique_artifact_name(stem: str, used_names: set[str]) -> str:
+    candidate = stem
+    counter = 2
+    while candidate in used_names:
+        suffix = f"_{counter}"
+        prefix = stem[: _SAFE_ARTIFACT_MAX_LENGTH - len(suffix)].rstrip("._- ")
+        candidate = f"{prefix or 'feature'}{suffix}"
+        counter += 1
+    used_names.add(candidate)
+    return candidate
+
+
+def _ensure_path_inside(base: Path, candidate: Path) -> Path:
+    base_resolved = base.resolve()
+    candidate_resolved = candidate.resolve()
+    if candidate_resolved != base_resolved and base_resolved not in candidate_resolved.parents:
+        raise ValueError(f"Refusing to write outside target directory: {candidate}")
+    return candidate
 
 
 def _resolve_child_binner(
@@ -976,10 +1029,17 @@ def export_binner_bundle(binner: Binner, path: PathLike) -> Path:
     feature_dir = target_dir / "feature_tables"
     feature_dir.mkdir(parents=True, exist_ok=True)
     feature_artifacts = {}
+    used_feature_table_names: set[str] = set()
     for feature in metadata.get("features", []):
-        feature_path = feature_dir / f"{feature}.csv"
+        safe_stem = _safe_artifact_name(feature)
+        feature_filename = f"{_unique_artifact_name(safe_stem, used_feature_table_names)}.csv"
+        feature_path = feature_dir / feature_filename
+        feature_path = _ensure_path_inside(target_dir, feature_path)
+        feature_path = _ensure_path_inside(feature_dir, feature_path)
+        if feature_path.resolve().parent != feature_dir.resolve():
+            raise ValueError(f"Refusing to write feature table outside feature_tables: {feature_path}")
         _write_csv(binner.binning_table(column=feature), feature_path)
-        feature_artifacts[str(feature)] = str(feature_path.relative_to(target_dir))
+        feature_artifacts[str(feature)] = feature_path.relative_to(target_dir).as_posix()
 
     written_optional = []
     skipped_optional = []

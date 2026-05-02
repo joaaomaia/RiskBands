@@ -1,0 +1,299 @@
+RiskBands v2.0.3 — Melhorias futuras propostas
+Data: 2026-04-14
+
+Objetivo
+Consolidar melhorias incrementais e retrocompatíveis para a linha 2.0.x, com foco em Optuna, controle de bins e tratamento temporal.
+
+Princípio de versionamento
+Estas propostas foram pensadas para caber em uma versão 2.0.3 (patch), sem exigir release major.
+Por isso, a prioridade aqui é:
+- adicionar parâmetros opcionais
+- melhorar defaults documentados e outputs
+- fortalecer validações e parsing
+- evitar mudança brusca de comportamento padrão
+
+==================================================
+1) Optuna com espaço de busca configurável
+==================================================
+Problema atual
+- O espaço de busca do Optuna está efetivamente hardcoded.
+- Hoje ele busca:
+  - max_bins em [3, 10]
+  - min_bin_size em [0.01, 0.10]
+  - min_event_rate_diff em [0.01, 0.10]
+- Isso é útil como default inicial, mas limita casos reais de modelagem.
+
+Proposta v2.0.3
+Adicionar configuração pública e opcional do search space, preservando os defaults atuais quando nada for informado.
+
+Sugestão de API
+Opção A:
+    Binner(
+        use_optuna=True,
+        strategy_kwargs={
+            "n_trials": 50,
+            "optuna_search_space": {
+                "max_bins": {"low": 2, "high": 10, "step": 1},
+                "min_bin_size": {"low": 0.01, "high": 0.15},
+                "min_event_rate_diff": {"low": 0.00, "high": 0.08}
+            }
+        }
+    )
+
+Opção B:
+    Binner(
+        use_optuna=True,
+        optuna_search_space={...}
+    )
+
+Minha preferência
+- Para 2.0.3, usar strategy_kwargs["optuna_search_space"] evita inflar demais o construtor.
+- Em versão futura, se isso se tornar central, pode virar parâmetro de primeiro nível.
+
+Ganhos
+- Permite adaptar a busca ao problema.
+- Facilita governança e reprodutibilidade.
+- Resolve diretamente a limitação de max_bins mínimo = 3 no Optuna.
+
+Extras úteis
+- Persistir em best_search_space_ o espaço efetivamente usado.
+- Registrar esse espaço em objective_summary_ e/ou report().
+
+==================================================
+2) Definição melhor de bins mínimos e máximos
+==================================================
+Problema atual
+- O construtor já expõe max_bins e hoje o default é 6.
+- Mas não existe uma semântica pública tão clara para bins mínimos no Binner.
+- No fluxo com Optuna, o lower bound prático atual de max_bins é 3.
+
+Proposta v2.0.3
+Adicionar suporte explícito e documentado para:
+- min_bins: int | None = None
+- max_bins: int = 6
+
+Comportamento esperado
+- min_bins = número mínimo desejado de bins para o solver/buscador.
+- max_bins = teto de bins.
+- realized_n_bins_ = número final efetivamente obtido.
+
+Importante
+- Em binning supervisionado, existe diferença entre:
+  - bins desejados/permitidos
+  - bins efetivamente encontrados
+- Isso precisa ficar explícito na documentação e nos outputs.
+
+Sugestão de outputs adicionais
+- requested_min_bins_
+- requested_max_bins_
+- realized_n_bins_
+- realized_bins_per_feature_
+
+Benefício
+Evita confusão entre “pedi 6 bins” e “o algoritmo terminou com 4 bins úteis”.
+
+==================================================
+3) Permitir 2 bins como solução válida
+==================================================
+Pergunta prática
+O RiskBands deveria poder escolher 2 bins?
+
+Minha resposta
+Sim, opcionalmente.
+
+Racional
+- Em algumas variáveis, especialmente em cenários regulatórios ou de forte monotonicidade, 2 bins podem ser a melhor solução honesta.
+- Impedir isso no search space do Optuna pode forçar complexidade artificial.
+
+Proposta v2.0.3
+- Permitir max_bins com low = 2 quando configurado.
+- Permitir min_bins = 2 e max_bins = 2 para cenários onde o usuário quer testar exatamente uma solução binária.
+- Manter o default atual do search space em 3..10 para não quebrar comportamento existente.
+- Apenas abrir a possibilidade via configuração.
+
+Sugestão de regra
+- Default continua conservador.
+- Usuário avançado consegue liberar 2 bins conscientemente.
+
+==================================================
+4) Score strategy em release patch
+==================================================
+Ponto importante
+- A recomendação metodológica atual favorece stable.
+- Mas trocar o default de legacy para stable dentro da série 2.0.x pode ser percebido como mudança de comportamento.
+
+Recomendação para 2.0.3
+Não mudar o default ainda.
+
+Fazer em 2.0.3
+- manter score_strategy="legacy" como default efetivo
+- reforçar na docs e exemplos que stable é o caminho recomendado para uso com Optuna
+- opcionalmente emitir aviso leve quando:
+    use_optuna=True e score_strategy não for informado
+  com mensagem sugerindo testar stable
+
+Planejamento futuro
+- fazer depreciação explícita do default legacy
+- migrar o default apenas em release maior, ou no mínimo com comunicação forte
+
+==================================================
+5) Safras de treino e OOT já na instanciação do Binner
+==================================================
+Problema atual
+- Hoje time_col pode ser informado no construtor ou no fit.
+- Mas não há, pelo menos de forma pública clara, um conceito nativo de train_periods e oot_periods no construtor.
+
+Proposta v2.0.3
+Adicionar suporte opcional para recortes temporais declarativos:
+- train_periods: list | None = None
+- oot_periods: list | None = None
+
+Sugestão de uso
+    binner = Binner(
+        strategy="supervised",
+        time_col="AnoMes",
+        train_periods=[202301, 202302, 202303, 202304],
+        oot_periods=[202305, 202306]
+    )
+
+Objetivo inicial
+- Não mudar automaticamente o fitting principal, a menos que isso seja explicitamente documentado.
+- Primeiro usar essas listas para:
+  - validações
+  - recortes auxiliares
+  - diagnósticos
+  - comparações temporais
+  - relatórios
+
+Possível comportamento
+- fit() continua recebendo o dataframe completo.
+- O Binner normaliza a coluna temporal.
+- Cria máscaras internas:
+  - train_mask_
+  - oot_mask_
+- E disponibiliza outputs consistentes.
+
+Por que isso ajuda
+- Simplifica workflow.
+- Evita repetição de filtros manuais fora da biblioteca.
+- Abre caminho para relatórios mais padronizados.
+
+==================================================
+6) Tratamento robusto de TIME_COL / period column
+==================================================
+Problema atual
+Na prática, a coluna temporal pode vir como:
+- int: 202401
+- str: "202401"
+- str: "2024-01"
+- datetime
+- timestamp
+- date
+
+E o comportamento temporal precisa ser robusto e previsível.
+
+Proposta v2.0.3
+Criar uma camada interna de normalização temporal.
+
+Sugestão de helper interno
+    normalize_period_series(
+        series,
+        freq="M",
+        output="yyyymm",
+        strict=False
+    )
+
+Responsabilidades desse helper
+- detectar tipos comuns
+- converter para representação canônica
+- preservar ordenação temporal correta
+- evitar ordenação lexicográfica errada
+- produzir mensagens de erro claras quando a coluna não puder ser interpretada
+
+Sugestão de comportamento canônico
+- Internamente, trabalhar com pd.PeriodIndex(freq="M") ou estrutura equivalente.
+- Externamente, permitir exibir/aceitar:
+  - YYYYMM int
+  - YYYYMM str
+  - timestamps
+
+Sugestão de novos parâmetros opcionais
+- time_col_format: str | None = None
+- time_freq: str = "M"
+- normalize_time_col: bool = True
+- strict_time_parsing: bool = False
+
+Exemplos
+- 202401 -> janeiro/2024
+- "202401" -> janeiro/2024
+- "2024-01" -> janeiro/2024
+- "2024-01-31" -> janeiro/2024 quando time_freq="M"
+
+Benefícios
+- Mais robustez em auditoria temporal.
+- Menos erro silencioso.
+- Base melhor para train/OOT, vintage plots e métricas por safra.
+
+==================================================
+7) Melhor integração entre tempo, Optuna e diagnóstico
+==================================================
+Proposta v2.0.3
+Depois de robustecer a dimensão temporal, integrar isso melhor aos outputs.
+
+Sugestões
+- best_params_ por feature já existe; complementar com:
+  - best_objective_summary_
+  - train_periods_
+  - oot_periods_
+  - normalized_time_col_name_
+  - normalized_time_values_preview_
+- facilitar leitura do que foi usado em cada feature
+
+Sugestão adicional
+Quando train_periods e oot_periods forem informados:
+- score_details() pode devolver bloco por recorte
+- diagnostics() pode mostrar comparações treino vs OOT
+- report() pode registrar a definição temporal usada
+
+==================================================
+8) Restrições e multiobjetivo ficam como backlog maior
+==================================================
+Essas ideias continuam boas, mas eu deixaria fora da 2.0.3 se a meta for entrega incremental e segura:
+- constraints explícitas no Optuna
+- modo multiobjetivo/Pareto
+- validação rolling temporal mais pesada
+
+Esses itens são excelentes para roadmap posterior, mas são maiores do que o pacote mínimo que você descreveu para agora.
+
+==================================================
+9) Priorização sugerida para a 2.0.3
+==================================================
+Prioridade 1
+- expor search space do Optuna
+- adicionar min_bins público
+- permitir 2 bins via configuração
+
+Prioridade 2
+- adicionar train_periods e oot_periods opcionais
+- criar normalização robusta da coluna temporal
+
+Prioridade 3
+- enriquecer outputs e docs
+- documentar claramente diferença entre max_bins solicitado e bins realizados
+
+==================================================
+10) Resumo executivo
+==================================================
+Para a v2.0.3, eu faria assim:
+
+Pacote mínimo ideal
+1. Não mudar o default de score_strategy ainda.
+2. Expor o search space do Optuna.
+3. Introduzir min_bins.
+4. Permitir 2 bins de forma opcional.
+5. Adicionar train_periods e oot_periods.
+6. Criar parsing robusto de time_col.
+7. Melhorar outputs e documentação temporal.
+
+Leitura final
+Isso melhora muito a utilidade prática do RiskBands sem exigir uma quebra de API forte.
