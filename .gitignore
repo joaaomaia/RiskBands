@@ -120,10 +120,8 @@ riskbands_master.ai
 imgs/png/
 imgs/svg/
 
-# Local/unreviewed prompts only
-/docs/prompts/local/
-/docs/prompts/tmp/
-/docs/prompts/drafts/
+# Local prompts
+/docs/prompts/
 
 .tmp_supply_*/
 .gh-job-*/
