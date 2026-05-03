@@ -672,6 +672,7 @@ class Binner(BaseEstimator, TransformerMixin):
                 "RiskBands could not build cached report artifacts after fit. "
                 f"You can still call `report(...)` manually. Details: {report_error}",
                 RuntimeWarning,
+                stacklevel=2,
             )
             report = pd.DataFrame()
 

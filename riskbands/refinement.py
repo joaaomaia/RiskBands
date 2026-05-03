@@ -8,9 +8,10 @@ PÃ³s-processamento dos cortes:
 """
 
 from __future__ import annotations
-import pandas as pd
-import numpy as np
+
 import re
+
+import pandas as pd
 
 _INTERVAL_RE = re.compile(r"""
     ^\s*

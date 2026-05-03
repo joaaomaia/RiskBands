@@ -1,9 +1,11 @@
-﻿import pandas as pd
+﻿from pathlib import Path
+
 import numpy as np
+import pandas as pd
+
 from riskbands import Binner
 from riskbands.reporting import save_binner_report
-from pathlib import Path
-import tempfile
+
 
 def test_save_excel(tmp_path: Path):
     rng = np.random.default_rng(4)

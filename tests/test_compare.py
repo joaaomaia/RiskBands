@@ -1,6 +1,8 @@
-﻿import pandas as pd
-import numpy as np
+﻿import numpy as np
+import pandas as pd
+
 from riskbands.compare import BinComparator
+
 
 def test_compare_two_strategies():
     rng = np.random.default_rng(1)

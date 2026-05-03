@@ -26,11 +26,11 @@ def _make_credit_vintage_dataset(*, unstable: bool = False):
             mid_target = [0] * 18 if period == 202301 else [1] * 18
             high_target = [1] * 18
 
-        for value, target in zip(low_values, low_target):
+        for value, target in zip(low_values, low_target, strict=False):
             rows.append({"score": value, "month": period, "target": target})
-        for value, target in zip(mid_values, mid_target):
+        for value, target in zip(mid_values, mid_target, strict=False):
             rows.append({"score": value, "month": period, "target": target})
-        for value, target in zip(high_values, high_target):
+        for value, target in zip(high_values, high_target, strict=False):
             rows.append({"score": value, "month": period, "target": target})
 
     df = pd.DataFrame(rows)

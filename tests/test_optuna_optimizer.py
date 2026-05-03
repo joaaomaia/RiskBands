@@ -1,6 +1,8 @@
-﻿import pandas as pd
-import numpy as np
+﻿import numpy as np
+import pandas as pd
+
 from riskbands.optuna_optimizer import optimize_bins
+
 
 def test_optuna_runs_quickly():
     rng = np.random.default_rng(3)

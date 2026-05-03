@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
+import re
 from collections.abc import Iterable
 from pathlib import Path
-import re
 from typing import Any
 
 import numpy as np
@@ -193,7 +193,10 @@ def plot_event_rate_curves_by_approach(
                     showlegend=row_idx == 1,
                     line=dict(color=color_map.get(str(bin_label), "#607D8B"), width=2.5),
                     marker=dict(size=8),
-                    hovertemplate=f"{approach}<br>Bin={bin_label}<br>Vintage=%{{x}}<br>Event rate=%{{y:.2f}}%<extra></extra>",
+                    hovertemplate=(
+                        f"{approach}<br>Bin={bin_label}<br>Vintage=%{{x}}"
+                        "<br>Event rate=%{y:.2f}%<extra></extra>"
+                    ),
                 ),
                 row=row_idx,
                 col=1,
@@ -410,12 +413,24 @@ def plot_sampling_preview(preview: pd.DataFrame, *, title: str) -> Any:
     )
     months = preview["month"].astype(str).tolist()
     fig.add_trace(
-        go.Scatter(x=months, y=_to_percent(preview["raw_target_rate"]), mode="lines+markers", name="Raw target rate", line=dict(color="#8B1E3F", width=2)),
+        go.Scatter(
+            x=months,
+            y=_to_percent(preview["raw_target_rate"]),
+            mode="lines+markers",
+            name="Raw target rate",
+            line=dict(color="#8B1E3F", width=2),
+        ),
         row=1,
         col=1,
     )
     fig.add_trace(
-        go.Scatter(x=months, y=_to_percent(preview["sampled_target_rate"]), mode="lines+markers", name="Sampled target rate", line=dict(color="#2A7F62", width=2)),
+        go.Scatter(
+            x=months,
+            y=_to_percent(preview["sampled_target_rate"]),
+            mode="lines+markers",
+            name="Sampled target rate",
+            line=dict(color="#2A7F62", width=2),
+        ),
         row=1,
         col=1,
     )
@@ -425,7 +440,12 @@ def plot_sampling_preview(preview: pd.DataFrame, *, title: str) -> Any:
         col=2,
     )
     fig.add_trace(
-        go.Bar(x=months, y=preview["sampled_count"].fillna(0).astype(int).tolist(), name="Sampled count", marker_color="#6BAED6"),
+        go.Bar(
+            x=months,
+            y=preview["sampled_count"].fillna(0).astype(int).tolist(),
+            name="Sampled count",
+            marker_color="#6BAED6",
+        ),
         row=1,
         col=2,
     )

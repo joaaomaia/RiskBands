@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import math
-from typing import Any
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -118,7 +117,8 @@ def plot_event_rate_stability(
 ):
     """Plot event-rate curves by bin for each feature in the pivot table."""
     if label_mapper is None:
-        label_mapper = lambda var: binner._bin_code_to_label(var)
+        def label_mapper(var):
+            return binner._bin_code_to_label(var)
 
     df_long = (
         pivot.reset_index()
@@ -140,7 +140,7 @@ def plot_event_rate_stability(
             for label in er_map
             if label in set(grp["BinLabel"].tolist())
         ] or grp["BinLabel"].drop_duplicates().tolist()
-        color_map = dict(zip(ordered_labels, _blend_palette(len(ordered_labels))))
+        color_map = dict(zip(ordered_labels, _blend_palette(len(ordered_labels)), strict=False))
         ordered_periods = sorted(grp["safra"].unique())
 
         fig, ax = plt.subplots(figsize=figsize)
@@ -189,7 +189,7 @@ def plot_metric_over_time(
     for variable, grp in diagnostics.groupby("variable", sort=False):
         ordered_bins = _ordered_bins_from_diagnostics(grp)
         ordered_periods = sorted(grp[time_col].dropna().unique().tolist())
-        palette = dict(zip(ordered_bins, _blend_palette(len(ordered_bins))))
+        palette = dict(zip(ordered_bins, _blend_palette(len(ordered_bins)), strict=False))
 
         fig, ax = plt.subplots(figsize=figsize)
         plotted = 0

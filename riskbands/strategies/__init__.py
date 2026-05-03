@@ -1,6 +1,7 @@
-﻿from .supervised import SupervisedBinning
+﻿from .categorical import CategoricalBinning
+from .supervised import SupervisedBinning
 from .unsupervised import UnsupervisedBinning
-from .categorical import CategoricalBinning
+
 
 def get_strategy(name: str, **kwargs):
     if name == "supervised":

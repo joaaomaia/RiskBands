@@ -1,6 +1,8 @@
-﻿import pandas as pd
-import numpy as np
+﻿import numpy as np
+import pandas as pd
+
 from riskbands.strategies.unsupervised import UnsupervisedBinning
+
 
 def test_unsupervised_multi_column():
     rng = np.random.default_rng(0)

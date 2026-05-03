@@ -1,8 +1,8 @@
 ﻿"""
 Wrapper de OptimalBinning â€” apenas binagem supervisionada.
 """
-from optbinning import OptimalBinning
 import pandas as pd
+from optbinning import OptimalBinning
 
 
 class SupervisedBinning:

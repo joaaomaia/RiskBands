@@ -1,6 +1,8 @@
-﻿import pandas as pd
-import numpy as np
+﻿import numpy as np
+import pandas as pd
+
 from riskbands import Binner
+
 
 def test_basic_fit_transform():
     rng = np.random.default_rng(42)

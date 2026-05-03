@@ -274,7 +274,7 @@ def _json_safe(value: Any) -> Any:
         if pd.isna(value):
             return None
     except Exception:
-        pass
+        return value
     return value
 
 
@@ -672,7 +672,8 @@ def build_candidate_profile_report(candidate_reports: pd.DataFrame) -> pd.DataFr
         return pd.DataFrame()
 
     df = candidate_reports.copy()
-    for column in [
+    score_columns = (
+        [
         "objective_score",
         "objective_preference_score",
         "objective_total_penalty",
@@ -680,7 +681,13 @@ def build_candidate_profile_report(candidate_reports: pd.DataFrame) -> pd.DataFr
         "coverage_ratio_min",
         "rare_bin_count",
         "ranking_reversal_period_count",
-    ] + BASE_COMPONENT_COLUMNS + GENERALIZATION_BASE_COMPONENT_COLUMNS + PENALTY_COLUMNS + GENERALIZATION_PENALTY_COLUMNS:
+        ]
+        + BASE_COMPONENT_COLUMNS
+        + GENERALIZATION_BASE_COMPONENT_COLUMNS
+        + PENALTY_COLUMNS
+        + GENERALIZATION_PENALTY_COLUMNS
+    )
+    for column in score_columns:
         if column not in df.columns:
             df[column] = 0.0
         df[column] = pd.to_numeric(df[column], errors="coerce").fillna(0.0)
@@ -799,7 +806,7 @@ def build_candidate_winner_report(candidate_profiles: pd.DataFrame) -> pd.DataFr
     records = []
     for group_key, group in candidate_profiles.groupby(group_cols, dropna=False):
         if isinstance(group_key, tuple):
-            group_info = dict(zip(group_cols, group_key))
+            group_info = dict(zip(group_cols, group_key, strict=False))
         else:
             group_info = {group_cols[0]: group_key}
 

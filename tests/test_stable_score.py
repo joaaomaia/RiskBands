@@ -49,11 +49,11 @@ def _make_vintage_dataset(mode: str = "stable") -> tuple[pd.DataFrame, pd.Series
         else:
             raise ValueError(f"Unsupported mode: {mode}")
 
-        for value, target in zip(low_values, low_target):
+        for value, target in zip(low_values, low_target, strict=False):
             rows.append({"score": value, "month": period, "target": target})
-        for value, target in zip(mid_values, mid_target):
+        for value, target in zip(mid_values, mid_target, strict=False):
             rows.append({"score": value, "month": period, "target": target})
-        for value, target in zip(high_values, high_target):
+        for value, target in zip(high_values, high_target, strict=False):
             rows.append({"score": value, "month": period, "target": target})
 
     df = pd.DataFrame(rows)

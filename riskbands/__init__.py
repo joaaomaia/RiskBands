@@ -30,9 +30,9 @@ def _resolve_version() -> str:
         if Path(dist.locate_file("riskbands")).resolve() == package_dir:
             return dist.version if local_version == "0.0.0" else local_version
     except PackageNotFoundError:
-        pass
+        return local_version
     except Exception:  # pragma: no cover - metadata lookup is best effort
-        pass
+        return local_version
 
     return local_version
 

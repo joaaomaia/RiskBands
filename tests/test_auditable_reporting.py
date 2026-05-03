@@ -1,8 +1,8 @@
 import json
 
-from matplotlib.figure import Figure
 import numpy as np
 import pandas as pd
+from matplotlib.figure import Figure
 
 from riskbands import Binner
 from riskbands.compare import BinComparator
@@ -34,12 +34,12 @@ def _make_vintage_dataset(*, sparse_last_period: bool = False):
             mid_target = [0] * 12
             high_target = [0] * 12
 
-        for value, target in zip(low_values, low_target):
+        for value, target in zip(low_values, low_target, strict=False):
             rows.append({"score": value, "month": period, "target": target})
         if not (sparse_last_period and period == 202303):
-            for value, target in zip(mid_values, mid_target):
+            for value, target in zip(mid_values, mid_target, strict=False):
                 rows.append({"score": value, "month": period, "target": target})
-            for value, target in zip(high_values, high_target):
+            for value, target in zip(high_values, high_target, strict=False):
                 rows.append({"score": value, "month": period, "target": target})
 
     df = pd.DataFrame(rows)

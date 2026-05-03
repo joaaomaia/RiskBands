@@ -1,6 +1,6 @@
-﻿from importlib.util import module_from_spec, spec_from_file_location
+﻿import sys
+from importlib.util import module_from_spec, spec_from_file_location
 from pathlib import Path
-import sys
 
 
 def _load_example_module(relative_path: str):

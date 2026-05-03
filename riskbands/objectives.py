@@ -11,7 +11,6 @@ import pandas as pd
 
 from .temporal_stability import event_rate_by_time, ks_over_time, temporal_separability_score
 
-
 EPSILON = 1e-9
 
 LEGACY_SCORE_STRATEGY = "legacy"
@@ -604,7 +603,7 @@ def _compute_window_drift(
         return 0.0
 
     drifts = []
-    for left, right in zip(pivot.columns[:-1], pivot.columns[1:]):
+    for left, right in zip(pivot.columns[:-1], pivot.columns[1:], strict=False):
         left_values = pivot[left]
         right_values = pivot[right]
         mask = left_values.notna() & right_values.notna()
@@ -689,7 +688,7 @@ def _compute_rank_inversion_penalty(
 
     adjacent_penalties = []
     adjacent_weights = []
-    for left_period, right_period in zip(ordered_periods[:-1], ordered_periods[1:]):
+    for left_period, right_period in zip(ordered_periods[:-1], ordered_periods[1:], strict=False):
         left_map = _period_score_map(by_period[left_period])
         right_map = _period_score_map(by_period[right_period])
         adjacent_pairs = _build_pair_signs(left_map)
@@ -751,7 +750,7 @@ def _compute_psi_metrics(df: pd.DataFrame, *, time_col: str) -> tuple[float, flo
         return 0.0, 0.0, 0.0
 
     adjacent = []
-    for left, right in zip(share_pivot.columns[:-1], share_pivot.columns[1:]):
+    for left, right in zip(share_pivot.columns[:-1], share_pivot.columns[1:], strict=False):
         adjacent.append(_psi_from_arrays(share_pivot[left].values, share_pivot[right].values))
 
     reference = _psi_from_arrays(share_pivot.iloc[:, 0].values, share_pivot.iloc[:, -1].values)

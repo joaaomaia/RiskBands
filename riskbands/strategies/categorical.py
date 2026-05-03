@@ -24,9 +24,10 @@ class CategoricalBinning:
         self.rare_threshold = rare_threshold
         self.max_bins = max_bins
         self.min_bin_size = min_bin_size
-        self.missing_token_ = "_MISSING_"
-        self.rare_token_ = "_RARE_"
-        self.unknown_token_ = "_UNKNOWN_"
+        # Sentinel labels are categorical values, not secrets.
+        self.missing_token_ = "_MISSING_"  # nosec B105
+        self.rare_token_ = "_RARE_"  # nosec B105
+        self.unknown_token_ = "_UNKNOWN_"  # nosec B105
         self._encoder = None
         self._fallback_reason_ = None
         self.bin_summary_ = None
@@ -144,7 +145,7 @@ class CategoricalBinning:
         n_bins = max(1, min(max_bins, len(stats)))
         stats["bin"] = (stats.index.to_series() * n_bins // len(stats)).astype(int)
 
-        mapping = dict(zip(stats["category"], stats["bin"]))
+        mapping = dict(zip(stats["category"], stats["bin"], strict=False))
         codes = prepared.map(mapping).rename(self.feature_name_)
         summary = self._build_summary_from_codes(codes, y)
         default_bin = self._select_default_bin(summary)
@@ -198,7 +199,7 @@ class CategoricalBinning:
 
         categories = pd.Series(self.known_categories_, name=self.feature_name_)
         category_codes = ob.transform(categories.to_numpy(dtype=object), metric="bins")
-        self.category_mapping_ = dict(zip(categories.astype(str), category_codes))
+        self.category_mapping_ = dict(zip(categories.astype(str), category_codes, strict=False))
         self.category_mapping_ = self._expand_rare_category_mapping(self.category_mapping_)
         self.default_bin_ = probe_codes.iloc[2]
         self.category_mapping_[self.unknown_token_] = self.default_bin_

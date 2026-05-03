@@ -7,8 +7,8 @@ objective can be reused with and without Optuna.
 
 from __future__ import annotations
 
-from copy import deepcopy
 import logging
+from copy import deepcopy
 from typing import Any, Optional
 
 import numpy as np

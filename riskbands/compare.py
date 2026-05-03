@@ -15,7 +15,6 @@ from .reporting import (
 )
 from .temporal_stability import psi_over_time
 
-
 _BINNER_PARAMS = {
     name
     for name in inspect.signature(Binner.__init__).parameters

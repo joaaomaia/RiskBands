@@ -1,7 +1,10 @@
 ﻿# riskbands/utils/dtypes.py
 from __future__ import annotations
-import warnings, pandas as pd
+
+import warnings
 from typing import List, Optional, Tuple
+
+import pandas as pd
 
 
 def search_dtypes(
@@ -113,7 +116,8 @@ def search_dtypes(
     if missing_forced:
         warnings.warn(
             f"Colunas em force_categorical nÃ£o encontradas: {missing_forced}",
-            UserWarning
+            UserWarning,
+            stacklevel=2,
         )
         active_force_categorical = [col for col in active_force_categorical if col in df.columns]
 
@@ -121,7 +125,8 @@ def search_dtypes(
     if missing_force_numeric:
         warnings.warn(
             f"Colunas em force_numeric nao encontradas: {missing_force_numeric}",
-            UserWarning
+            UserWarning,
+            stacklevel=2,
         )
         active_force_numeric = [col for col in active_force_numeric if col in df.columns]
 
@@ -132,7 +137,7 @@ def search_dtypes(
     try:
         df_work = df.drop(columns=[target_col], errors='raise')
     except KeyError as e:
-        raise ValueError(f"Erro ao remover coluna target: {e}")
+        raise ValueError(f"Erro ao remover coluna target: {e}") from e
     
     if verbose:
         print(f"Analisando {len(df_work.columns)} colunas (excluindo target '{target_col}')...")
@@ -219,7 +224,7 @@ def search_dtypes(
             ignored_cols.append(col)
             if verbose:
                 print(f"âŒ '{col}' -> ERRO ao processar: {str(e)}")
-            warnings.warn(f"Erro ao processar coluna '{col}': {str(e)}", UserWarning)
+            warnings.warn(f"Erro ao processar coluna '{col}': {str(e)}", UserWarning, stacklevel=2)
     
     # RemoÃ§Ã£o adicional de IDs se solicitado
     if remove_ids:
@@ -250,7 +255,7 @@ def search_dtypes(
             for col in sorted(ignored_cols):
                 print(f"   â€¢ {col}")
         
-        print(f"\nðŸ“ˆ ESTATÃSTICAS:")
+        print("\nðŸ“ˆ ESTATÃSTICAS:")
         print(f"   â€¢ Total de colunas analisadas: {len(df_work.columns)}")
         print(f"   â€¢ Colunas numÃ©ricas: {len(num_cols)}")
         print(f"   â€¢ Colunas categÃ³ricas: {len(cat_cols)}")
