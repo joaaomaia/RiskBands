@@ -4,6 +4,7 @@ Binning para risco de credito com foco em robustez temporal, comparacao entre
 candidatos e racional auditavel.
 
 [Documentacao oficial](https://joaaomaia.github.io/RiskBands/) |
+[PyPI](https://pypi.org/project/riskbands/) |
 [Benchmark PD vintage](https://joaaomaia.github.io/RiskBands/methodology/pd-vintage-benchmark/) |
 [Quickstart](https://joaaomaia.github.io/RiskBands/technical/quickstart/) |
 [Auditoria e plots](https://joaaomaia.github.io/RiskBands/technical/audit-and-plots/) |
@@ -110,6 +111,8 @@ cd RiskBands
 pip install -e .[dev]
 ```
 
+Pacote no PyPI: [riskbands](https://pypi.org/project/riskbands/).
+
 ## Como comecar
 
 Porta tecnica:
@@ -126,6 +129,51 @@ Porta metodologica:
 - [Benchmark PD vintage](https://joaaomaia.github.io/RiskBands/methodology/pd-vintage-benchmark/)
 - [Como ler os graficos](https://joaaomaia.github.io/RiskBands/methodology/how-to-read-the-charts/)
 - [Robustez temporal em risco de credito](https://joaaomaia.github.io/RiskBands/methodology/temporal-robustness-in-credit-risk/)
+
+## Tipos de entrada suportados
+
+A API atual e orientada a `pandas.DataFrame` e `pandas.Series`. O fluxo usual e
+treinar com `fit(df, y="target", column="score", time_col="month")` ou com uma
+lista de colunas em um `DataFrame` pandas.
+
+`PySpark DataFrame` ainda nao e suportado nativamente. Para bases grandes em
+Spark ou Databricks, a recomendacao conservadora e treinar o binning em uma
+amostra, agregado ou extrato pandas auditavel, exportar as regras e aplica-las
+depois no ambiente distribuido.
+
+## Variaveis categoricas e overrides
+
+Colunas categoricas podem ser marcadas explicitamente com `force_categorical`.
+O tratamento de categorias raras, valores missing e categorias desconhecidas no
+`transform` e deterministico, com mapeamento aprendido no `fit`.
+
+```python
+binner = Binner(
+    strategy="supervised",
+    force_categorical=["rating_interno"],
+)
+```
+
+Quando a inferencia automatica de tipo nao for suficiente, use
+`force_numeric` e `force_categorical` para fixar a intencao. A mesma coluna nao
+deve aparecer nas duas listas; isso e tratado como conflito.
+
+```python
+binner = Binner(
+    strategy="supervised",
+    force_numeric=["qtd_restritivos"],
+    force_categorical=["rating_interno"],
+)
+```
+
+## Export auditavel e supply chain
+
+`export_bundle(...)` gera artefatos tabulares e JSON para auditoria. Nomes de
+features usados nos artefatos exportados sao sanitizados para evitar paths
+inseguros, mantendo a rastreabilidade dos nomes originais no manifest.
+
+Dependencias de solver e verificacoes de supply chain ficam resumidas em
+[docs/supply_chain_dependencies.md](docs/supply_chain_dependencies.md).
 
 ## Quickstart minimo
 

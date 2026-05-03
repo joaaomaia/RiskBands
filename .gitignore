@@ -39,6 +39,8 @@ ENV/
 .env.*
 *.env
 !.env.example
+.env.local
+.envrc
 *.pem
 *.key
 *.crt
@@ -59,6 +61,12 @@ secrets/
 *.pkl
 *.pickle
 *.joblib
+
+# Synthetic fixtures allowed for tests
+!tests/fixtures/**/*.csv
+!tests/fixtures/**/*.xlsx
+!tests/data/**/*.csv
+!tests/data/**/*.xlsx
 
 # Images
 imgs/olds/
@@ -88,6 +96,13 @@ docs-site/node_modules/
 docs-site/.astro/
 docs-site/dist/
 
+# Official documentation assets
+!docs/assets/**
+!docs-site/src/assets/**
+!docs-site/public/favicon.svg
+!docs-site/public/brand/**
+!docs-site/public/og/**
+
 # Models and outputs
 models/
 outputs/
@@ -104,7 +119,11 @@ riskbands_master_final.ai
 riskbands_master.ai
 imgs/png/
 imgs/svg/
-docs/prompts/
+
+# Local/unreviewed prompts only
+/docs/prompts/local/
+/docs/prompts/tmp/
+/docs/prompts/drafts/
 
 .tmp_supply_*/
 .gh-job-*/
