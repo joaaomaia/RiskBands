@@ -17,6 +17,7 @@ build/
 .venv-*/
 env/
 venv/
+ENV/
 
 # IDEs
 .vscode/
@@ -35,13 +36,29 @@ venv/
 
 # Environments
 .env
+.env.*
 *.env
+!.env.example
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+secrets/
+.secret/
 
 # Exported files
 *.xlsx
 *.csv
 *.parquet
+*.feather
+*.sqlite
+*.sqlite3
+*.db
+*.duckdb
 *.pkl
+*.pickle
+*.joblib
 
 # Images
 imgs/olds/
@@ -49,15 +66,20 @@ imgs/olds/
 # Temporary files
 *.bak
 *.tmp
+*.swp
 ~$*
+.tmp_*
 
 # Test and report artifacts
 htmlcov/
+.coverage
 coverage.xml
 pytest_cache/
 .pytest_cache/
 .pytest_tmp/
 .pytest_tmp_release*/
+.ruff_cache/
+.mypy_cache/
 .tox/
 .nox/
 
@@ -83,3 +105,19 @@ riskbands_master.ai
 imgs/png/
 imgs/svg/
 docs/prompts/
+
+.tmp_supply_*/
+.gh-job-*/
+
+# Local diagnostic outputs
+pip_audit_output*.txt
+pip_freeze*.txt
+pipdeptree*.txt
+pip_check_output*.txt
+changed_files*.txt
+full_patch*.diff
+
+# Optional local reports/exports
+reports/local/
+outputs/local/
+artifacts/local/
