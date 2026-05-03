@@ -3,6 +3,21 @@ title: "Release Notes"
 description: "Marcos de release em alto nível para o pacote público e para a documentação oficial."
 ---
 
+## v2.0.3
+
+Patch release focused on release hardening and deterministic operational behaviour.
+
+Status: local release candidate; not published yet.
+
+Main points:
+
+- stronger categorical handling for rare categories, missing values, and unknown categories
+- safer `export_bundle(...)` outputs with sanitized names and a traceable manifest
+- explicit `force_numeric` support
+- stronger quality gates with `ruff`, coverage-enabled `pytest`, `pip check`, `bandit`, and `pip-audit`
+- supply-chain constraints to avoid the vulnerable `ortools 9.11.4210 -> protobuf 5.26.1` resolver path
+- README and release governance updates for pandas, Spark/Databricks usage, overrides, auditable export, assets, and local prompts
+
 ## v2.0.2
 
 Release focada em auditabilidade real, inspeção mais amigável e experiência pública mais robusta.

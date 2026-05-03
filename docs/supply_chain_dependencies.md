@@ -1,6 +1,6 @@
 # Supply chain dependencies
 
-Contexto de hardening pre-release para a futura versao 2.0.3.
+Contexto de hardening pre-release para a release candidate 2.0.3.
 
 ## Decisao
 
@@ -14,7 +14,7 @@ Essa combinacao mantem `optbinning` em `0.21.x`, bloqueia `ortools 9.11.4210` e 
 ## Cadeia vulneravel evitada
 
 ```text
-riskbands 2.0.2
+riskbands 2.0.3
   -> optbinning 0.21.0
     -> ortools 9.11.4210
       -> protobuf 5.26.1
@@ -26,7 +26,7 @@ riskbands 2.0.2
 
 Ambiente limpo Python 3.11.5 (`.venv-supply-chain`):
 
-- `riskbands==2.0.2`
+- `riskbands==2.0.3`
 - `optbinning==0.21.0`
 - `ortools==9.10.4067`
 - `protobuf==5.29.6`

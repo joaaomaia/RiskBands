@@ -37,7 +37,7 @@ Exemplos do que ficou mais fácil:
 - `summary()`, `report()`, `score_details()` e `diagnostics()`
 - `get_params()` e `set_params(...)`
 
-## v2.0.0 a v2.0.2: consolidação pública
+## v2.0.0 a v2.0.3: consolidação pública
 
 Nessa etapa, o foco passou a ser clareza para usuário novo e consistência de release.
 
@@ -59,6 +59,16 @@ Nesta release, o projeto ganhou uma camada mais forte para inspeção e governan
 - plots públicos para bad rate, heatmap, share temporal e score components
 - metadata pós-fit com pesos do score e contexto efetivo do fit
 - correção do alinhamento temporal da estratégia supervisionada
+
+## v2.0.3: robustez operacional
+
+Esta patch release fortalece comportamento deterministico e governanca local:
+
+- tratamento categorico mais robusto para categorias raras, ausentes e desconhecidas
+- `export_bundle(...)` protegido contra path traversal com nomes sanitizados e manifest rastreavel
+- suporte explicito a `force_numeric`
+- gates de qualidade reforcados com `ruff`, `pytest` com coverage, `pip check`, `bandit` e `pip-audit`
+- constraints de supply chain para evitar a cadeia vulneravel `ortools 9.11.4210 -> protobuf 5.26.1`
 
 ## O que usar hoje
 
