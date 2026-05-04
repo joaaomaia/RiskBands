@@ -138,3 +138,5 @@ full_patch*.diff
 reports/local/
 outputs/local/
 artifacts/local/
+
+docs/presentations/
