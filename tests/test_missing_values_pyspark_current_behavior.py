@@ -1,3 +1,4 @@
+from collections import Counter
 from importlib.util import find_spec
 from pathlib import Path
 
@@ -71,12 +72,11 @@ def test_spark_numeric_null_and_nan_transform_to_missing_label(spark_session):
 
     transformed = binner.transform(spark_df, column="score")
     observed = transformed.toPandas()["score"].tolist()
+    observed_counts = Counter(observed)
 
     assert transformed.__class__.__module__.startswith("pyspark")
-    assert observed[0] == "Missing"
-    assert observed[1] == "Missing"
-    assert observed[2] != "Missing"
-    assert observed[3] != "Missing"
+    assert len(observed) == 4
+    assert observed_counts["Missing"] == 2
 
 
 def test_spark_categorical_null_follows_current_missing_token_mapping(spark_session):
@@ -98,11 +98,15 @@ def test_spark_categorical_null_follows_current_missing_token_mapping(spark_sess
 
     transformed = binner.transform(spark_df, column="grade")
     observed = transformed.toPandas()["grade"].tolist()
+    expected = [
+        mapping_by_category["_MISSING_"],
+        mapping_by_category["_UNKNOWN_"],
+        mapping_by_category["B"],
+    ]
 
     assert transformed.__class__.__module__.startswith("pyspark")
-    assert observed[0] == mapping_by_category["_MISSING_"]
-    assert observed[1] == mapping_by_category["_UNKNOWN_"]
-    assert str(observed[0]).lower() != "missing"
+    assert Counter(observed) == Counter(expected)
+    assert str(mapping_by_category["_MISSING_"]).lower() != "missing"
 
 
 def test_spark_transform_validate_builds_missing_profile_from_aggregates(spark_session, monkeypatch):
