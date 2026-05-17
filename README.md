@@ -190,6 +190,25 @@ Bundles novos persistem `missing_policy`, `effective_missing_policy`,
 `missing_profile` e `missing_decision_log`. Bundles antigos sem esses campos
 carregam como `standard`.
 
+## Destaques da versao 2.2.0
+
+A versao 2.2.0 consolida a politica auditavel de missing values:
+
+- `missing_policy="standard"` permanece como default compativel.
+- `missing_policy="separate_bin"` cria bin explicito `Missing` quando essa escolha
+  for intencional.
+- `missing_policy="forbid"` falha quando missing values devem ser tratados antes
+  do binning.
+- `standard` e o nome canonico do score historico; `legacy` segue como alias
+  compativel.
+- pandas e PySpark seguem suportados, com PySpark opcional via
+  `riskbands[spark]` e restrito a `pyspark>=3.5,<4`.
+- bundles antigos seguem carregando como `standard` quando nao possuem os novos
+  campos de missing policy.
+
+Fora do escopo desta versao: merge policies, imputacao inteligente opaca e um
+backend Spark distribuido completo para fitting.
+
 ## Export auditavel e supply chain
 
 `export_bundle(...)` gera artefatos tabulares e JSON para auditoria. Nomes de

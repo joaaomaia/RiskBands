@@ -15,7 +15,7 @@ from riskbands import (
 
 Current version:
 
-- `2.1.0`
+- `2.2.0`
 
 ## `RiskBands` / `Binner`
 
@@ -84,6 +84,15 @@ Notes:
 - `from riskbands import Binner` remains available for compatibility.
 - `save_report("...xlsx")` requires an XLSX writer engine such as `openpyxl` or `xlsxwriter`.
 
+Missing policy semantics:
+
+- `standard`: preserves the current missing-value behavior and is the default.
+- `separate_bin`: creates an explicit, auditable `Missing` bin.
+- `forbid`: raises a clear error in `fit` or `transform` when selected features contain missing values.
+
+No opaque missing-value imputation is added. Merge policies such as
+`merge_nearest_woe` and `merge_nearest_event_rate` are not part of v2.2.0.
+
 Main attributes after `fit`:
 
 - `bin_summary`
@@ -104,7 +113,7 @@ Main attributes after `fit`:
 - `transform_validation_report_` when `transform(validate=True)` was requested
 - `validation_report_` as the latest validation report compatibility alias
 - `fit_profile_`, `source_profile_`, and `reference_profile_` when available
-- `missing_policy_`, `missing_profile_`, and `missing_decision_log_`
+- `missing_policy_`, `effective_missing_policy_`, `missing_profile_`, and `missing_decision_log_`
 - `iv_`
 - `iv_by_variable_`
 - `objective_config_`
@@ -248,4 +257,3 @@ Compared profiles:
 - [examples/temporal_stability/temporal_stability_example.ipynb](../examples/temporal_stability/temporal_stability_example.ipynb)
 - [examples/pd_vintage_champion_challenger/pd_vintage_champion_challenger.py](../examples/pd_vintage_champion_challenger/pd_vintage_champion_challenger.py)
 - [examples/pd_vintage_champion_challenger/pd_vintage_champion_challenger.ipynb](../examples/pd_vintage_champion_challenger/pd_vintage_champion_challenger.ipynb)
-

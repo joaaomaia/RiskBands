@@ -139,6 +139,9 @@ Bundles também persistem a trilha de missing values quando disponível:
 `missing_policy`, `effective_missing_policy`, `missing_profile` e
 `missing_decision_log`.
 
+Esses campos registram a decisao de tratamento de missing values. Eles nao
+representam imputacao opaca nem merge policies.
+
 ## Exemplo
 
 ```python

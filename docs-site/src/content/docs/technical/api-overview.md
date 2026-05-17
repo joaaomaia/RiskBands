@@ -7,7 +7,7 @@ description: "Mapa da superfície pública do RiskBands, com foco em onboarding,
 
 Na maior parte dos casos, o fluxo ideal para um usuário novo é:
 
-1. instanciar `Binner`
+1. instanciar `RiskBands`
 2. rodar `fit(...)`
 3. inspecionar `summary()`, `score_table()` e `audit_table()`
 4. aplicar `transform(...)`
@@ -17,7 +17,7 @@ Na maior parte dos casos, o fluxo ideal para um usuário novo é:
 ## Superfície pública principal
 
 ```python
-from riskbands import Binner, BinComparator
+from riskbands import RiskBands, Binner, BinComparator
 from riskbands.temporal_stability import (
     ks_over_time,
     psi_over_time,
@@ -57,7 +57,7 @@ Também foram adicionados aliases mais amigáveis para configuração:
 
 | Componente | Papel no fluxo | Por que importa |
 | --- | --- | --- |
-| `Binner` | Porta de entrada principal | Ajusta, transforma, resume, exporta e plota sem exigir estruturas internas |
+| `RiskBands` / `Binner` | Porta de entrada principal | Ajusta, transforma, resume, exporta e plota sem exigir estruturas internas |
 | `summary()` | Resumo curto pós-fit | Ajuda a entender rapidamente bins, IV e score |
 | `score_table()` | Explicação curta do objective | Expõe score final, pesos e componentes mais relevantes |
 | `audit_table()` | Revisão auditável consolidada | Junta cuts, score, penalidades, cobertura e rationale |
@@ -69,11 +69,12 @@ Também foram adicionados aliases mais amigáveis para configuração:
 ## Fluxo recomendado para candidato único
 
 ```python
-binner = Binner(
+binner = RiskBands(
     strategy="supervised",
     score_strategy="stable",
     max_n_bins=5,
     check_stability=True,
+    missing_policy="standard",
 )
 
 binner.fit(df, y="target", column="score", time_col="month")
@@ -104,13 +105,17 @@ Hoje a API expõe duas estratégias explícitas:
 - `separate_bin`: opt-in para bin explícito `Missing`
 - `forbid`: erro em `fit` ou `transform` se houver missing nas features selecionadas
 
+`separate_bin` nao faz imputacao opaca; ele torna o missing explicito e
+auditavel. Merge policies ainda nao fazem parte do contrato publico.
+
 Exemplo:
 
 ```python
-binner = Binner(
+binner = RiskBands(
     strategy="supervised",
     check_stability=True,
     time_col="month",
+    missing_policy="separate_bin",
     score_strategy="stable",
     score_weights={
         "temporal_variance_weight": 0.22,

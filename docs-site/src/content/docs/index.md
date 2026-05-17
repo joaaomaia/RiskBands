@@ -26,6 +26,9 @@ features:
   - title: Outputs fáceis de ler
     description: Veja como interpretar `summary()`, `report()`, `score_details()`, `diagnostics()` e `binning_table()`.
     link: ./technical/outputs/
+  - title: Missing values auditaveis
+    description: Use `standard`, `separate_bin` ou `forbid` sem imputacao opaca e com trilha persistida nos bundles.
+    link: ./technical/api-overview/#missing-values
   - title: Optuna sem acoplamento
     description: Descubra quando vale ligar a busca externa e como ela se encaixa no mesmo objective do fluxo sem Optuna.
     link: ./technical/optuna/
@@ -76,13 +79,14 @@ Na prática, o projeto adiciona:
 ## Fluxo mínimo
 
 ```python
-from riskbands import Binner
+from riskbands import RiskBands
 
-binner = Binner(
+binner = RiskBands(
     strategy="supervised",
     score_strategy="stable",
     max_n_bins=5,
     check_stability=True,
+    missing_policy="standard",
 )
 
 binner.fit(df, y="target", column="score", time_col="month")

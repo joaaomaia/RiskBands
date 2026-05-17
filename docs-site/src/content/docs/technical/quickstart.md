@@ -1,13 +1,13 @@
 ---
 title: Quickstart
-description: "Ajuste seu primeiro Binner com a API mais amigável do RiskBands e inspecione score, auditoria, export e plots em poucos passos."
+description: "Ajuste seu primeiro RiskBands com a API mais amigavel do projeto e inspecione score, auditoria, export e plots em poucos passos."
 ---
 
 ## O fluxo recomendado hoje
 
 Para um usuário novo, o caminho mais simples e completo é:
 
-1. criar um `Binner`
+1. criar um `RiskBands`
 2. ajustar com `fit(df, y="target", column="score", time_col="month")`
 3. olhar `summary()`
 4. abrir `score_table()` e `audit_table()`
@@ -18,7 +18,7 @@ Para um usuário novo, o caminho mais simples e completo é:
 import numpy as np
 import pandas as pd
 
-from riskbands import Binner
+from riskbands import RiskBands
 
 rng = np.random.default_rng(0)
 n = 800
@@ -30,10 +30,11 @@ proba = 0.20 + 0.15 * df["score"] + 0.02 * (df["month"] - 202301)
 proba = np.clip(proba, 0.01, 0.99)
 df["target"] = (rng.random(n) < proba).astype(int)
 
-binner = Binner(
+binner = RiskBands(
     strategy="supervised",
     max_n_bins=5,
     check_stability=True,
+    missing_policy="standard",
     score_strategy="stable",
     normalization_strategy="absolute",
     woe_shrinkage_strength=35.0,
@@ -54,6 +55,15 @@ binner.plot_bad_rate_heatmap(df, y="target", column="score", time_col="month")
 binner.plot_bin_share_over_time(df, y="target", column="score", time_col="month")
 binner.plot_score_components(column="score")
 ```
+
+## Missing values
+
+O default `missing_policy="standard"` preserva o comportamento atual. Quando
+voce precisa auditar missing values explicitamente, use
+`missing_policy="separate_bin"`. Quando missing values devem ser bloqueados
+antes do binning, use `missing_policy="forbid"`.
+
+Essas politicas nao fazem imputacao opaca e nao incluem merge policies.
 
 ## Por que esse fluxo é mais amigável
 

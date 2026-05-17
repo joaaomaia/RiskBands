@@ -98,9 +98,9 @@ Quando reduzir:
 ## Exemplo completo
 
 ```python
-from riskbands import Binner
+from riskbands import RiskBands
 
-binner = Binner(
+binner = RiskBands(
     strategy="supervised",
     score_strategy="stable",
     score_weights={

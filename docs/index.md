@@ -1,4 +1,4 @@
-﻿# RiskBands Docs
+# RiskBands Docs
 
 Entry point for the project documentation.
 
@@ -18,8 +18,8 @@ Entry point for the project documentation.
   Project overview, installation, quickstart, and positioning.
 - [docs/api_reference.md](api_reference.md)
   Main API contract and public package surface.
-- [docs/v2.1.0_user_guide.md](v2.1.0_user_guide.md)
-  v2.1.0 import, pandas/PySpark, validation, and bundle guide.
+- [docs/v2.2.0_user_guide.md](v2.2.0_user_guide.md)
+  v2.2.0 import, missing policies, pandas/PySpark, validation, and bundle guide.
 - [docs/migration.md](migration.md)
   Breaking migration guide for users coming from `NASABinning`.
 - [examples/README.md](../examples/README.md)

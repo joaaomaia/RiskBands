@@ -35,14 +35,15 @@ Considere Optuna quando:
 ## Como ele se encaixa no fluxo
 
 ```python
-from riskbands import Binner
+from riskbands import RiskBands
 
-binner = Binner(
+binner = RiskBands(
     strategy="supervised",
     use_optuna=True,
     score_strategy="stable",
     strategy_kwargs={"n_trials": 20},
     check_stability=True,
+    missing_policy="standard",
 )
 
 binner.fit(df, y="target", column="score", time_col="month")
