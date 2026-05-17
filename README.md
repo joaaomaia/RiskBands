@@ -103,6 +103,12 @@ Extra opcional para graficos Plotly e export HTML dos benchmarks:
 pip install "riskbands[viz]"
 ```
 
+Extra opcional para uso e testes com PySpark:
+
+```bash
+pip install "riskbands[spark]"
+```
+
 Para desenvolvimento, testes e notebooks:
 
 ```bash
@@ -132,14 +138,15 @@ Porta metodologica:
 
 ## Tipos de entrada suportados
 
-A API atual e orientada a `pandas.DataFrame` e `pandas.Series`. O fluxo usual e
-treinar com `fit(df, y="target", column="score", time_col="month")` ou com uma
-lista de colunas em um `DataFrame` pandas.
+A API reconhece `pandas.DataFrame`, `pandas.Series` e, com o extra opcional
+`riskbands[spark]`, `PySpark DataFrame`.
 
-`PySpark DataFrame` ainda nao e suportado nativamente. Para bases grandes em
-Spark ou Databricks, a recomendacao conservadora e treinar o binning em uma
-amostra, agregado ou extrato pandas auditavel, exportar as regras e aplica-las
-depois no ambiente distribuido.
+O fluxo pandas continua igual: `fit(df, y="target", column="score",
+time_col="month")` ou uma lista de colunas em um `DataFrame` pandas.
+
+No PySpark, o `fit` usa amostragem controlada por `sample_size`, converte a
+amostra para pandas e reaproveita o motor estatistico atual. O `transform`
+preserva `PySpark DataFrame` e usa expressoes Spark nativas.
 
 ## Variaveis categoricas e overrides
 
@@ -148,7 +155,7 @@ O tratamento de categorias raras, valores missing e categorias desconhecidas no
 `transform` e deterministico, com mapeamento aprendido no `fit`.
 
 ```python
-binner = Binner(
+binner = RiskBands(
     strategy="supervised",
     force_categorical=["rating_interno"],
 )
@@ -159,7 +166,7 @@ Quando a inferencia automatica de tipo nao for suficiente, use
 deve aparecer nas duas listas; isso e tratado como conflito.
 
 ```python
-binner = Binner(
+binner = RiskBands(
     strategy="supervised",
     force_numeric=["qtd_restritivos"],
     force_categorical=["rating_interno"],
@@ -181,7 +188,7 @@ Dependencias de solver e verificacoes de supply chain ficam resumidas em
 import numpy as np
 import pandas as pd
 
-from riskbands import Binner
+from riskbands import RiskBands
 
 rng = np.random.default_rng(0)
 n = 800
@@ -193,7 +200,7 @@ proba = 0.20 + 0.15 * df["score"] + 0.02 * (df["month"] - 202301)
 proba = np.clip(proba, 0.01, 0.99)
 df["target"] = (rng.random(n) < proba).astype(int)
 
-binner = Binner(
+binner = RiskBands(
     strategy="supervised",
     max_n_bins=5,
     check_stability=True,
@@ -232,7 +239,7 @@ Fluxo mais amigavel, no estilo sklearn/pandas:
 ## Customização do objective
 
 ```python
-binner = Binner(
+binner = RiskBands(
     strategy="supervised",
     check_stability=True,
     use_optuna=True,
@@ -251,6 +258,8 @@ binner = Binner(
     strategy_kwargs={"n_trials": 10},
 )
 ```
+
+`from riskbands import Binner` remains supported for existing code; new examples prefer `RiskBands`.
 
 Leitura rápida:
 

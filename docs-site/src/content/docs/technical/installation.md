@@ -17,6 +17,14 @@ Se você também quiser os extras visuais usados em notebooks e demos com Plotly
 pip install "riskbands[viz]"
 ```
 
+Para usar os caminhos opcionais de fit/transform com PySpark:
+
+```bash
+pip install "riskbands[spark]"
+```
+
+O pacote base nao instala PySpark. O extra `spark` usa `pyspark>=3.5,<4`.
+
 ## Ambiente de desenvolvimento
 
 Para trabalhar no repositório local, rodar testes e executar notebooks:

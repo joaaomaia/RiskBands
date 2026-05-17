@@ -3,11 +3,34 @@ title: "Release Notes"
 description: "Marcos de release em alto nível para o pacote público e para a documentação oficial."
 ---
 
+## v2.1.0
+
+Compatible minor release focused on the preferred `RiskBands` name, optional PySpark paths, and validation profiles.
+
+Status: prepared for v2.1.0 publication.
+
+Main points:
+
+- `RiskBands` is the preferred public estimator name; `Binner` remains compatible
+- `min_n_bins` records a soft quality status without forcing artificial cuts
+- `sample_size` controls PySpark fit sampling
+- pandas/PySpark inputs are detected automatically in `fit` and `transform`
+- pandas outputs remain pandas; PySpark outputs remain PySpark
+- `fit(validate=True)` and `transform(validate=True)` create validation profiles with separate fit and transform reports
+- v2.1.0 bundles persist schema/version metadata, profiles, separate validation reports, sampling/backend metadata, and data schema when available
+- PySpark remains optional through `riskbands[spark]` with `pyspark>=3.5,<4`
+
+Notes:
+
+- PySpark fit uses controlled sampling plus the current pandas engine
+- PySpark transform and validation profiles use native Spark expressions and aggregated profiles
+- A full distributed Spark fitting backend is not part of this release
+
 ## v2.0.3
 
 Patch release focused on release hardening and deterministic operational behaviour.
 
-Status: local release candidate; not published yet.
+Status: prepared for v2.0.3 publication.
 
 Main points:
 

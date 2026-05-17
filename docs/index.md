@@ -4,7 +4,7 @@ Entry point for the project documentation.
 
 ## Recommended Flow
 
-1. Fit `Binner(...).fit(X, y, time_col=...)`.
+1. Fit `RiskBands(...).fit(X, y, time_col=...)` or the compatible `Binner(...)` alias.
 2. Transform the data with `transform(...)`.
 3. Generate the temporal pivot with `stability_over_time(...)`.
 4. Inspect the detailed diagnostics with `temporal_bin_diagnostics(...)`.
@@ -18,6 +18,8 @@ Entry point for the project documentation.
   Project overview, installation, quickstart, and positioning.
 - [docs/api_reference.md](api_reference.md)
   Main API contract and public package surface.
+- [docs/v2.1.0_user_guide.md](v2.1.0_user_guide.md)
+  v2.1.0 import, pandas/PySpark, validation, and bundle guide.
 - [docs/migration.md](migration.md)
   Breaking migration guide for users coming from `NASABinning`.
 - [examples/README.md](../examples/README.md)

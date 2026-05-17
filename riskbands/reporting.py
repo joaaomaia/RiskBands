@@ -83,6 +83,24 @@ _WINDOWS_RESERVED_FILENAMES = {
     *(f"LPT{i}" for i in range(1, 10)),
 }
 
+BUNDLE_SCHEMA_VERSION = "2.1"
+LEGACY_BUNDLE_SCHEMA_VERSION = "1.0"
+OPTIONAL_BUNDLE_PROFILE_FIELDS = (
+    "fit_profile",
+    "source_profile",
+    "reference_profile",
+    "reference_profile_source",
+    "application_profile",
+    "fit_validation_report",
+    "transform_validation_report",
+    "validation_report",
+    "sampling_metadata",
+    "backend_metadata",
+    "min_n_bins_metadata",
+    "validation_settings",
+    "data_schema",
+)
+
 
 def _require_bin_summary(binner: Binner) -> pd.DataFrame:
     bin_summary = getattr(binner, "bin_summary", None)
@@ -919,9 +937,96 @@ def build_binner_metadata(
         "input_type": getattr(binner, "input_type_", None),
         "iv_total": _safe_float(getattr(binner, "iv_", np.nan), default=np.nan),
     }
+    min_n_bins_metadata = getattr(binner, "min_n_bins_metadata_", None)
+    if min_n_bins_metadata is not None:
+        metadata["min_n_bins"] = getattr(binner, "min_n_bins", None)
+        metadata["min_n_bins_metadata"] = _json_safe(min_n_bins_metadata)
+    sampling_metadata = getattr(binner, "sampling_metadata_", None)
+    if sampling_metadata is not None:
+        metadata["sampling_metadata"] = _json_safe(sampling_metadata)
+    backend_metadata = getattr(binner, "backend_metadata_", None)
+    if backend_metadata is not None:
+        metadata["backend_metadata"] = _json_safe(backend_metadata)
+    reference_profile_source = getattr(binner, "reference_profile_source_", None)
+    if reference_profile_source is not None:
+        metadata["reference_profile_source"] = reference_profile_source
     if objective_config is not None:
         metadata["objective_config"] = _json_safe(objective_config)
     return _json_safe(metadata)
+
+
+def _collect_optional_bundle_profile_fields(binner: Binner) -> dict[str, Any]:
+    fields = {}
+    for field in OPTIONAL_BUNDLE_PROFILE_FIELDS:
+        value = getattr(binner, f"{field}_", None)
+        if value is not None:
+            fields[field] = _json_safe(value)
+    return fields
+
+
+def _normalize_loaded_bundle_payload(payload: dict[str, Any]) -> dict[str, Any]:
+    normalized = dict(payload)
+    normalized.setdefault(
+        "bundle_schema_version",
+        str(normalized.get("artifact_version") or LEGACY_BUNDLE_SCHEMA_VERSION),
+    )
+    metadata = normalized.get("metadata")
+    if "riskbands_version" not in normalized and isinstance(metadata, dict):
+        normalized["riskbands_version"] = metadata.get("riskbands_version")
+    for field in OPTIONAL_BUNDLE_PROFILE_FIELDS:
+        normalized.setdefault(field, None)
+    if normalized.get("reference_profile") is None:
+        if normalized.get("source_profile") is not None:
+            normalized["reference_profile"] = normalized["source_profile"]
+            normalized["reference_profile_source"] = "source_profile"
+        elif normalized.get("fit_profile") is not None:
+            normalized["reference_profile"] = normalized["fit_profile"]
+            normalized["reference_profile_source"] = "fit_profile"
+    if normalized.get("reference_profile_source") is None:
+        normalized["reference_profile_source"] = (
+            "missing" if normalized.get("reference_profile") is None else "fit_profile"
+        )
+    return normalized
+
+
+def load_bundle_metadata(path: PathLike) -> dict[str, Any]:
+    """Load and normalize a RiskBands bundle manifest or metadata JSON file."""
+    target = Path(path)
+    metadata_path = target / "metadata.json" if target.is_dir() else target
+    payload = json.loads(metadata_path.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise ValueError("RiskBands bundle metadata must be a JSON object.")
+    return _normalize_loaded_bundle_payload(payload)
+
+
+def load_bundle(path: PathLike) -> dict[str, Any]:
+    """Load a RiskBands audit bundle directory with normalized manifest and binnings."""
+    target = Path(path)
+    if not target.is_dir():
+        raise ValueError("`load_bundle` expects a RiskBands bundle directory.")
+
+    manifest = load_bundle_metadata(target)
+    binnings_path = target / "binnings.json"
+    binnings = None
+    if binnings_path.exists():
+        binnings_payload = json.loads(binnings_path.read_text(encoding="utf-8"))
+        if not isinstance(binnings_payload, dict):
+            raise ValueError("RiskBands binnings artifact must be a JSON object.")
+        binnings = _normalize_loaded_bundle_payload(binnings_payload)
+
+    return {
+        "manifest": manifest,
+        "binnings": binnings,
+        "bundle_schema_version": manifest.get("bundle_schema_version"),
+        "riskbands_version": manifest.get("riskbands_version"),
+        "reference_profile": manifest.get("reference_profile"),
+        "reference_profile_source": manifest.get("reference_profile_source"),
+        "fit_profile": manifest.get("fit_profile"),
+        "source_profile": manifest.get("source_profile"),
+        "fit_validation_report": manifest.get("fit_validation_report"),
+        "transform_validation_report": manifest.get("transform_validation_report"),
+        "validation_report": manifest.get("validation_report"),
+    }
 
 
 def _resolve_optional_table(
@@ -980,10 +1085,12 @@ def build_binnings_json_artifact(binner: Binner) -> dict[str, Any]:
     return {
         "artifact_type": "riskbands_binning_bundle",
         "artifact_version": "1.0",
+        "bundle_schema_version": BUNDLE_SCHEMA_VERSION,
         "riskbands_version": resolve_version(),
         "generated_at": generated_at,
         "metadata": metadata,
         "features": features,
+        **_collect_optional_bundle_profile_fields(binner),
     }
 
 
@@ -1063,6 +1170,7 @@ def export_binner_bundle(binner: Binner, path: PathLike) -> Path:
     manifest = {
         "artifact_type": "riskbands_audit_bundle",
         "artifact_version": "1.0",
+        "bundle_schema_version": BUNDLE_SCHEMA_VERSION,
         "riskbands_version": resolve_version(),
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "metadata": metadata,
@@ -1081,6 +1189,7 @@ def export_binner_bundle(binner: Binner, path: PathLike) -> Path:
             "optional_parquet": written_optional,
         },
         "skipped_optional_artifacts": skipped_optional,
+        **_collect_optional_bundle_profile_fields(binner),
     }
     (target_dir / "metadata.json").write_text(
         json.dumps(_json_safe(manifest), indent=2, ensure_ascii=False),

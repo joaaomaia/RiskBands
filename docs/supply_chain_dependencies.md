@@ -1,6 +1,6 @@
 # Supply chain dependencies
 
-Contexto de hardening pre-release para a release candidate 2.0.3.
+Contexto de hardening de dependências para a preparação da v2.0.3.
 
 ## Decisao
 

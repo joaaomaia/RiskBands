@@ -3,10 +3,13 @@
 from __future__ import annotations
 
 import inspect
+import math
 import warnings
 from collections.abc import Sequence
+from numbers import Integral, Real
 from typing import Any
 
+import numpy as np
 import pandas as pd
 from sklearn.base import BaseEstimator, TransformerMixin
 
@@ -14,7 +17,10 @@ from .metrics import iv
 from .objectives import resolve_score_strategy
 from .refinement import refine_bins
 from .strategies import get_strategy
+from .utils.dataframe_backend import detect_dataframe_backend
 from .utils.dtypes import search_dtypes
+
+_MAX_PROFILE_ROWS_TO_COLLECT = 100_000
 
 
 class Binner(BaseEstimator, TransformerMixin):
@@ -25,6 +31,8 @@ class Binner(BaseEstimator, TransformerMixin):
         strategy: str = "supervised",
         max_bins: int = 6,
         max_n_bins: int | None = None,
+        min_n_bins: int | None = None,
+        sample_size: int | float = 10_000,
         min_event_rate_diff: float = 0.02,
         monotonic: str | None = None,
         monotonic_trend: str | None = None,
@@ -42,6 +50,8 @@ class Binner(BaseEstimator, TransformerMixin):
     ):
         if max_n_bins is not None:
             max_bins = max_n_bins
+        min_n_bins = self._validate_min_n_bins(min_n_bins)
+        sample_size = self._validate_sample_size(sample_size)
         if monotonic is not None and monotonic_trend is not None and monotonic != monotonic_trend:
             raise ValueError(
                 "`monotonic` and `monotonic_trend` were both provided with different values. "
@@ -52,6 +62,8 @@ class Binner(BaseEstimator, TransformerMixin):
         self.strategy = strategy
         self.max_bins = max_bins
         self.max_n_bins = max_bins
+        self.min_n_bins = min_n_bins
+        self.sample_size = sample_size
         self.min_event_rate_diff = min_event_rate_diff
         self.monotonic = monotonic
         self.monotonic_trend = monotonic
@@ -81,6 +93,7 @@ class Binner(BaseEstimator, TransformerMixin):
 
         self._fitted_strategy = None
         self.bin_summary = None
+        self.sampling_metadata_ = self._resolve_sampling_plan()
 
     # ------------------------------------------------------------------
     def get_params(self, deep: bool = True) -> dict[str, Any]:
@@ -106,6 +119,10 @@ class Binner(BaseEstimator, TransformerMixin):
                 {"score_strategy": params["objective_kwargs"]["score_strategy"]},
                 score_strategy=None,
             )
+        if "min_n_bins" in params:
+            params["min_n_bins"] = self._validate_min_n_bins(params["min_n_bins"])
+        if "sample_size" in params:
+            params["sample_size"] = self._validate_sample_size(params["sample_size"])
 
         if "max_n_bins" in params and "max_bins" not in params:
             params["max_bins"] = params["max_n_bins"]
@@ -120,6 +137,468 @@ class Binner(BaseEstimator, TransformerMixin):
         self.max_n_bins = self.max_bins
         self.monotonic_trend = self.monotonic
         return result
+
+    # ------------------------------------------------------------------
+    @staticmethod
+    def _validate_min_n_bins(value: int | None) -> int | None:
+        if value is None:
+            return None
+        if isinstance(value, bool) or not isinstance(value, Integral):
+            raise ValueError("`min_n_bins` must be None or a positive integer.")
+        value = int(value)
+        if value <= 0:
+            raise ValueError("`min_n_bins` must be None or a positive integer.")
+        return value
+
+    # ------------------------------------------------------------------
+    @staticmethod
+    def _validate_sample_size(value: int | float) -> int | float:
+        if value is None:
+            raise ValueError("`sample_size` must be a positive integer or a float in (0, 1].")
+        if isinstance(value, bool):
+            raise ValueError("`sample_size` must be a positive integer or a float in (0, 1].")
+        if isinstance(value, Integral):
+            value = int(value)
+            if value <= 0:
+                raise ValueError("`sample_size` must be a positive integer or a float in (0, 1].")
+            return value
+        if isinstance(value, Real):
+            value = float(value)
+            if value <= 0 or value > 1:
+                raise ValueError("`sample_size` must be a positive integer or a float in (0, 1].")
+            return value
+        raise ValueError("`sample_size` must be a positive integer or a float in (0, 1].")
+
+    # ------------------------------------------------------------------
+    def _resolve_sampling_plan(self, population_size: int | None = None) -> dict[str, Any]:
+        sample_size = self._validate_sample_size(self.sample_size)
+        if population_size is not None:
+            population_size = int(population_size)
+            if population_size < 0:
+                raise ValueError("`population_size` must be non-negative when provided.")
+
+        if isinstance(sample_size, int):
+            effective_size = (
+                min(sample_size, population_size)
+                if population_size is not None
+                else sample_size
+            )
+            effective_fraction = (
+                (effective_size / population_size)
+                if population_size and population_size > 0
+                else (0.0 if population_size == 0 else None)
+            )
+            return {
+                "sample_size_requested": sample_size,
+                "sample_size_type": "absolute",
+                "population_size": population_size,
+                "sample_fraction_effective": effective_fraction,
+                "sample_size_effective": effective_size,
+            }
+
+        effective_size = (
+            min(population_size, math.ceil(population_size * sample_size))
+            if population_size is not None
+            else None
+        )
+        return {
+            "sample_size_requested": sample_size,
+            "sample_size_type": "fraction",
+            "population_size": population_size,
+            "sample_fraction_effective": sample_size,
+            "sample_size_effective": effective_size,
+        }
+
+    # ------------------------------------------------------------------
+    def _pandas_fit_sampling_metadata(self, n_rows: int) -> dict[str, Any]:
+        plan = self._resolve_sampling_plan(population_size=n_rows)
+        return {
+            "input_backend": "pandas",
+            "fit_backend": "pandas_core",
+            "fit_mode": "pandas_core",
+            "sampling_applied": False,
+            "sampling_strategy": "none",
+            "n_rows_source": int(n_rows),
+            "n_rows_fit": int(n_rows),
+            "sample_size_requested": plan["sample_size_requested"],
+            "sample_size_type": plan["sample_size_type"],
+            "sample_plan_effective_if_sampled": {
+                "population_size": plan["population_size"],
+                "sample_fraction_effective": plan["sample_fraction_effective"],
+                "sample_size_effective": plan["sample_size_effective"],
+            },
+        }
+
+    # ------------------------------------------------------------------
+    def _sampling_random_state(self) -> int:
+        seed = self.strategy_kwargs.get("sampling_random_state", self.strategy_kwargs.get("random_state", 42))
+        try:
+            return int(seed)
+        except (TypeError, ValueError):
+            return 42
+
+    # ------------------------------------------------------------------
+    @staticmethod
+    def _spark_functions():
+        from pyspark.sql import functions as F
+
+        return F
+
+    # ------------------------------------------------------------------
+    def _normalize_pyspark_fit_inputs(
+        self,
+        X,
+        y: str | None = None,
+        *,
+        target: str | None = None,
+        column: str | None = None,
+        columns: Sequence[str] | None = None,
+        feature: str | None = None,
+        features: Sequence[str] | None = None,
+        time_col: str | None = None,
+    ) -> tuple[str, list[str], list[str]]:
+        available_columns = list(X.columns)
+        if isinstance(y, str):
+            if target is not None and target != y:
+                raise ValueError("Pass the target once: use either `y=` or `target=`.")
+            target_name = y
+        elif target is not None:
+            if not isinstance(target, str):
+                raise TypeError("PySpark fit requires `target` to be a column name.")
+            target_name = target
+        elif y is None:
+            raise TypeError("PySpark fit requires `y` or `target` to be a column name.")
+        else:
+            raise TypeError("PySpark fit requires `y` to be a target column name.")
+
+        if target_name not in available_columns:
+            raise KeyError(f"Target column '{target_name}' was not found in the PySpark DataFrame.")
+        if time_col is not None and time_col not in available_columns:
+            raise KeyError(f"`time_col='{time_col}'` was not found in the PySpark DataFrame.")
+        if time_col is not None and time_col == target_name:
+            raise ValueError("`time_col` cannot point to the target column.")
+
+        selected_columns = self._resolve_feature_selection(
+            column=column,
+            columns=columns,
+            feature=feature,
+            features=features,
+        )
+        if selected_columns is None:
+            feature_columns = [
+                col for col in available_columns if col not in {target_name, time_col}
+            ]
+        else:
+            missing = [col for col in selected_columns if col not in available_columns]
+            if missing:
+                raise KeyError(f"Selected feature(s) not found in the PySpark DataFrame: {missing}.")
+            if target_name in selected_columns:
+                raise ValueError("Selected feature columns must not include the target column.")
+            feature_columns = [col for col in selected_columns if col != time_col]
+
+        if not feature_columns:
+            raise ValueError("No feature columns were selected for PySpark fit.")
+
+        collect_columns = self._deduplicate_names(
+            feature_columns + ([time_col] if time_col is not None else []) + [target_name]
+        )
+        return target_name, feature_columns, collect_columns
+
+    # ------------------------------------------------------------------
+    def _sample_pyspark_dataframe(self, spark_df, *, population_size: int):
+        plan = self._resolve_sampling_plan(population_size=population_size)
+        seed = self._sampling_random_state()
+        sample_size = self.sample_size
+
+        if isinstance(sample_size, int):
+            effective_size = plan["sample_size_effective"]
+            if effective_size >= population_size:
+                sampled = spark_df
+            else:
+                fraction = plan["sample_fraction_effective"]
+                sampled = spark_df.sample(withReplacement=False, fraction=fraction, seed=seed).limit(effective_size)
+        else:
+            fraction = plan["sample_fraction_effective"]
+            sampled = spark_df.sample(withReplacement=False, fraction=fraction, seed=seed)
+
+        return sampled, plan
+
+    # ------------------------------------------------------------------
+    def _fit_pyspark(
+        self,
+        X,
+        y: str | None = None,
+        *,
+        target: str | None = None,
+        column: str | None = None,
+        columns: Sequence[str] | None = None,
+        feature: str | None = None,
+        features: Sequence[str] | None = None,
+        time_col: str | None = None,
+        copy: bool = True,
+        validate: bool = False,
+    ):
+        time_col = time_col or self.time_col
+        target_name, feature_columns, collect_columns = self._normalize_pyspark_fit_inputs(
+            X,
+            y,
+            target=target,
+            column=column,
+            columns=columns,
+            feature=feature,
+            features=features,
+            time_col=time_col,
+        )
+        source_rows = int(X.count())
+        selected_spark = X.select(*collect_columns)
+        sampled_spark, sampling_plan = self._sample_pyspark_dataframe(
+            selected_spark,
+            population_size=source_rows,
+        )
+        sample_pdf = sampled_spark.toPandas()
+        fit_rows = int(len(sample_pdf))
+        if fit_rows == 0 and source_rows > 0:
+            sample_pdf = selected_spark.limit(1).toPandas()
+            fit_rows = int(len(sample_pdf))
+
+        self.fit(
+            sample_pdf,
+            y=target_name,
+            columns=feature_columns,
+            time_col=time_col,
+            copy=copy,
+            validate=validate,
+        )
+
+        sampling_metadata = {
+            **sampling_plan,
+            "sampling_applied": True,
+            "sampling_strategy": "random",
+            "stratified": False,
+            "sampling_limitation": "Random sampling is used; target stratification is not applied.",
+            "n_rows_source": source_rows,
+            "n_rows_fit": fit_rows,
+            "random_state": self._sampling_random_state(),
+        }
+        backend_metadata = {
+            "input_backend": "pyspark",
+            "fit_backend": "pandas_core",
+            "fit_mode": "sampled_to_pandas",
+            "source_columns": list(X.columns),
+            "collected_columns": collect_columns,
+            "feature_columns": feature_columns,
+            "target_name": target_name,
+            "time_col": time_col,
+        }
+        self.input_backend_ = "pyspark"
+        self.fit_backend_ = "pandas_core"
+        self.backend_metadata_ = backend_metadata
+        self.sampling_metadata_ = sampling_metadata
+        self.source_profile_ = None
+        source_profile_status = None
+        if validate:
+            self.source_profile_, source_profile_status = self._try_build_pyspark_source_profile(
+                X,
+                target_name=target_name,
+                feature_columns=feature_columns,
+                source_rows=source_rows,
+            )
+            self._refresh_reference_profile()
+            self.fit_validation_report_ = self._build_fit_validation_report(
+                source_profile=self.source_profile_,
+                source_profile_status=source_profile_status,
+            )
+            self.validation_report_ = self.fit_validation_report_
+        else:
+            self._refresh_reference_profile()
+            self.fit_validation_report_ = None
+            self.validation_report_ = None
+            self.validation_settings_ = None
+
+        from .reporting import build_binner_metadata
+
+        self.metadata_ = build_binner_metadata(self, time_col=time_col)
+        return self
+
+    # ------------------------------------------------------------------
+    def _normalize_pyspark_transform_input(
+        self,
+        X,
+        *,
+        column: str | None = None,
+        columns: Sequence[str] | None = None,
+        feature: str | None = None,
+        features: Sequence[str] | None = None,
+    ) -> list[str]:
+        self._ensure_fitted()
+        selected_columns = self._resolve_feature_selection(
+            column=column,
+            columns=columns,
+            feature=feature,
+            features=features,
+        )
+        fitted_columns = list(getattr(self, "feature_names_in_", list(self._per_feature_binners)))
+        if selected_columns is None:
+            selected_columns = fitted_columns
+        else:
+            invalid = [col for col in selected_columns if col not in fitted_columns]
+            if invalid:
+                raise KeyError(
+                    f"Feature(s) {invalid} were not fitted. Available fitted features: {fitted_columns}."
+                )
+
+        missing = [col for col in selected_columns if col not in list(X.columns)]
+        if missing:
+            raise KeyError(f"PySpark DataFrame is missing fitted feature(s): {missing}.")
+        return list(selected_columns)
+
+    # ------------------------------------------------------------------
+    @staticmethod
+    def _regular_model_bins(table: pd.DataFrame) -> list[Any]:
+        if "Bin" in table.columns:
+            labels = table["Bin"]
+        elif "bin" in table.columns:
+            labels = table["bin"]
+        else:
+            return []
+        label_text = labels.astype(str).str.strip().str.lower()
+        mask = ~label_text.isin({"total", "totals", "special", "missing", ""})
+        mask &= ~label_text.str.startswith("special")
+        mask &= ~label_text.str.startswith("missing")
+        return labels.loc[mask].tolist()
+
+    # ------------------------------------------------------------------
+    def _numeric_supervised_spark_expression(self, column: str, F):
+        model = self._per_feature_binners[column].models_[column]
+        splits = [float(split) for split in getattr(model, "splits", [])]
+        labels = self._regular_model_bins(model.binning_table.build())
+        if len(labels) != len(splits) + 1:
+            labels = self.binning_table(column=column)["bin"].tolist()
+        col_expr = F.col(column)
+        missing_condition = col_expr.isNull()
+        try:
+            missing_condition = missing_condition | F.isnan(col_expr)
+        except Exception:  # pragma: no cover - depends on Spark/F implementation
+            missing_condition = col_expr.isNull()
+        expr = F.when(missing_condition, F.lit("Missing"))
+
+        for idx, label in enumerate(labels):
+            if not splits:
+                condition = col_expr.isNotNull()
+                try:
+                    condition = condition & (~F.isnan(col_expr))
+                except Exception:  # pragma: no cover
+                    condition = col_expr.isNotNull()
+            elif idx == 0:
+                condition = col_expr < F.lit(splits[0])
+            elif idx == len(labels) - 1:
+                condition = col_expr >= F.lit(splits[-1])
+            else:
+                condition = (col_expr >= F.lit(splits[idx - 1])) & (col_expr < F.lit(splits[idx]))
+            expr = expr.when(condition, F.lit(label))
+        return expr.otherwise(F.lit(labels[-1] if labels else None))
+
+    # ------------------------------------------------------------------
+    def _numeric_unsupervised_spark_expression(self, column: str, F):
+        strategy = self._per_feature_binners[column]
+        column_index = list(getattr(strategy._kbd, "feature_names_in_", [column])).index(column)
+        edges = [float(edge) for edge in strategy._kbd.bin_edges_[column_index]]
+        labels = [float(idx) for idx in range(max(0, len(edges) - 1))]
+        col_expr = F.col(column)
+        expr = F.when(col_expr.isNull(), F.lit(float("nan")))
+        for idx, label in enumerate(labels):
+            if idx == 0:
+                condition = col_expr < F.lit(edges[1])
+            elif idx == len(labels) - 1:
+                condition = col_expr >= F.lit(edges[idx])
+            else:
+                condition = (col_expr >= F.lit(edges[idx])) & (col_expr < F.lit(edges[idx + 1]))
+            expr = expr.when(condition, F.lit(label))
+        return expr.otherwise(F.lit(labels[-1] if labels else float("nan")))
+
+    # ------------------------------------------------------------------
+    def _categorical_spark_expression(self, column: str, F):
+        strategy = self._per_feature_binners[column]
+        mapping = dict(getattr(strategy, "category_mapping_", {}) or {})
+        missing_token = getattr(strategy, "missing_token_", "_MISSING_")
+        unknown_token = getattr(strategy, "unknown_token_", "_UNKNOWN_")
+        default_bin = getattr(strategy, "default_bin_", mapping.get(unknown_token))
+        col_expr = F.col(column)
+        str_col = col_expr.cast("string")
+        expr = F.when(col_expr.isNull(), F.lit(mapping.get(missing_token, default_bin)))
+        for category, label in sorted(mapping.items(), key=lambda item: str(item[0])):
+            if category in {missing_token, unknown_token}:
+                continue
+            expr = expr.when(str_col == F.lit(str(category)), F.lit(label))
+        return expr.otherwise(F.lit(default_bin))
+
+    # ------------------------------------------------------------------
+    def _spark_transform_expression(self, column: str, F):
+        strategy = self._per_feature_binners[column]
+        if hasattr(strategy, "models_") and column in getattr(strategy, "models_", {}):
+            return self._numeric_supervised_spark_expression(column, F)
+        if hasattr(strategy, "_kbd"):
+            return self._numeric_unsupervised_spark_expression(column, F)
+        if hasattr(strategy, "category_mapping_"):
+            return self._categorical_spark_expression(column, F)
+        raise TypeError(f"Feature '{column}' uses an unsupported binner for Spark transform.")
+
+    # ------------------------------------------------------------------
+    def _transform_pyspark(
+        self,
+        X,
+        *,
+        column: str | None = None,
+        columns: Sequence[str] | None = None,
+        feature: str | None = None,
+        features: Sequence[str] | None = None,
+        return_woe: bool = False,
+        return_type: str = "auto",
+        validate: bool = False,
+    ):
+        if return_woe:
+            raise NotImplementedError("PySpark transform currently supports return_woe=False only.")
+        if return_type not in {"auto", "dataframe"}:
+            raise ValueError("PySpark transform preserves DataFrame output; use return_type='auto' or 'dataframe'.")
+        selected_columns = self._normalize_pyspark_transform_input(
+            X,
+            column=column,
+            columns=columns,
+            feature=feature,
+            features=features,
+        )
+        F = self._spark_functions()
+        transformed = X
+        for selected_column in selected_columns:
+            transformed = transformed.withColumn(
+                selected_column,
+                self._spark_transform_expression(selected_column, F),
+            )
+        output = transformed.select(*selected_columns)
+        if validate:
+            self._validate_transform_pyspark(output, X)
+        return output
+
+    # ------------------------------------------------------------------
+    def _try_build_pyspark_source_profile(
+        self,
+        X,
+        *,
+        target_name: str,
+        feature_columns: Sequence[str],
+        source_rows: int,
+    ) -> tuple[pd.DataFrame | None, str]:
+        try:
+            profile = self._build_bin_profile_pyspark(
+                X,
+                target_name=target_name,
+                feature_columns=feature_columns,
+                n_rows=source_rows,
+            )
+        except ValueError as exc:
+            self.source_profile_error_ = str(exc)
+            return None, "skipped_profile_too_large"
+        return profile, "computed"
 
     # ------------------------------------------------------------------
     def _numeric_strategy_kwargs(self) -> dict:
@@ -227,6 +706,17 @@ class Binner(BaseEstimator, TransformerMixin):
                 ordered.append(name)
                 seen.add(name)
         return ordered
+
+    # ------------------------------------------------------------------
+    @staticmethod
+    def _make_temp_column_name(existing_columns: Sequence[str], base: str) -> str:
+        existing = set(existing_columns)
+        name = base
+        i = 1
+        while name in existing:
+            name = f"{base}_{i}"
+            i += 1
+        return name
 
     # ------------------------------------------------------------------
     @classmethod
@@ -524,6 +1014,810 @@ class Binner(BaseEstimator, TransformerMixin):
 
     # ------------------------------------------------------------------
     @staticmethod
+    def _regular_bin_mask(summary: pd.DataFrame) -> pd.Series:
+        if summary.empty:
+            return pd.Series(dtype=bool, index=summary.index)
+
+        mask = pd.Series(True, index=summary.index)
+        if "count" in summary.columns:
+            counts = pd.to_numeric(summary["count"], errors="coerce").fillna(0)
+            mask &= counts > 0
+
+        if "bin" in summary.columns:
+            labels = summary["bin"].astype(str).str.strip().str.lower()
+            technical = labels.isin({"", "total", "totals", "special", "special codes", "missing"})
+            technical |= labels.str.startswith("missing")
+            technical |= labels.str.startswith("special")
+            mask &= ~technical
+        return mask
+
+    # ------------------------------------------------------------------
+    @classmethod
+    def _count_regular_bins(cls, summary: pd.DataFrame) -> int:
+        return int(cls._regular_bin_mask(summary).sum())
+
+    # ------------------------------------------------------------------
+    def _refresh_min_n_bins_metadata(self) -> None:
+        if self.min_n_bins is None:
+            self.min_n_bins_report_ = pd.DataFrame()
+            self.min_n_bins_metadata_ = None
+            return
+
+        records = []
+        if self.bin_summary is not None and not self.bin_summary.empty:
+            groups = self.bin_summary.groupby("variable", sort=False)
+        else:
+            groups = []
+
+        for variable, group in groups:
+            n_regular_bins = self._count_regular_bins(group)
+            reached = n_regular_bins >= self.min_n_bins
+            status = "ok" if reached else "below_minimum"
+            reason = None
+            if not reached:
+                reason = (
+                    f"Final binning produced {n_regular_bins} regular bin(s), "
+                    f"below min_n_bins={self.min_n_bins}; no artificial cuts were added."
+                )
+            records.append(
+                {
+                    "variable": variable,
+                    "min_n_bins": self.min_n_bins,
+                    "n_regular_bins": n_regular_bins,
+                    "min_n_bins_reached": reached,
+                    "min_n_bins_status": status,
+                    "min_n_bins_reason": reason,
+                }
+            )
+
+        report = pd.DataFrame(records)
+        self.min_n_bins_report_ = report
+        reached_all = bool(report["min_n_bins_reached"].all()) if not report.empty else True
+        min_regular_bins = (
+            int(report["n_regular_bins"].min())
+            if not report.empty and "n_regular_bins" in report.columns
+            else 0
+        )
+        self.min_n_bins_metadata_ = {
+            "min_n_bins": self.min_n_bins,
+            "n_regular_bins": min_regular_bins,
+            "min_n_bins_reached": reached_all,
+            "min_n_bins_status": "ok" if reached_all else "below_minimum",
+            "min_n_bins_reason": None if reached_all else "At least one fitted variable is below min_n_bins.",
+            "variables": records,
+        }
+
+    # ------------------------------------------------------------------
+    @staticmethod
+    def _bin_label_key(value: Any) -> str:
+        try:
+            if pd.isna(value):
+                return "<NA>"
+        except Exception:
+            return str(value)
+        return str(value)
+
+    # ------------------------------------------------------------------
+    @staticmethod
+    def _bin_flag(label: Any, prefix: str) -> bool:
+        try:
+            if pd.isna(label):
+                return prefix == "missing"
+        except Exception:
+            return str(label).strip().lower().startswith(prefix)
+        return str(label).strip().lower().startswith(prefix)
+
+    # ------------------------------------------------------------------
+    def _build_bin_lookup(self, variable: str) -> dict[str, dict[str, Any]]:
+        if self.bin_summary is None or self.bin_summary.empty:
+            return {}
+        summary = self.bin_summary.loc[self.bin_summary["variable"] == variable].copy()
+        lookup = {}
+        for position, row in summary.reset_index(drop=True).iterrows():
+            label = row.get("bin")
+            lookup[self._bin_label_key(label)] = {
+                "bin_id": row.get("bin_code", position),
+                "bin_order": row.get("bin_order", position),
+            }
+        return lookup
+
+    # ------------------------------------------------------------------
+    def _build_fit_profile(self, X: pd.DataFrame, y: pd.Series) -> pd.DataFrame:
+        transformed = self.transform(X, return_type="dataframe")
+        return self._build_profile_from_transformed(transformed, y)
+
+    # ------------------------------------------------------------------
+    def _build_profile_from_transformed(self, transformed: pd.DataFrame, y: pd.Series) -> pd.DataFrame:
+        target = pd.to_numeric(pd.Series(y, index=transformed.index), errors="coerce")
+        total_rows = len(transformed)
+        total_events = float(target.sum(skipna=True))
+        total_non_events = float(total_rows - total_events)
+        records = []
+
+        for variable in transformed.columns:
+            lookup = self._build_bin_lookup(variable)
+            df = pd.DataFrame(
+                {
+                    "bin_label": transformed[variable],
+                    "target": target,
+                },
+                index=transformed.index,
+            )
+            grouped = df.groupby("bin_label", sort=False, dropna=False)["target"]
+            group_count = int(grouped.ngroups)
+            smoothed_total_events = total_events + 0.5 * group_count
+            smoothed_total_non_events = total_non_events + 0.5 * group_count
+
+            for fallback_order, (bin_label, group) in enumerate(grouped):
+                n = int(group.size)
+                events = float(group.sum(skipna=True))
+                non_events = float(n - events)
+                event_rate = events / n if n else np.nan
+                std_error = (
+                    math.sqrt(event_rate * (1.0 - event_rate) / n)
+                    if n and np.isfinite(event_rate)
+                    else np.nan
+                )
+                ci_lower = max(0.0, event_rate - 1.96 * std_error) if np.isfinite(std_error) else np.nan
+                ci_upper = min(1.0, event_rate + 1.96 * std_error) if np.isfinite(std_error) else np.nan
+                event_dist = (events + 0.5) / smoothed_total_events if smoothed_total_events else np.nan
+                non_event_dist = (
+                    (non_events + 0.5) / smoothed_total_non_events
+                    if smoothed_total_non_events
+                    else np.nan
+                )
+                woe = (
+                    math.log(non_event_dist / event_dist)
+                    if event_dist and non_event_dist and np.isfinite(event_dist) and np.isfinite(non_event_dist)
+                    else np.nan
+                )
+                iv_component = (
+                    (non_event_dist - event_dist) * woe
+                    if np.isfinite(woe) and np.isfinite(non_event_dist) and np.isfinite(event_dist)
+                    else np.nan
+                )
+                lookup_entry = lookup.get(self._bin_label_key(bin_label), {})
+                is_missing = self._bin_flag(bin_label, "missing")
+                is_special = self._bin_flag(bin_label, "special")
+                records.append(
+                    {
+                        "variable": variable,
+                        "bin_id": lookup_entry.get("bin_id"),
+                        "bin_label": None if self._bin_label_key(bin_label) == "<NA>" else bin_label,
+                        "bin_order": lookup_entry.get("bin_order", len(lookup) + fallback_order),
+                        "n": n,
+                        "events": events,
+                        "non_events": non_events,
+                        "event_rate": event_rate,
+                        "event_rate_std_error": std_error,
+                        "event_rate_ci_lower": ci_lower,
+                        "event_rate_ci_upper": ci_upper,
+                        "share": n / total_rows if total_rows else np.nan,
+                        "woe": woe,
+                        "iv_component": iv_component,
+                        "is_missing_bin": is_missing,
+                        "is_special_bin": is_special,
+                        "is_regular_bin": bool(n > 0 and not is_missing and not is_special),
+                    }
+                )
+
+        profile = pd.DataFrame(records)
+        if not profile.empty:
+            profile = profile.sort_values(["variable", "bin_order"], kind="mergesort").reset_index(drop=True)
+        return profile
+
+    # ------------------------------------------------------------------
+    @staticmethod
+    def _profile_n_rows(profile: pd.DataFrame | None) -> int:
+        if profile is None or profile.empty or "n" not in profile.columns:
+            return 0
+        n_values = pd.to_numeric(profile["n"], errors="coerce").fillna(0)
+        if "variable" in profile.columns:
+            rows_by_variable = n_values.groupby(profile["variable"], sort=False).sum()
+            return int(rows_by_variable.max()) if not rows_by_variable.empty else 0
+        return int(n_values.sum())
+
+    # ------------------------------------------------------------------
+    @staticmethod
+    def _profile_variable_count(profile: pd.DataFrame | None) -> int:
+        if profile is None or profile.empty or "variable" not in profile.columns:
+            return 0
+        return int(profile["variable"].nunique(dropna=False))
+
+    # ------------------------------------------------------------------
+    @staticmethod
+    def _metadata_int(mapping: dict[str, Any] | None, key: str) -> int | None:
+        if not isinstance(mapping, dict) or mapping.get(key) is None:
+            return None
+        try:
+            return int(mapping[key])
+        except (TypeError, ValueError):
+            return None
+
+    # ------------------------------------------------------------------
+    def _build_profile_from_aggregates(
+        self,
+        aggregate_profile: pd.DataFrame,
+        *,
+        n_rows_by_variable: dict[str, int] | None = None,
+    ) -> pd.DataFrame:
+        if aggregate_profile is None or aggregate_profile.empty:
+            return pd.DataFrame()
+
+        aggregates = aggregate_profile.copy()
+        aggregates["n"] = pd.to_numeric(aggregates["n"], errors="coerce").fillna(0).astype(int)
+        aggregates["events"] = pd.to_numeric(aggregates["events"], errors="coerce").fillna(0.0)
+        n_rows_by_variable = n_rows_by_variable or {}
+        records = []
+
+        for variable, group in aggregates.groupby("variable", sort=False, dropna=False):
+            lookup = self._build_bin_lookup(variable)
+            total_rows = n_rows_by_variable.get(variable)
+            if total_rows is None:
+                total_rows = int(group["n"].sum())
+            total_events = float(group["events"].sum(skipna=True))
+            total_non_events = float(total_rows - total_events)
+            group_count = int(len(group))
+            smoothed_total_events = total_events + 0.5 * group_count
+            smoothed_total_non_events = total_non_events + 0.5 * group_count
+
+            for fallback_order, row in enumerate(group.itertuples(index=False)):
+                bin_label = row.bin_label
+                n = int(row.n)
+                events = float(row.events or 0.0)
+                non_events = float(n - events)
+                event_rate = events / n if n else np.nan
+                std_error = (
+                    math.sqrt(event_rate * (1.0 - event_rate) / n)
+                    if n and np.isfinite(event_rate)
+                    else np.nan
+                )
+                ci_lower = max(0.0, event_rate - 1.96 * std_error) if np.isfinite(std_error) else np.nan
+                ci_upper = min(1.0, event_rate + 1.96 * std_error) if np.isfinite(std_error) else np.nan
+                event_dist = (events + 0.5) / smoothed_total_events if smoothed_total_events else np.nan
+                non_event_dist = (
+                    (non_events + 0.5) / smoothed_total_non_events
+                    if smoothed_total_non_events
+                    else np.nan
+                )
+                woe = (
+                    math.log(non_event_dist / event_dist)
+                    if event_dist and non_event_dist and np.isfinite(event_dist) and np.isfinite(non_event_dist)
+                    else np.nan
+                )
+                iv_component = (
+                    (non_event_dist - event_dist) * woe
+                    if np.isfinite(woe) and np.isfinite(non_event_dist) and np.isfinite(event_dist)
+                    else np.nan
+                )
+                lookup_entry = lookup.get(self._bin_label_key(bin_label), {})
+                is_missing = self._bin_flag(bin_label, "missing")
+                is_special = self._bin_flag(bin_label, "special")
+                records.append(
+                    {
+                        "variable": variable,
+                        "bin_id": lookup_entry.get("bin_id"),
+                        "bin_label": None if self._bin_label_key(bin_label) == "<NA>" else bin_label,
+                        "bin_order": lookup_entry.get("bin_order", len(lookup) + fallback_order),
+                        "n": n,
+                        "events": events,
+                        "non_events": non_events,
+                        "event_rate": event_rate,
+                        "event_rate_std_error": std_error,
+                        "event_rate_ci_lower": ci_lower,
+                        "event_rate_ci_upper": ci_upper,
+                        "share": n / total_rows if total_rows else np.nan,
+                        "woe": woe,
+                        "iv_component": iv_component,
+                        "is_missing_bin": is_missing,
+                        "is_special_bin": is_special,
+                        "is_regular_bin": bool(n > 0 and not is_missing and not is_special),
+                    }
+                )
+
+        profile = pd.DataFrame(records)
+        if not profile.empty:
+            profile = profile.sort_values(["variable", "bin_order"], kind="mergesort").reset_index(drop=True)
+        return profile
+
+    # ------------------------------------------------------------------
+    def _collect_pyspark_profile_aggregate(self, profile_sdf, *, remaining_rows: int) -> tuple[pd.DataFrame, int]:
+        if remaining_rows <= 0:
+            raise ValueError("Spark profile aggregation produced more rows than the configured collection guard.")
+        # This collection is only for an already aggregated variable/bin profile.
+        profile_rows = int(profile_sdf.limit(remaining_rows + 1).count())
+        if profile_rows > remaining_rows:
+            raise ValueError("Spark profile aggregation produced more rows than the configured collection guard.")
+        return profile_sdf.toPandas(), profile_rows
+
+    # ------------------------------------------------------------------
+    def _build_bin_profile_pyspark(
+        self,
+        X,
+        *,
+        target_name: str,
+        feature_columns: Sequence[str],
+        n_rows: int | None = None,
+    ) -> pd.DataFrame:
+        F = self._spark_functions()
+        settings = self._default_validation_settings()
+        max_profile_rows = int(settings.get("max_profile_rows_to_collect", _MAX_PROFILE_ROWS_TO_COLLECT))
+        existing_columns = list(X.columns)
+        bin_col = self._make_temp_column_name(existing_columns, "__riskbands_bin_label")
+        target_col = self._make_temp_column_name(
+            [*existing_columns, bin_col],
+            "__riskbands_target",
+        )
+        profile_parts = []
+        collected_rows = 0
+        n_rows_by_variable = {
+            str(variable): int(n_rows)
+            for variable in feature_columns
+            if n_rows is not None
+        }
+
+        for variable in feature_columns:
+            profile_sdf = (
+                X.withColumn(bin_col, self._spark_transform_expression(variable, F))
+                .withColumn(target_col, F.col(target_name).cast("double"))
+                .groupBy(bin_col)
+                .agg(
+                    F.count(F.lit(1)).alias("n"),
+                    F.sum(F.coalesce(F.col(target_col), F.lit(0.0))).alias("events"),
+                )
+                .withColumn("variable", F.lit(variable))
+                .withColumn("bin_label", F.col(bin_col))
+                .select("variable", "bin_label", "n", "events")
+            )
+            part, part_rows = self._collect_pyspark_profile_aggregate(
+                profile_sdf,
+                remaining_rows=max_profile_rows - collected_rows,
+            )
+            collected_rows += part_rows
+            profile_parts.append(part)
+
+        if not profile_parts:
+            return pd.DataFrame()
+        aggregate_profile = pd.concat(profile_parts, ignore_index=True)
+        return self._build_profile_from_aggregates(
+            aggregate_profile,
+            n_rows_by_variable=n_rows_by_variable,
+        )
+
+    # ------------------------------------------------------------------
+    def _default_validation_settings(self) -> dict[str, Any]:
+        return {
+            "min_bin_n": 30,
+            "min_bin_events": 5,
+            "max_event_rate_std_error": 0.10,
+            "min_event_rate_abs_delta": 0.05,
+            "max_sample_event_rate_abs_diff": 0.10,
+            "max_sample_share_abs_diff": 0.10,
+            "warning_z_score": 2.0,
+            "critical_z_score": 3.0,
+            "critical_event_rate_abs_delta": 0.20,
+            "min_fit_rows": 100,
+            "max_profile_rows_to_collect": _MAX_PROFILE_ROWS_TO_COLLECT,
+        }
+
+    # ------------------------------------------------------------------
+    def _compare_profiles(
+        self,
+        left: pd.DataFrame,
+        right: pd.DataFrame,
+        *,
+        left_name: str,
+        right_name: str,
+    ) -> pd.DataFrame:
+        if left is None or right is None or left.empty or right.empty:
+            return pd.DataFrame()
+        left_cmp = left.copy()
+        right_cmp = right.copy()
+        left_cmp["bin_label_key"] = left_cmp["bin_label"].map(self._bin_label_key)
+        right_cmp["bin_label_key"] = right_cmp["bin_label"].map(self._bin_label_key)
+        merged = left_cmp.merge(
+            right_cmp,
+            on=["variable", "bin_label_key"],
+            how="outer",
+            suffixes=(f"_{left_name}", f"_{right_name}"),
+        )
+        merged["event_rate_abs_diff"] = (
+            pd.to_numeric(merged[f"event_rate_{left_name}"], errors="coerce")
+            - pd.to_numeric(merged[f"event_rate_{right_name}"], errors="coerce")
+        ).abs()
+        merged["share_abs_diff"] = (
+            pd.to_numeric(merged[f"share_{left_name}"], errors="coerce")
+            - pd.to_numeric(merged[f"share_{right_name}"], errors="coerce")
+        ).abs()
+        return merged
+
+    # ------------------------------------------------------------------
+    def _event_rate_profile_alerts(
+        self,
+        application_profile: pd.DataFrame,
+        reference_profile: pd.DataFrame,
+        *,
+        application_name: str = "application",
+        reference_name: str = "reference",
+    ) -> list[dict[str, Any]]:
+        settings = self._default_validation_settings()
+        comparison = self._compare_profiles(
+            application_profile,
+            reference_profile,
+            left_name=application_name,
+            right_name=reference_name,
+        )
+        alerts = []
+
+        def number(row, field: str, suffix: str, default=np.nan) -> float:
+            value = pd.to_numeric(pd.Series([row.get(f"{field}_{suffix}")]), errors="coerce").iloc[0]
+            return float(value) if pd.notna(value) else default
+
+        for _, row in comparison.iterrows():
+            n_app = number(row, "n", application_name, default=0.0)
+            n_ref = number(row, "n", reference_name, default=0.0)
+            events_app = number(row, "events", application_name, default=0.0)
+            events_ref = number(row, "events", reference_name, default=0.0)
+            er_app = number(row, "event_rate", application_name)
+            er_ref = number(row, "event_rate", reference_name)
+            se_app = number(row, "event_rate_std_error", application_name)
+            se_ref = number(row, "event_rate_std_error", reference_name)
+            delta = abs(er_app - er_ref) if np.isfinite(er_app) and np.isfinite(er_ref) else np.nan
+            pooled_se = math.sqrt(
+                (se_app if np.isfinite(se_app) else 0.0) ** 2
+                + (se_ref if np.isfinite(se_ref) else 0.0) ** 2
+            )
+            z_score = delta / pooled_se if pooled_se and np.isfinite(delta) else np.nan
+
+            status = "ok"
+            flags = []
+            message = "Event rate within expected uncertainty."
+            recommendation = None
+            if n_ref < settings["min_bin_n"]:
+                status = "insufficient_reference_sample"
+                flags.append("insufficient_reference_sample")
+                message = "Reference bin has too few records to interpret event-rate movement robustly."
+                recommendation = "Consider increasing sample_size or using a larger reference sample."
+            elif events_ref < settings["min_bin_events"]:
+                status = "insufficient_events"
+                flags.append("insufficient_events")
+                message = "Reference bin has too few events to support a stable event-rate comparison."
+                recommendation = "Consider increasing sample_size when the reference comes from training sampling."
+            elif n_app < settings["min_bin_n"] or events_app < settings["min_bin_events"]:
+                status = "insufficient_application_sample"
+                flags.append("insufficient_application_sample")
+                message = "Application bin is too small or has too few events for a stable comparison."
+                recommendation = "Application base is small for this bin; interpret drift cautiously."
+            elif np.isfinite(delta) and delta >= settings["min_event_rate_abs_delta"]:
+                if (
+                    np.isfinite(z_score)
+                    and z_score >= settings["critical_z_score"]
+                    or delta >= settings["critical_event_rate_abs_delta"]
+                ):
+                    status = "critical"
+                    flags.extend(["critical_event_rate_shift", "possible_population_drift"])
+                    message = "Possible population drift: large event-rate shift beyond expected uncertainty."
+                elif np.isfinite(z_score) and z_score >= settings["warning_z_score"]:
+                    status = "warning"
+                    flags.extend(["event_rate_shift", "possible_population_drift"])
+                    message = "Possible population drift: event-rate shift is larger than expected uncertainty."
+
+            alerts.append(
+                {
+                    "variable": row.get("variable"),
+                    "bin_label": row.get(f"bin_label_{application_name}", row.get(f"bin_label_{reference_name}")),
+                    "status": status,
+                    "alert_flags": flags,
+                    "event_rate_application": er_app,
+                    "event_rate_reference": er_ref,
+                    "event_rate_abs_diff": delta,
+                    "z_score": z_score if np.isfinite(z_score) else None,
+                    "n_application": n_app,
+                    "n_reference": n_ref,
+                    "events_application": events_app,
+                    "events_reference": events_ref,
+                    "message": message,
+                    "recommendation": recommendation,
+                }
+            )
+        return alerts
+
+    # ------------------------------------------------------------------
+    def _build_fit_validation_report(
+        self,
+        *,
+        source_profile: pd.DataFrame | None = None,
+        source_profile_status: str | None = None,
+    ) -> dict[str, Any]:
+        settings = self._default_validation_settings()
+        self.validation_settings_ = settings
+        profile = getattr(self, "fit_profile_", pd.DataFrame())
+        if profile is None:
+            profile = pd.DataFrame()
+
+        bin_alerts = []
+        variable_status = []
+        if not profile.empty:
+            for variable, group in profile.groupby("variable", sort=False):
+                variable_alert_count = 0
+                for _, row in group.iterrows():
+                    flags = []
+                    n = float(row.get("n", 0) or 0)
+                    events = float(row.get("events", 0) or 0)
+                    std_error = float(row.get("event_rate_std_error", np.nan))
+                    if n < settings["min_bin_n"]:
+                        flags.append("low_bin_n")
+                    if events < settings["min_bin_events"]:
+                        flags.append("low_events")
+                    if np.isfinite(std_error) and std_error > settings["max_event_rate_std_error"]:
+                        flags.append("high_event_rate_uncertainty")
+                    if flags:
+                        variable_alert_count += len(flags)
+                        bin_alerts.append(
+                            {
+                                "variable": variable,
+                                "bin_label": row.get("bin_label"),
+                                "n": row.get("n"),
+                                "events": row.get("events"),
+                                "event_rate": row.get("event_rate"),
+                                "event_rate_std_error": row.get("event_rate_std_error"),
+                                "alert_flags": flags,
+                            }
+                        )
+                variable_status.append(
+                    {
+                        "variable": variable,
+                        "status": "warning" if variable_alert_count else "ok",
+                        "alert_count": variable_alert_count,
+                        "n_bins": int(len(group)),
+                    }
+                )
+
+        min_n_bins_metadata = getattr(self, "min_n_bins_metadata_", None)
+        min_n_bins_warning_count = 0
+        if min_n_bins_metadata and not min_n_bins_metadata.get("min_n_bins_reached", True):
+            min_n_bins_warning_count = 1
+
+        sampling_metadata = getattr(self, "sampling_metadata_", None)
+        backend_metadata = getattr(self, "backend_metadata_", None)
+        fit_rows = (
+            self._metadata_int(sampling_metadata, "n_rows_fit")
+            or self._metadata_int(backend_metadata, "n_rows_fit")
+            or self._profile_n_rows(profile)
+        )
+        source_rows = (
+            self._metadata_int(sampling_metadata, "n_rows_source")
+            or self._metadata_int(backend_metadata, "n_rows_source")
+            or self._profile_n_rows(source_profile)
+            or None
+        )
+        sample_size_issue = bool(fit_rows and fit_rows < settings["min_fit_rows"])
+        sample_comparison = None
+        sample_alerts = []
+        if source_profile is not None and not source_profile.empty:
+            comparison = self._compare_profiles(
+                profile,
+                source_profile,
+                left_name="fit",
+                right_name="source",
+            )
+            if not comparison.empty:
+                event_rate_alerts = self._event_rate_profile_alerts(
+                    source_profile,
+                    profile,
+                    application_name="source",
+                    reference_name="fit",
+                )
+                sample_alerts = [alert for alert in event_rate_alerts if alert["status"] != "ok"]
+                sample_comparison = {
+                    "status": (
+                        "critical"
+                        if any(alert["status"] == "critical" for alert in sample_alerts)
+                        else ("warning" if sample_alerts else "ok")
+                    ),
+                    "max_event_rate_abs_diff": (
+                        float(comparison["event_rate_abs_diff"].max())
+                        if comparison["event_rate_abs_diff"].notna().any()
+                        else None
+                    ),
+                    "max_share_abs_diff": (
+                        float(comparison["share_abs_diff"].max())
+                        if comparison["share_abs_diff"].notna().any()
+                        else None
+                    ),
+                    "alerts": sample_alerts,
+                }
+                sample_size_issue = sample_size_issue or bool(sample_alerts)
+
+        warning_count = len(bin_alerts) + min_n_bins_warning_count + len(sample_alerts) + int(sample_size_issue)
+        return {
+            "validation_type": "fit",
+            "status": "warning" if warning_count else "ok",
+            "settings": settings,
+            "summary": {
+                "variables_fitted": int(len(variable_status)),
+                "n_rows_fit": int(fit_rows),
+                "n_rows_source": int(source_rows) if source_rows is not None else None,
+                "n_variables": self._profile_variable_count(profile),
+                "n_fit_profile_rows": int(len(profile)) if profile is not None else 0,
+                "n_source_profile_rows": int(len(source_profile)) if source_profile is not None else 0,
+                "variables_with_min_n_bins_warning": min_n_bins_warning_count,
+                "bins_with_low_n": int(
+                    sum("low_bin_n" in alert["alert_flags"] for alert in bin_alerts)
+                ),
+                "bins_with_low_events": int(
+                    sum("low_events" in alert["alert_flags"] for alert in bin_alerts)
+                ),
+                "bins_with_high_uncertainty": int(
+                    sum("high_event_rate_uncertainty" in alert["alert_flags"] for alert in bin_alerts)
+                ),
+                "possible_sample_size_issue": sample_size_issue,
+                "source_profile_status": source_profile_status,
+            },
+            "variable_status": variable_status,
+            "bin_alerts": bin_alerts,
+            "min_n_bins_metadata": min_n_bins_metadata,
+            "sample_representativeness": sample_comparison,
+        }
+
+    # ------------------------------------------------------------------
+    def _refresh_reference_profile(self) -> None:
+        source_profile = getattr(self, "source_profile_", None)
+        fit_profile = getattr(self, "fit_profile_", None)
+        if source_profile is not None and not source_profile.empty:
+            self.reference_profile_ = source_profile.copy()
+            self.reference_profile_source_ = "source_profile"
+        elif fit_profile is not None and not fit_profile.empty:
+            self.reference_profile_ = fit_profile.copy()
+            self.reference_profile_source_ = "fit_profile"
+        else:
+            self.reference_profile_ = None
+            self.reference_profile_source_ = "missing"
+
+    # ------------------------------------------------------------------
+    def _build_transform_validation_report(
+        self,
+        *,
+        application_profile: pd.DataFrame | None,
+        target_available: bool,
+        backend: str,
+        n_application_rows: int | None = None,
+    ) -> dict[str, Any]:
+        settings = self._default_validation_settings()
+        self.validation_settings_ = settings
+        reference_profile = getattr(self, "reference_profile_", None)
+        if not target_available:
+            return {
+                "validation_type": "transform",
+                "status": "skipped",
+                "backend": backend,
+                "settings": settings,
+                "reason": "target_not_available",
+                "reference_profile_source": getattr(self, "reference_profile_source_", "missing"),
+            }
+        if reference_profile is None or reference_profile.empty:
+            return {
+                "validation_type": "transform",
+                "status": "warning",
+                "backend": backend,
+                "settings": settings,
+                "reason": "reference_profile_missing",
+                "reference_profile_source": getattr(self, "reference_profile_source_", "missing"),
+            }
+
+        comparison = self._compare_profiles(
+            application_profile,
+            reference_profile,
+            left_name="application",
+            right_name="reference",
+        )
+        event_rate_alerts = self._event_rate_profile_alerts(
+            application_profile,
+            reference_profile,
+            application_name="application",
+            reference_name="reference",
+        )
+        alerts = [alert for alert in event_rate_alerts if alert["status"] != "ok"]
+        status = (
+            "critical"
+            if any(alert["status"] == "critical" for alert in alerts)
+            else ("warning" if alerts else "ok")
+        )
+        resolved_application_rows = (
+            int(n_application_rows)
+            if n_application_rows is not None
+            else self._profile_n_rows(application_profile)
+        )
+
+        return {
+            "validation_type": "transform",
+            "status": status,
+            "backend": backend,
+            "settings": settings,
+            "reference_profile_source": getattr(self, "reference_profile_source_", "missing"),
+            "summary": {
+                "target_available": True,
+                "n_application_rows": resolved_application_rows,
+                "n_variables": self._profile_variable_count(application_profile),
+                "n_application_profile_rows": int(len(application_profile)) if application_profile is not None else 0,
+                "n_alerts": len(alerts),
+                "max_event_rate_abs_diff": (
+                    float(comparison["event_rate_abs_diff"].max())
+                    if not comparison.empty and comparison["event_rate_abs_diff"].notna().any()
+                    else None
+                ),
+                "max_share_abs_diff": (
+                    float(comparison["share_abs_diff"].max())
+                    if not comparison.empty and comparison["share_abs_diff"].notna().any()
+                    else None
+                ),
+            },
+            "event_rate_status": event_rate_alerts,
+            "alerts": alerts,
+        }
+
+    # ------------------------------------------------------------------
+    def _validate_transform_pandas(
+        self,
+        transformed: pd.DataFrame,
+        original: pd.DataFrame | pd.Series,
+        *,
+        backend: str,
+    ) -> None:
+        target_name = getattr(self, "target_name_", None)
+        target = None
+        if isinstance(original, pd.DataFrame) and target_name in original.columns:
+            target = original[target_name]
+
+        if target is None:
+            self.application_profile_ = None
+            self.transform_validation_report_ = self._build_transform_validation_report(
+                application_profile=None,
+                target_available=False,
+                backend=backend,
+            )
+        else:
+            n_application_rows = len(original) if isinstance(original, pd.DataFrame) else len(transformed)
+            self.application_profile_ = self._build_profile_from_transformed(transformed, target)
+            self.transform_validation_report_ = self._build_transform_validation_report(
+                application_profile=self.application_profile_,
+                target_available=True,
+                backend=backend,
+                n_application_rows=n_application_rows,
+            )
+        self.validation_report_ = self.transform_validation_report_
+
+    # ------------------------------------------------------------------
+    def _validate_transform_pyspark(self, transformed, original) -> None:
+        target_name = getattr(self, "target_name_", None)
+        if target_name not in list(original.columns):
+            self.application_profile_ = None
+            self.transform_validation_report_ = self._build_transform_validation_report(
+                application_profile=None,
+                target_available=False,
+                backend="pyspark",
+            )
+            self.validation_report_ = self.transform_validation_report_
+            return
+
+        feature_columns = list(transformed.columns)
+        n_application_rows = int(original.count())
+        self.application_profile_ = self._build_bin_profile_pyspark(
+            original,
+            target_name=target_name,
+            feature_columns=feature_columns,
+            n_rows=n_application_rows,
+        )
+        self.transform_validation_report_ = self._build_transform_validation_report(
+            application_profile=self.application_profile_,
+            target_available=True,
+            backend="pyspark",
+            n_application_rows=n_application_rows,
+        )
+        self.validation_report_ = self.transform_validation_report_
+
+    # ------------------------------------------------------------------
+    @staticmethod
     def _profile_from_columns(row: pd.Series, prefix: str) -> str:
         items = []
         for column, value in row.items():
@@ -641,6 +1935,7 @@ class Binner(BaseEstimator, TransformerMixin):
         time_col: str | None = None,
     ) -> None:
         self.binning_table_ = self.binning_table()
+        self.data_schema_ = self.describe_schema()
         self.bins_ = {
             variable: self.binning_table(column=variable)
             for variable in getattr(self, "feature_names_in_", [])
@@ -701,9 +1996,25 @@ class Binner(BaseEstimator, TransformerMixin):
         features: Sequence[str] | None = None,
         time_col: str | None = None,
         copy: bool = True,
+        validate: bool = False,
     ):
         """Fit binning rules on one or more columns."""
         time_col = time_col or self.time_col
+        backend = detect_dataframe_backend(X, argument_name="X")
+        if backend == "pyspark":
+            return self._fit_pyspark(
+                X,
+                y,
+                target=target,
+                column=column,
+                columns=columns,
+                feature=feature,
+                features=features,
+                time_col=time_col,
+                copy=copy,
+                validate=validate,
+            )
+
         X, y, target_name, selected_features, input_kind = self._normalize_fit_inputs(
             X,
             y,
@@ -717,6 +2028,22 @@ class Binner(BaseEstimator, TransformerMixin):
         )
 
         self.time_col = time_col
+        self.fit_validation_report_ = None
+        self.transform_validation_report_ = None
+        self.validation_report_ = None
+        self.application_profile_ = None
+        self.source_profile_ = None
+        self.validation_settings_ = None
+        self.sampling_metadata_ = self._pandas_fit_sampling_metadata(len(X))
+        self.input_backend_ = "pandas"
+        self.fit_backend_ = "pandas_core"
+        self.backend_metadata_ = {
+            "input_backend": "pandas",
+            "fit_backend": "pandas_core",
+            "fit_mode": "pandas_core",
+            "n_rows_source": int(len(X)),
+            "n_rows_fit": int(len(X)),
+        }
         X_features = X.drop(columns=[time_col], errors="ignore") if time_col else X.copy()
 
         num_cols, cat_cols = search_dtypes(
@@ -796,6 +2123,12 @@ class Binner(BaseEstimator, TransformerMixin):
                 ignore_index=True,
             )
             self._compute_iv_metrics()
+            self._refresh_min_n_bins_metadata()
+            self.fit_profile_ = self._build_fit_profile(X_features, y)
+            self._refresh_reference_profile()
+            if validate:
+                self.fit_validation_report_ = self._build_fit_validation_report()
+                self.validation_report_ = self.fit_validation_report_
             if self.objective_summaries_:
                 self.objective_summary_ = next(iter(self.objective_summaries_.values()))
                 self.objective_config_ = next(
@@ -868,6 +2201,12 @@ class Binner(BaseEstimator, TransformerMixin):
             ignore_index=True,
         )
         self._compute_iv_metrics()
+        self._refresh_min_n_bins_metadata()
+        self.fit_profile_ = self._build_fit_profile(X_features, y)
+        self._refresh_reference_profile()
+        if validate:
+            self.fit_validation_report_ = self._build_fit_validation_report()
+            self.validation_report_ = self.fit_validation_report_
         from .objectives import resolve_objective_config
 
         self.objective_config_ = resolve_objective_config(self._resolved_objective_kwargs())
@@ -886,8 +2225,23 @@ class Binner(BaseEstimator, TransformerMixin):
         return_woe: bool = False,
         return_type: str = "auto",
         copy: bool = True,
+        validate: bool = False,
     ):
         """Apply fitted bins to new data."""
+        original_input = X
+        backend = detect_dataframe_backend(X, argument_name="X")
+        if backend == "pyspark":
+            return self._transform_pyspark(
+                X,
+                column=column,
+                columns=columns,
+                feature=feature,
+                features=features,
+                return_woe=return_woe,
+                return_type=return_type,
+                validate=validate,
+            )
+
         X, selected_columns, input_kind = self._normalize_transform_input(
             X,
             column=column,
@@ -907,6 +2261,8 @@ class Binner(BaseEstimator, TransformerMixin):
             out[col] = transformed if isinstance(transformed, pd.Series) else transformed[col]
 
         transformed_df = pd.DataFrame(out, index=X.index)
+        if validate:
+            self._validate_transform_pandas(transformed_df, original_input, backend="pandas")
         if return_type == "dataframe":
             return transformed_df
         if return_type == "series":

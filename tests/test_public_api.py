@@ -8,6 +8,7 @@ import riskbands
 from riskbands import (
     BinComparator,
     Binner,
+    RiskBands,
     ks_over_time,
     psi_over_time,
     temporal_separability_score,
@@ -17,12 +18,37 @@ from riskbands.temporal_stability import ks_over_time as KsFromSubmodule
 
 
 def test_public_api_exports_are_importable():
+    assert RiskBands is not None
     assert Binner is not None
+    assert RiskBands is Binner
     assert BinComparator is not None
     assert ComparatorFromSubmodule is BinComparator
     assert ks_over_time is KsFromSubmodule
     assert psi_over_time is not None
     assert temporal_separability_score is not None
+
+
+def test_riskbands_preferred_import_styles_construct_equivalent_objects():
+    from riskbands import RiskBands as rb
+
+    preferred = RiskBands()
+    alias_style = rb()
+    package_style = riskbands.RiskBands()
+    compatible = Binner()
+
+    assert isinstance(preferred, Binner)
+    assert isinstance(alias_style, Binner)
+    assert isinstance(package_style, Binner)
+    assert type(preferred) is type(compatible)
+    assert "RiskBands" in riskbands.__all__
+    assert "Binner" in riskbands.__all__
+
+
+def test_no_capitalized_riskbands_module_is_introduced():
+    root = Path(__file__).resolve().parents[1]
+    child_names = {path.name for path in root.iterdir()}
+    assert "RiskBands" not in child_names
+    assert "RiskBands.py" not in child_names
 
 
 def test_package_version_matches_pyproject():

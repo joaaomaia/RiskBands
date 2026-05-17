@@ -4,6 +4,7 @@
 
 ```python
 from riskbands import (
+    RiskBands,
     Binner,
     BinComparator,
     temporal_separability_score,
@@ -14,17 +15,19 @@ from riskbands import (
 
 Current version:
 
-- `2.0.3`
+- `2.1.0`
 
-## `Binner`
+## `RiskBands` / `Binner`
 
-Primary constructor of the library.
+`RiskBands` is the preferred primary constructor of the library. `Binner` remains a compatible alias for existing code.
 
 Common parameters:
 
 - `strategy`: `"supervised"` or `"unsupervised"` for numeric variables
 - `max_bins`: default upper limit for bins
 - `max_n_bins`: sklearn/optbinning-friendly alias for `max_bins`
+- `min_n_bins`: optional soft quality rule for the minimum number of final regular bins
+- `sample_size`: PySpark fit sampling control; positive integers are absolute rows, floats in `(0, 1]` are fractions
 - `min_event_rate_diff`: minimum event-rate gap used during refinement
 - `monotonic`: `"ascending"`, `"descending"`, or `None`
 - `monotonic_trend`: alias for `monotonic`
@@ -41,8 +44,8 @@ Common parameters:
 
 Common methods:
 
-- `fit(X, y=None, target=None, column=None, columns=None, time_col=None, ...)`
-- `transform(X, column=None, columns=None, return_woe=False, return_type="auto")`
+- `fit(X, y=None, target=None, column=None, columns=None, time_col=None, validate=False, ...)`
+- `transform(X, column=None, columns=None, return_woe=False, return_type="auto", validate=False)`
 - `fit_transform(X, y=None, target=None, ..., return_type="auto")`
 - `binning_table(column=None, columns=None)`
 - `summary(...)`
@@ -76,6 +79,8 @@ Notes:
 - `fit(df, y="target", column="score")` and `fit(df["score"], y=df["target"])` are both valid.
 - DataFrame inputs preserve DataFrame outputs; Series inputs return Series by default when `return_type="auto"`.
 - `get_params()` and `set_params(...)` work in sklearn style and also understand aliases such as `max_n_bins`.
+- `from riskbands import RiskBands as rb` is the recommended short alias style.
+- `from riskbands import Binner` remains available for compatibility.
 - `save_report("...xlsx")` requires an XLSX writer engine such as `openpyxl` or `xlsxwriter`.
 
 Main attributes after `fit`:
@@ -94,6 +99,10 @@ Main attributes after `fit`:
 - `feature_names_in_`
 - `feature_name_` for single-feature fits
 - `target_name_`
+- `fit_validation_report_` when `fit(validate=True)` was requested
+- `transform_validation_report_` when `transform(validate=True)` was requested
+- `validation_report_` as the latest validation report compatibility alias
+- `fit_profile_`, `source_profile_`, and `reference_profile_` when available
 - `iv_`
 - `iv_by_variable_`
 - `objective_config_`
