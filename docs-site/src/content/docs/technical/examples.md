@@ -39,6 +39,24 @@ Esse fluxo já mostra:
 - `plot_bin_share_over_time(...)`
 - `plot_score_components(...)`
 
+### Missing policy pandas e PySpark
+
+Use estes scripts quando a pergunta principal for como tratar missing values de
+forma auditavel sem imputacao opaca.
+
+- [Demo pandas de missing policy](https://github.com/joaaomaia/RiskBands/blob/main/examples/missing_policy/missing_policy_pandas_demo.py)
+- [Demo PySpark de missing policy](https://github.com/joaaomaia/RiskBands/blob/main/examples/missing_policy/missing_policy_pyspark_demo.py)
+
+Eles mostram:
+
+- `missing_policy="standard"`
+- `missing_policy="separate_bin"`
+- `missing_policy="forbid"`
+- `missing_profile_`
+- `missing_decision_log_`
+- bundle com campos de missing policy
+- guarda opcional para PySpark
+
 ### PD vintage champion challenger
 
 É o exemplo de crédito mais direto para comparação entre candidatos.
@@ -71,8 +89,9 @@ Use este material quando a pergunta principal for:
 2. Quickstart
 3. Auditoria e plots
 4. Visão geral da API
-5. PD vintage champion challenger
-6. Benchmark PD vintage
+5. Missing policy
+6. PD vintage champion challenger
+7. Benchmark PD vintage
 
 ### Se você quer começar pela tese metodológica
 

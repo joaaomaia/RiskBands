@@ -146,3 +146,36 @@ def test_stable_score_example_flow_smoke():
     assert len(results["baseline_note"]) > 20
 
 
+def test_missing_policy_pandas_example_flow_smoke():
+    module = _load_example_module(
+        "examples/missing_policy/missing_policy_pandas_demo.py"
+    )
+
+    results = module.run_pandas_missing_policy_demo()
+
+    assert {
+        "dataset",
+        "standard",
+        "separate_bin",
+        "forbid_fit_error",
+        "forbid_transform_error",
+        "bundle_summary",
+    } <= set(results)
+    assert not results["standard"]["missing_decision_log"].empty
+    assert not results["separate_bin"]["missing_profile"].empty
+    assert set(results["separate_bin"]["transformed_head"]["rating"].astype(str)) >= {"Missing"}
+    assert "missing_policy='forbid'" in results["forbid_fit_error"]
+    assert results["bundle_summary"]["missing_policy"] == "separate_bin"
+
+
+def test_missing_policy_pyspark_example_optional_guard(monkeypatch):
+    module = _load_example_module(
+        "examples/missing_policy/missing_policy_pyspark_demo.py"
+    )
+    monkeypatch.setattr(module, "_spark_imports", lambda: (None, None))
+
+    results = module.run_pyspark_missing_policy_demo()
+
+    assert results == {"skipped": True, "reason": "pyspark is not installed"}
+
+

@@ -93,6 +93,21 @@ Missing policy semantics:
 No opaque missing-value imputation is added. Merge policies such as
 `merge_nearest_woe` and `merge_nearest_event_rate` are not part of v2.2.0.
 
+For user guidance and runnable examples, see
+[`docs/missing_policy_user_guide.md`](missing_policy_user_guide.md) and:
+
+- `examples/missing_policy/missing_policy_pandas_demo.py`
+- `examples/missing_policy/missing_policy_pyspark_demo.py`
+
+The main audit attributes are:
+
+- `missing_policy_`
+- `effective_missing_policy_`
+- `missing_profile_`
+- `missing_decision_log_`
+
+These fields are also persisted by `export_bundle(...)` when available.
+
 Main attributes after `fit`:
 
 - `bin_summary`

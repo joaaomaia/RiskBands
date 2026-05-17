@@ -11,6 +11,12 @@
 - `examples/stable_score/stable_score_demo.py`
   Demo minima comparando o score `legacy` com `stable` sobre a mesma cesta de candidatos, mostrando como a decisao muda quando a funcao objetivo passa a priorizar robustez temporal.
 
+- `examples/missing_policy/missing_policy_pandas_demo.py`
+  Demo pequena em pandas para `standard`, `separate_bin`, `forbid`, `missing_profile_`, `missing_decision_log_` e bundle.
+
+- `examples/missing_policy/missing_policy_pyspark_demo.py`
+  Demo pequena e opcional em PySpark para `separate_bin`, `forbid` e `transform(validate=True)`, com guarda quando PySpark nao esta instalado.
+
 - `examples/pd_vintage_benchmark/pd_vintage_benchmark.ipynb`
   Notebook principal da vitrine metodologica, com board comparativo, heatmaps, curvas por vintage e leitura honesta dos trade-offs.
 
@@ -30,6 +36,8 @@
 
 - Script: `python examples/pd_vintage_benchmark/pd_vintage_benchmark.py --all-scenarios`
 - Script: `python examples/stable_score/stable_score_demo.py`
+- Script: `python examples/missing_policy/missing_policy_pandas_demo.py`
+- Script optional Spark: `python examples/missing_policy/missing_policy_pyspark_demo.py`
 - Script + export HTML: `python examples/pd_vintage_benchmark/pd_vintage_benchmark.py --scenario temporal_reversal --export-html-dir benchmark_html`
 - Script: `python examples/temporal_stability/temporal_stability_example.py`
 - Script: `python examples/pd_vintage_champion_challenger/pd_vintage_champion_challenger.py`
@@ -42,6 +50,8 @@
   "Por que um binning estatico com IV alto pode ficar fragil no tempo?"
 - Comece por `riskbands_synthetic_plotly_comparative_demo.ipynb` se a sua pergunta principal for:
   "Qual e o jeito mais curto e familiar de usar o RiskBands hoje?"
+- Comece por `missing_policy/` se a sua pergunta principal for:
+  "Como tornar missing values visiveis, bloqueados ou auditaveis no binning?"
 - Start with `temporal_stability/` if you want to understand the mechanics of the API before going into credit-specific trade-offs.
 - Go to `pd_vintage_champion_challenger/` if your main question is:
   "How can a binning that looks stronger in train lose to a more robust alternative over time?"
