@@ -130,10 +130,14 @@ Gera um pacote de auditoria com:
 
 Uma regra simples:
 
-- `legacy`: score bruto maior é melhor
+- `standard`: score bruto maior é melhor
 - `stable`: score bruto menor é melhor
 
 Se quiser uma régua consolidada para comparação entre estratégias, olhe também `objective_preference_score`.
+
+Bundles também persistem a trilha de missing values quando disponível:
+`missing_policy`, `effective_missing_policy`, `missing_profile` e
+`missing_decision_log`.
 
 ## Exemplo
 

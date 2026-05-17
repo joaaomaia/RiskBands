@@ -113,7 +113,7 @@ Para um novo usuário, `stable` costuma ser a melhor estratégia pública para c
 - estabilidade importa de verdade
 - você quer equilibrar separação e robustez
 
-Se você precisa reproduzir um comportamento mais histórico ou comparar com a abordagem anterior, use `legacy`.
+Se você precisa reproduzir um comportamento mais histórico ou comparar com a abordagem anterior, use `standard`.
 
 ## Próximos passos
 

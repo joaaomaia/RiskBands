@@ -21,7 +21,7 @@ features:
     description: Instalação, primeiro exemplo mínimo e fluxo recomendado com `Binner` no estilo sklearn/pandas.
     link: ./technical/quickstart/
   - title: Score strategy
-    description: Entenda `legacy` vs `stable`, quando usar cada um e como pensar separação versus robustez temporal.
+    description: Entenda `standard` vs `stable`, quando usar cada um e como pensar separação versus robustez temporal.
     link: ./technical/score-strategy/
   - title: Outputs fáceis de ler
     description: Veja como interpretar `summary()`, `report()`, `score_details()`, `diagnostics()` e `binning_table()`.

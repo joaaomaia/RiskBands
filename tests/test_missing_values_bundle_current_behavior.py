@@ -38,7 +38,7 @@ def test_bundle_roundtrip_preserves_existing_numeric_missing_profiles(tmp_path):
     assert manifest["validation_report"]["validation_type"] == "transform"
 
 
-def test_bundle_has_no_dedicated_missing_policy_schema_current_behavior(tmp_path):
+def test_bundle_has_standard_missing_policy_schema_current_behavior(tmp_path):
     binner, _ = fit_numeric_missing_binner(validate=True)
     bundle_dir = tmp_path / "bundle"
 
@@ -47,9 +47,12 @@ def test_bundle_has_no_dedicated_missing_policy_schema_current_behavior(tmp_path
     manifest = loaded["manifest"]
     metadata = manifest["metadata"]
 
-    for key in ("missing_policy", "effective_missing_policy", "missing_decision_log", "missing_profile"):
-        assert key not in manifest
-        assert key not in metadata
+    assert manifest["missing_policy"] == "standard"
+    assert manifest["effective_missing_policy"] == "standard"
+    assert metadata["missing_policy"] == "standard"
+    assert metadata["effective_missing_policy"] == "standard"
+    assert manifest["missing_profile"][0]["bin_label"] == "Missing"
+    assert manifest["missing_decision_log"][0]["action"] == "standard_behavior_preserved"
 
 
 def test_exporting_bundle_does_not_change_numeric_missing_transform_behavior(tmp_path):

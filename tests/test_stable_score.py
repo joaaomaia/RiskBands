@@ -75,7 +75,7 @@ def _fit_reference_binner(X: pd.DataFrame, y: pd.Series, *, score_strategy: str 
     return binner
 
 
-def test_legacy_strategy_remains_default_and_maximization_oriented():
+def test_standard_strategy_remains_default_and_maximization_oriented():
     stable_components = {
         "iv": 0.25,
         "separability": 0.30,
@@ -104,7 +104,7 @@ def test_legacy_strategy_remains_default_and_maximization_oriented():
     stable_score = score_objective_components(stable_components)
     unstable_score = score_objective_components(unstable_components)
 
-    assert stable_score["score_strategy"] == "legacy"
+    assert stable_score["score_strategy"] == "standard"
     assert stable_score["objective_direction"] == "maximize"
     assert stable_score["score"] > unstable_score["score"]
 

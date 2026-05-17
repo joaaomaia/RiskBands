@@ -55,8 +55,9 @@ Em outras palavras:
 
 O repositório agora expõe dois caminhos explícitos de score:
 
-- `legacy`
+- `standard`
   Mantém o objetivo histórico baseado em componentes positivos menos penalidades.
+  `legacy` segue aceito apenas como alias compatível.
 - `stable`
   Introduz a estratégia pública recomendada para robustez temporal, orientada a
   minimização, com componentes normalizados e foco em equilíbrio entre
@@ -173,6 +174,22 @@ binner = RiskBands(
 )
 ```
 
+## Missing values auditaveis
+
+`missing_policy` controla como valores ausentes nas features selecionadas entram
+no binning:
+
+- `standard` e o default e preserva o comportamento historico congelado na
+  Sprint A.
+- `separate_bin` e opt-in e cria bin explicito `Missing`, incluindo missing
+  categorico.
+- `forbid` falha em `fit` ou `transform` quando houver missing nas features
+  selecionadas.
+
+Bundles novos persistem `missing_policy`, `effective_missing_policy`,
+`missing_profile` e `missing_decision_log`. Bundles antigos sem esses campos
+carregam como `standard`.
+
 ## Export auditavel e supply chain
 
 `export_bundle(...)` gera artefatos tabulares e JSON para auditoria. Nomes de
@@ -263,7 +280,7 @@ binner = RiskBands(
 
 Leitura rápida:
 
-- no `legacy`, maiores scores continuam melhores
+- no `standard`, maiores scores continuam melhores
 - no `stable`, menores scores são melhores
 - relatórios auditáveis expõem score final, componentes raw, componentes normalizados, pesos, estratégia e parâmetros de shrink
 

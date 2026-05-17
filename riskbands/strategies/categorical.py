@@ -20,10 +20,14 @@ class CategoricalBinning:
         rare_threshold: float = 0.01,
         max_bins: int = 6,
         min_bin_size: float = 0.05,
+        separate_missing: bool = False,
+        missing_bin_label: str = "Missing",
     ):
         self.rare_threshold = rare_threshold
         self.max_bins = max_bins
         self.min_bin_size = min_bin_size
+        self.separate_missing = bool(separate_missing)
+        self.missing_bin_label_ = missing_bin_label
         # Sentinel labels are categorical values, not secrets.
         self.missing_token_ = "_MISSING_"  # nosec B105
         self.rare_token_ = "_RARE_"  # nosec B105
@@ -70,6 +74,8 @@ class CategoricalBinning:
 
         prepared = normalized.mask(normalized.isin(self._rare_categories_set_), self.rare_token_)
         known = prepared.isin(self._known_categories_set_)
+        if self.separate_missing:
+            known |= prepared == self.missing_token_
         prepared = prepared.where(known, self.unknown_token_)
         return prepared.rename(getattr(self, "feature_name_", col))
 
@@ -95,7 +101,7 @@ class CategoricalBinning:
         col = self.feature_name_
         df = pd.DataFrame({"bin": codes.to_numpy(), "target": y.to_numpy()}, index=codes.index)
         summary = (
-            df.groupby("bin", sort=True, dropna=False)["target"]
+            df.groupby("bin", sort=False, dropna=False)["target"]
             .agg(count="count", event="sum")
             .reset_index()
         )
@@ -135,24 +141,39 @@ class CategoricalBinning:
 
         stats["non_event"] = stats["count"] - stats["event"]
         stats["event_rate"] = stats["event"] / stats["count"]
-        stats = stats.sort_values(
+        fit_stats = stats
+        if self.separate_missing:
+            fit_stats = stats.loc[stats["category"] != self.missing_token_].copy()
+
+        fit_stats = fit_stats.sort_values(
             by=["event_rate", "category"],
             ascending=[True, True],
             kind="mergesort",
         ).reset_index(drop=True)
 
-        max_bins = int(self.max_bins) if self.max_bins else len(stats)
-        n_bins = max(1, min(max_bins, len(stats)))
-        stats["bin"] = (stats.index.to_series() * n_bins // len(stats)).astype(int)
+        if fit_stats.empty:
+            mapping = {self.missing_token_: self.missing_bin_label_}
+            codes = prepared.map(mapping).fillna(self.missing_bin_label_).rename(self.feature_name_)
+            summary = self._build_summary_from_codes(codes, y)
+            default_bin = self.missing_bin_label_
+        else:
+            max_bins = int(self.max_bins) if self.max_bins else len(fit_stats)
+            n_bins = max(1, min(max_bins, len(fit_stats)))
+            fit_stats["bin"] = (fit_stats.index.to_series() * n_bins // len(fit_stats)).astype(int)
 
-        mapping = dict(zip(stats["category"], stats["bin"], strict=False))
-        codes = prepared.map(mapping).rename(self.feature_name_)
-        summary = self._build_summary_from_codes(codes, y)
-        default_bin = self._select_default_bin(summary)
+            mapping = dict(zip(fit_stats["category"], fit_stats["bin"], strict=False))
+            if self.separate_missing:
+                mapping[self.missing_token_] = self.missing_bin_label_
+            codes = prepared.map(mapping).rename(self.feature_name_)
+            summary = self._build_summary_from_codes(codes, y)
+            regular_summary = summary.loc[summary["bin"].astype(str) != self.missing_bin_label_]
+            default_bin = self._select_default_bin(regular_summary if not regular_summary.empty else summary)
 
         mapping = self._expand_rare_category_mapping(mapping)
         mapping[self.unknown_token_] = default_bin
-        if self.missing_token_ not in mapping:
+        if self.separate_missing:
+            mapping[self.missing_token_] = self.missing_bin_label_
+        elif self.missing_token_ not in mapping:
             mapping[self.missing_token_] = default_bin
 
         self.category_mapping_ = mapping
@@ -212,6 +233,10 @@ class CategoricalBinning:
         prepared = self._prepare_series(X, fit=True)
         target = self._coerce_target(y, prepared.index)
 
+        if self.separate_missing:
+            self._fit_manual(prepared, target, reason="separate_missing_policy")
+            return self
+
         try:
             codes, ob = self._fit_optimal_binning(prepared, target)
             self._encoder = (ob, "optimal")
@@ -238,5 +263,8 @@ class CategoricalBinning:
             codes = prepared.map(encoder).fillna(self.default_bin_).rename(self.feature_name_)
         else:  # pragma: no cover - defensive guard for old serialized objects.
             raise RuntimeError("Tipo de encoder desconhecido.")
+
+        if self.separate_missing:
+            codes = codes.where(prepared != self.missing_token_, self.missing_bin_label_)
 
         return pd.DataFrame({self.feature_name_: codes}, index=prepared.index)

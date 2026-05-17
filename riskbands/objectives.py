@@ -13,9 +13,10 @@ from .temporal_stability import event_rate_by_time, ks_over_time, temporal_separ
 
 EPSILON = 1e-9
 
+STANDARD_SCORE_STRATEGY = "standard"
 LEGACY_SCORE_STRATEGY = "legacy"
 STABLE_SCORE_STRATEGY = "stable"
-DEFAULT_SCORE_STRATEGY = LEGACY_SCORE_STRATEGY
+DEFAULT_SCORE_STRATEGY = STANDARD_SCORE_STRATEGY
 
 STABLE_COMPONENT_TO_WEIGHT = {
     "temporal_variance": "temporal_variance_weight",
@@ -36,8 +37,8 @@ STABLE_WEIGHT_ALIASES = {
 }
 
 
-DEFAULT_LEGACY_OBJECTIVE_CONFIG = {
-    "score_strategy": LEGACY_SCORE_STRATEGY,
+DEFAULT_STANDARD_OBJECTIVE_CONFIG = {
+    "score_strategy": STANDARD_SCORE_STRATEGY,
     "objective_direction": "maximize",
     "base_weights": {
         "separability": 0.35,
@@ -68,6 +69,8 @@ DEFAULT_LEGACY_OBJECTIVE_CONFIG = {
         "min_time_coverage": 0.75,
     },
 }
+
+DEFAULT_LEGACY_OBJECTIVE_CONFIG = deepcopy(DEFAULT_STANDARD_OBJECTIVE_CONFIG)
 
 
 @dataclass(frozen=True)
@@ -183,10 +186,14 @@ def resolve_score_strategy(
     score_strategy: str | None = None,
 ) -> str:
     strategy = score_strategy or (objective_kwargs or {}).get("score_strategy") or DEFAULT_SCORE_STRATEGY
-    if strategy not in {LEGACY_SCORE_STRATEGY, STABLE_SCORE_STRATEGY}:
+    if strategy == LEGACY_SCORE_STRATEGY:
+        return STANDARD_SCORE_STRATEGY
+    if strategy not in {STANDARD_SCORE_STRATEGY, STABLE_SCORE_STRATEGY}:
         raise ValueError(
             f"Unsupported score strategy '{strategy}'. "
-            f"Use '{LEGACY_SCORE_STRATEGY}' or '{STABLE_SCORE_STRATEGY}'."
+            f"Use '{STANDARD_SCORE_STRATEGY}' or '{STABLE_SCORE_STRATEGY}'. "
+            f"'{LEGACY_SCORE_STRATEGY}' is accepted only as a compatibility alias for "
+            f"'{STANDARD_SCORE_STRATEGY}'."
         )
     return strategy
 
@@ -233,7 +240,7 @@ def _resolve_stable_weight_inputs(
 def resolve_legacy_objective_config(
     objective_kwargs: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    config = deepcopy(DEFAULT_LEGACY_OBJECTIVE_CONFIG)
+    config = deepcopy(DEFAULT_STANDARD_OBJECTIVE_CONFIG)
     if objective_kwargs:
         filtered = {
             key: value
@@ -248,7 +255,7 @@ def resolve_legacy_objective_config(
             }
         }
         _deep_update(config, filtered)
-    config["score_strategy"] = LEGACY_SCORE_STRATEGY
+    config["score_strategy"] = STANDARD_SCORE_STRATEGY
     config["objective_direction"] = "maximize"
     return config
 
@@ -300,7 +307,7 @@ def resolve_objective_config(
     woe_shrinkage_strength: float | None = None,
 ) -> dict[str, Any]:
     strategy = resolve_score_strategy(objective_kwargs, score_strategy=score_strategy)
-    if strategy == LEGACY_SCORE_STRATEGY:
+    if strategy == STANDARD_SCORE_STRATEGY:
         return resolve_legacy_objective_config(objective_kwargs)
 
     return resolve_stable_objective_config(
@@ -841,7 +848,7 @@ def build_objective_components(
         normalization_strategy=normalization_strategy,
         woe_shrinkage_strength=woe_shrinkage_strength,
     )
-    if config["score_strategy"] == LEGACY_SCORE_STRATEGY:
+    if config["score_strategy"] == STANDARD_SCORE_STRATEGY:
         return _build_legacy_objective_components(
             binner,
             X,
@@ -897,7 +904,7 @@ def build_objective_components_from_diagnostics(
     if not time_col or time_col not in diagnostics.columns:
         raise ValueError("time_col must be provided or present in diagnostics attrs.")
 
-    if config["score_strategy"] == LEGACY_SCORE_STRATEGY:
+    if config["score_strategy"] == STANDARD_SCORE_STRATEGY:
         pivot = (
             diagnostics.pivot_table(index="bin_code", columns=time_col, values="event_rate")
             .sort_index(axis=1)
@@ -1037,7 +1044,7 @@ def _score_legacy_objective_components(
         "total_penalty": total_penalty,
         "comparison_score": float(score),
         "objective_direction": "maximize",
-        "score_strategy": LEGACY_SCORE_STRATEGY,
+        "score_strategy": STANDARD_SCORE_STRATEGY,
         "components": comps,
         "normalized_components": {},
         "weights": {},
@@ -1153,6 +1160,6 @@ def score_objective_components(
         normalization_strategy=normalization_strategy,
         woe_shrinkage_strength=woe_shrinkage_strength,
     )
-    if config["score_strategy"] == LEGACY_SCORE_STRATEGY:
+    if config["score_strategy"] == STANDARD_SCORE_STRATEGY:
         return _score_legacy_objective_components(components, objective_kwargs=config)
     return _score_stable_objective_components(components, objective_kwargs=config)
