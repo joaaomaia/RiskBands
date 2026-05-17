@@ -3,11 +3,31 @@ title: "Release Notes"
 description: "Marcos de release em alto nível para o pacote público e para a documentação oficial."
 ---
 
+## v2.2.0
+
+Compatible minor release focused on auditable missing-value policy and compatibility.
+
+Main points:
+
+- `missing_policy="standard"` is the default and preserves the Sprint A baseline behavior
+- `missing_policy="separate_bin"` is opt-in and creates explicit `Missing` bins, including categorical missing values
+- `missing_policy="forbid"` raises during `fit` or `transform` when selected features contain missing values
+- `standard` is the canonical name for the historical maximize-oriented score strategy
+- `legacy` remains accepted as a compatibility alias for `standard`
+- pandas and PySpark inputs are supported by the missing-policy contract
+- bundles persist `missing_policy`, `effective_missing_policy`, `missing_profile`, and `missing_decision_log`
+- old bundles without these fields continue to load as `standard`
+- PySpark remains optional through `riskbands[spark]` with `pyspark>=3.5,<4`
+
+Notes:
+
+- merge policies such as `merge_nearest_woe` and `merge_nearest_event_rate` are not part of this target
+- no opaque intelligent imputation is added
+- a full distributed Spark fitting backend is not part of this target
+
 ## v2.1.0
 
 Compatible minor release focused on the preferred `RiskBands` name, optional PySpark paths, and validation profiles.
-
-Status: prepared for v2.1.0 publication.
 
 Main points:
 
@@ -29,8 +49,6 @@ Notes:
 ## v2.0.3
 
 Patch release focused on release hardening and deterministic operational behaviour.
-
-Status: prepared for v2.0.3 publication.
 
 Main points:
 

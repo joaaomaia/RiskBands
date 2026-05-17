@@ -18,11 +18,12 @@ O `Binner` agora expõe uma superfície pública mais direta para:
 ```python
 from pathlib import Path
 
-from riskbands import Binner
+from riskbands import RiskBands
 
-binner = Binner(
+binner = RiskBands(
     strategy="supervised",
     check_stability=True,
+    missing_policy="standard",
     score_strategy="stable",
     score_weights={
         "temporal_variance_weight": 0.24,
