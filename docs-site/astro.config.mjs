@@ -41,7 +41,7 @@ export default defineConfig({
         },
       ],
       editLink: {
-        baseUrl: 'https://github.com/joaaomaia/RiskBands/edit/master/docs-site/',
+        baseUrl: 'https://github.com/joaaomaia/RiskBands/edit/main/docs-site/',
       },
       customCss: ['./src/styles/custom.css'],
       head: [

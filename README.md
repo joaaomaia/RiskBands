@@ -277,12 +277,12 @@ O benchmark mais importante hoje compara tres lentes:
 
 Materiais principais:
 
-- [pd_vintage_benchmark.py](https://github.com/joaaomaia/RiskBands/blob/master/examples/pd_vintage_benchmark/pd_vintage_benchmark.py)
-- [pd_vintage_benchmark.ipynb](https://github.com/joaaomaia/RiskBands/blob/master/examples/pd_vintage_benchmark/pd_vintage_benchmark.ipynb)
-- [riskbands_synthetic_plotly_comparative_demo.ipynb](https://github.com/joaaomaia/RiskBands/blob/master/examples/riskbands_synthetic_plotly_comparative_demo.ipynb)
-- [stable_score_demo.py](https://github.com/joaaomaia/RiskBands/blob/master/examples/stable_score/stable_score_demo.py)
-- [pd_vintage_champion_challenger.py](https://github.com/joaaomaia/RiskBands/blob/master/examples/pd_vintage_champion_challenger/pd_vintage_champion_challenger.py)
-- [temporal_stability_example.py](https://github.com/joaaomaia/RiskBands/blob/master/examples/temporal_stability/temporal_stability_example.py)
+- [pd_vintage_benchmark.py](https://github.com/joaaomaia/RiskBands/blob/main/examples/pd_vintage_benchmark/pd_vintage_benchmark.py)
+- [pd_vintage_benchmark.ipynb](https://github.com/joaaomaia/RiskBands/blob/main/examples/pd_vintage_benchmark/pd_vintage_benchmark.ipynb)
+- [riskbands_synthetic_plotly_comparative_demo.ipynb](https://github.com/joaaomaia/RiskBands/blob/main/examples/riskbands_synthetic_plotly_comparative_demo.ipynb)
+- [stable_score_demo.py](https://github.com/joaaomaia/RiskBands/blob/main/examples/stable_score/stable_score_demo.py)
+- [pd_vintage_champion_challenger.py](https://github.com/joaaomaia/RiskBands/blob/main/examples/pd_vintage_champion_challenger/pd_vintage_champion_challenger.py)
+- [temporal_stability_example.py](https://github.com/joaaomaia/RiskBands/blob/main/examples/temporal_stability/temporal_stability_example.py)
 
 ## O que o projeto nao tenta ser
 

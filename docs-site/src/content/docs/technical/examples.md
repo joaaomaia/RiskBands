@@ -9,7 +9,7 @@ description: "Scripts e notebooks para quickstart, benchmark, auditoria e demons
 
 É a porta de entrada recomendada para quem quer aprender o RiskBands com um fluxo mais familiar de pandas e sklearn.
 
-- [Notebook sintético com Plotly](https://github.com/joaaomaia/RiskBands/blob/master/examples/riskbands_synthetic_plotly_comparative_demo.ipynb)
+- [Notebook sintético com Plotly](https://github.com/joaaomaia/RiskBands/blob/main/examples/riskbands_synthetic_plotly_comparative_demo.ipynb)
 
 Esse material mostra:
 
@@ -25,8 +25,8 @@ Esse material mostra:
 
 É a porta de entrada mais curta para a camada temporal, agora já com tabela de score, auditoria e export auditável.
 
-- [Script do quickstart](https://github.com/joaaomaia/RiskBands/blob/master/examples/temporal_stability/temporal_stability_example.py)
-- [Notebook do quickstart](https://github.com/joaaomaia/RiskBands/blob/master/examples/temporal_stability/temporal_stability_example.ipynb)
+- [Script do quickstart](https://github.com/joaaomaia/RiskBands/blob/main/examples/temporal_stability/temporal_stability_example.py)
+- [Notebook do quickstart](https://github.com/joaaomaia/RiskBands/blob/main/examples/temporal_stability/temporal_stability_example.ipynb)
 
 Esse fluxo já mostra:
 
@@ -43,15 +43,15 @@ Esse fluxo já mostra:
 
 É o exemplo de crédito mais direto para comparação entre candidatos.
 
-- [Script champion challenger](https://github.com/joaaomaia/RiskBands/blob/master/examples/pd_vintage_champion_challenger/pd_vintage_champion_challenger.py)
-- [Notebook champion challenger](https://github.com/joaaomaia/RiskBands/blob/master/examples/pd_vintage_champion_challenger/pd_vintage_champion_challenger.ipynb)
+- [Script champion challenger](https://github.com/joaaomaia/RiskBands/blob/main/examples/pd_vintage_champion_challenger/pd_vintage_champion_challenger.py)
+- [Notebook champion challenger](https://github.com/joaaomaia/RiskBands/blob/main/examples/pd_vintage_champion_challenger/pd_vintage_champion_challenger.ipynb)
 
 ### Benchmark PD vintage
 
 É a vitrine metodológica mais forte do projeto hoje.
 
-- [Script do benchmark](https://github.com/joaaomaia/RiskBands/blob/master/examples/pd_vintage_benchmark/pd_vintage_benchmark.py)
-- [Notebook do benchmark](https://github.com/joaaomaia/RiskBands/blob/master/examples/pd_vintage_benchmark/pd_vintage_benchmark.ipynb)
+- [Script do benchmark](https://github.com/joaaomaia/RiskBands/blob/main/examples/pd_vintage_benchmark/pd_vintage_benchmark.py)
+- [Notebook do benchmark](https://github.com/joaaomaia/RiskBands/blob/main/examples/pd_vintage_benchmark/pd_vintage_benchmark.ipynb)
 
 Use este material quando a pergunta principal for:
 
@@ -61,7 +61,7 @@ Use este material quando a pergunta principal for:
 
 É o exemplo mínimo para enxergar a mudança entre o score legado e a estratégia temporal recomendada no estado atual do projeto.
 
-- [Script da demo](https://github.com/joaaomaia/RiskBands/blob/master/examples/stable_score/stable_score_demo.py)
+- [Script da demo](https://github.com/joaaomaia/RiskBands/blob/main/examples/stable_score/stable_score_demo.py)
 
 ## Ordem de leitura sugerida
 

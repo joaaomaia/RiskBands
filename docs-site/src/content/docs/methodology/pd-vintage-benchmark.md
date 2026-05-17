@@ -17,9 +17,9 @@ Ele foi construído para perguntas de crédito, não para uma demo genérica de 
 
 ## Onde ele vive no repositório
 
-- [Script do benchmark](https://github.com/joaaomaia/RiskBands/blob/master/examples/pd_vintage_benchmark/pd_vintage_benchmark.py)
-- [Notebook do benchmark](https://github.com/joaaomaia/RiskBands/blob/master/examples/pd_vintage_benchmark/pd_vintage_benchmark.ipynb)
-- [Guia de leitura do benchmark](https://github.com/joaaomaia/RiskBands/blob/master/examples/pd_vintage_benchmark/guia_leitura_benchmark_riskbands_ptbr.md)
+- [Script do benchmark](https://github.com/joaaomaia/RiskBands/blob/main/examples/pd_vintage_benchmark/pd_vintage_benchmark.py)
+- [Notebook do benchmark](https://github.com/joaaomaia/RiskBands/blob/main/examples/pd_vintage_benchmark/pd_vintage_benchmark.ipynb)
+- [Guia de leitura do benchmark](https://github.com/joaaomaia/RiskBands/blob/main/examples/pd_vintage_benchmark/guia_leitura_benchmark_riskbands_ptbr.md)
 
 ## Cenários cobertos hoje
 

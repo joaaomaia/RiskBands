@@ -34,7 +34,7 @@ npm run preview
 
 O deploy no GitHub Pages eh feito por `.github/workflows/docs-deploy.yml`.
 
-- pushes em `master` disparam build e deploy da docs
+- pushes em `main` disparam build e deploy da docs
 - o workflow faz `npm ci` dentro de `docs-site/`
 - o build roda com `npm run build` dentro de `docs-site/`
 - o artifact publicado vem de `docs-site/dist/`

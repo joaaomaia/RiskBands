@@ -6,7 +6,7 @@
 - Distribution: `riskbands`
 - Repository version: `2.1.0`
 - Planned release tag: `v2.1.0`
-- Default branch: `master`
+- Default branch: `main`
 - Status: prepared for v2.1.0 publication.
 
 ## 2.1.0 Release Notes
@@ -48,7 +48,7 @@ Type: compatible minor release.
 
 - `tests.yml`: regular CI test suite
 - `release-validation.yml`: tag-oriented release validation with package build, `twine check`, wheel smoke, and sdist smoke
-- `docs-deploy.yml`: Astro/Starlight build plus GitHub Pages deploy on pushes to `master`
+- `docs-deploy.yml`: Astro/Starlight build plus GitHub Pages deploy on pushes to `main`
 - `publish-testpypi.yml`: optional TestPyPI publication via Trusted Publishing
 - `publish-pypi.yml`: PyPI publication via Trusted Publishing
 
@@ -58,11 +58,11 @@ Type: compatible minor release.
 2. Run the complete local validation suite before creating the tag.
 3. Commit the final release preparation changes.
 4. Create the annotated git tag `v2.1.0` only after local validation is green.
-5. Push `master` and the tag.
+5. Push `main` and the tag.
 6. Confirm `release-validation.yml` is green for the pushed tag.
 7. Optionally run `publish-testpypi.yml` on the tag. This is recommended for packaging, metadata, dependency, and installation changes.
 8. Run `publish-pypi.yml` on the same stable tag only after release validation is green.
-9. Confirm `docs-deploy.yml` is green after the push to `master`.
+9. Confirm `docs-deploy.yml` is green after the push to `main`.
 
 Do not replace an artifact that has already been published. If a defect is found after PyPI publication, yank the affected release and prepare a new version.
 
@@ -159,7 +159,7 @@ Run `publish-pypi.yml` manually on `v2.1.0` only after:
 
 ## Docs Site
 
-`docs-deploy.yml` builds the site from `docs-site/` and deploys automatically on pushes to `master`.
+`docs-deploy.yml` builds the site from `docs-site/` and deploys automatically on pushes to `main`.
 
 To validate locally:
 
