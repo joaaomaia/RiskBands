@@ -65,6 +65,8 @@ antes do binning, use `missing_policy="forbid"`.
 
 Essas politicas nao fazem imputacao opaca e nao incluem merge policies.
 
+Para exemplos pandas e PySpark completos, veja [Missing policy](../missing-policy/).
+
 ## Por que esse fluxo é mais amigável
 
 Ele segue convenções familiares:
@@ -128,6 +130,7 @@ Se você precisa reproduzir um comportamento mais histórico ou comparar com a a
 ## Próximos passos
 
 - [Auditoria e plots](../audit-and-plots/)
+- [Missing policy](../missing-policy/)
 - [Outputs e diagnóstico](../outputs/)
 - [Score e estratégias](../score-strategy/)
 - [Exemplos](../examples/)

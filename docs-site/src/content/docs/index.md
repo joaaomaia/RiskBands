@@ -28,7 +28,7 @@ features:
     link: ./technical/outputs/
   - title: Missing values auditaveis
     description: Use `standard`, `separate_bin` ou `forbid` sem imputacao opaca e com trilha persistida nos bundles.
-    link: ./technical/api-overview/#missing-values
+    link: ./technical/missing-policy/
   - title: Optuna sem acoplamento
     description: Descubra quando vale ligar a busca externa e como ela se encaixa no mesmo objective do fluxo sem Optuna.
     link: ./technical/optuna/
@@ -73,8 +73,9 @@ Na prática, o projeto adiciona:
 1. Instale a biblioteca em Python.
 2. Rode o [Quickstart](./technical/quickstart/).
 3. Leia [Score e estratégias](./technical/score-strategy/) para entender `stable`.
-4. Use [Outputs e diagnóstico](./technical/outputs/) para aprender a interpretar o resultado.
-5. Vá para [Exemplos](./technical/examples/) ou para o [Benchmark PD vintage](./methodology/pd-vintage-benchmark/).
+4. Leia [Missing policy](./technical/missing-policy/) se a base tiver valores ausentes.
+5. Use [Outputs e diagnóstico](./technical/outputs/) para aprender a interpretar o resultado.
+6. Vá para [Exemplos](./technical/examples/) ou para o [Benchmark PD vintage](./methodology/pd-vintage-benchmark/).
 
 ## Fluxo mínimo
 
@@ -112,5 +113,6 @@ Tudo isso em uma forma comparável e orientada a minimização.
 ## Próximos passos
 
 - Quer começar a usar? Vá para [Quickstart](./technical/quickstart/).
+- Quer auditar missing values? Vá para [Missing policy](./technical/missing-policy/).
 - Quer entender a estratégia recomendada? Vá para [Score e estratégias](./technical/score-strategy/).
 - Quer evidência metodológica? Vá para [Benchmark PD vintage](./methodology/pd-vintage-benchmark/).

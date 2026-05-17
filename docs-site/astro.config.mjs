@@ -125,6 +125,7 @@ export default defineConfig({
             { label: 'Instalação', link: '/technical/installation/' },
             { label: 'Quickstart', link: '/technical/quickstart/' },
             { label: 'Score e estratégias', link: '/technical/score-strategy/' },
+            { label: 'Missing policy', link: '/technical/missing-policy/' },
             { label: 'Outputs e diagnóstico', link: '/technical/outputs/' },
             { label: 'Auditoria e plots', link: '/technical/audit-and-plots/' },
             { label: 'Optuna', link: '/technical/optuna/' },

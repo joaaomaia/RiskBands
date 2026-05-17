@@ -3,6 +3,26 @@ title: "Release Notes"
 description: "Marcos de release em alto nível para o pacote público e para a documentação oficial."
 ---
 
+## Documentation update after v2.2.0
+
+Type: docs-only preparation.
+
+Status: documentation update after v2.2.0; no package version bump.
+
+Main points:
+
+- adds a focused missing-policy guide for `standard`, `separate_bin`, and `forbid`
+- adds small pandas and PySpark missing-policy demos
+- improves docs-site navigation for missing values, bundle fields, and audit logs
+- keeps PySpark documented as optional through `riskbands[spark]`
+- does not change core behavior, package version, publish status, tag, or release artifacts
+
+Notes:
+
+- merge policies remain future work
+- no opaque intelligent imputation is added
+- i18n is not part of this docs-only preparation
+
 ## v2.2.0
 
 Compatible minor release focused on auditable missing-value policy and compatibility.

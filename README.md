@@ -8,7 +8,8 @@ candidatos e racional auditavel.
 [Benchmark PD vintage](https://joaaomaia.github.io/RiskBands/methodology/pd-vintage-benchmark/) |
 [Quickstart](https://joaaomaia.github.io/RiskBands/technical/quickstart/) |
 [Auditoria e plots](https://joaaomaia.github.io/RiskBands/technical/audit-and-plots/) |
-[API](https://joaaomaia.github.io/RiskBands/technical/api-overview/)
+[API](https://joaaomaia.github.io/RiskBands/technical/api-overview/) |
+[Missing policy](https://joaaomaia.github.io/RiskBands/technical/missing-policy/)
 
 ---
 
@@ -126,6 +127,7 @@ Porta tecnica:
 
 - [Instalacao](https://joaaomaia.github.io/RiskBands/technical/installation/)
 - [Quickstart](https://joaaomaia.github.io/RiskBands/technical/quickstart/)
+- [Missing policy](https://joaaomaia.github.io/RiskBands/technical/missing-policy/)
 - [Visao geral da API](https://joaaomaia.github.io/RiskBands/technical/api-overview/)
 - [Exemplos](https://joaaomaia.github.io/RiskBands/technical/examples/)
 
@@ -189,6 +191,33 @@ no binning:
 Bundles novos persistem `missing_policy`, `effective_missing_policy`,
 `missing_profile` e `missing_decision_log`. Bundles antigos sem esses campos
 carregam como `standard`.
+
+Guia dedicado:
+[docs/missing_policy_user_guide.md](docs/missing_policy_user_guide.md) ou
+[Missing policy no docs-site](https://joaaomaia.github.io/RiskBands/technical/missing-policy/).
+
+Exemplo minimo:
+
+```python
+from riskbands import RiskBands
+
+binner = RiskBands(
+    max_bins=4,
+    force_categorical=["rating"],
+    missing_policy="separate_bin",
+)
+
+binner.fit(df, y="target", columns=["score", "rating"], validate=True)
+df_binned = binner.transform(df[["score", "rating"]], validate=True)
+
+print(binner.missing_profile_)
+print(binner.missing_decision_log_)
+```
+
+Exemplos executaveis:
+
+- `python examples/missing_policy/missing_policy_pandas_demo.py`
+- `python examples/missing_policy/missing_policy_pyspark_demo.py`
 
 ## Destaques da versao 2.2.0
 

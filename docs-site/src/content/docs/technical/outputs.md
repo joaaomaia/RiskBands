@@ -142,6 +142,13 @@ Bundles também persistem a trilha de missing values quando disponível:
 Esses campos registram a decisao de tratamento de missing values. Eles nao
 representam imputacao opaca nem merge policies.
 
+Use `missing_profile_` para revisar volume, share e event rate dos missing por
+variavel. Use `missing_decision_log_` para ver se a acao foi preservar o
+comportamento `standard`, criar bin `Missing` com `separate_bin` ou bloquear o
+fluxo com `forbid`.
+
+Guia dedicado: [Missing policy](../missing-policy/).
+
 ## Exemplo
 
 ```python

@@ -108,6 +108,12 @@ Hoje a API expõe duas estratégias explícitas:
 `separate_bin` nao faz imputacao opaca; ele torna o missing explicito e
 auditavel. Merge policies ainda nao fazem parte do contrato publico.
 
+Guia dedicado: [Missing policy](../missing-policy/).
+
+Depois do `fit`, inspecione `missing_profile_` e `missing_decision_log_` para
+ver volume, share, event rate e decisao tomada por variavel. Esses campos tambem
+sao persistidos em `export_bundle(...)`.
+
 Exemplo:
 
 ```python
@@ -143,4 +149,5 @@ Depois do primeiro `fit`, o trio mais útil costuma ser:
 - [Quickstart](../quickstart/)
 - [Auditoria e plots](../audit-and-plots/)
 - [Outputs e diagnóstico](../outputs/)
+- [Missing policy](../missing-policy/)
 - [Exemplos](../examples/)

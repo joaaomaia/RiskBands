@@ -20,6 +20,8 @@ Entry point for the project documentation.
   Main API contract and public package surface.
 - [docs/v2.2.0_user_guide.md](v2.2.0_user_guide.md)
   v2.2.0 import, missing policies, pandas/PySpark, validation, and bundle guide.
+- [docs/missing_policy_user_guide.md](missing_policy_user_guide.md)
+  Dedicated guide for `standard`, `separate_bin`, `forbid`, pandas/PySpark examples, audit fields, and bundle reporting.
 - [docs/migration.md](migration.md)
   Breaking migration guide for users coming from `NASABinning`.
 - [examples/README.md](../examples/README.md)
@@ -30,6 +32,10 @@ Entry point for the project documentation.
   Visual notebook version with benchmark board, vintage heatmaps and penalty breakdown.
 - [examples/temporal_stability/temporal_stability_example.py](../examples/temporal_stability/temporal_stability_example.py)
   Minimal temporal quickstart.
+- [examples/missing_policy/missing_policy_pandas_demo.py](../examples/missing_policy/missing_policy_pandas_demo.py)
+  Small pandas demo for missing-policy behavior, audit fields, and bundle roundtrip.
+- [examples/missing_policy/missing_policy_pyspark_demo.py](../examples/missing_policy/missing_policy_pyspark_demo.py)
+  Small optional PySpark demo for `separate_bin`, `forbid`, and `transform(validate=True)`.
 - [examples/pd_vintage_champion_challenger/pd_vintage_champion_challenger.py](../examples/pd_vintage_champion_challenger/pd_vintage_champion_challenger.py)
   Credit-risk / PD anchor example with vintages.
 
@@ -53,4 +59,3 @@ pytest -q --basetemp .pytest_tmp
 Light CI workflow:
 
 - [tests.yml](../.github/workflows/tests.yml)
-
