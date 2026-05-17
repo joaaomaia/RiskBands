@@ -91,10 +91,18 @@ binner.export_bundle("artifacts/run_2026_04_14")
 
 Hoje a API expõe duas estratégias explícitas:
 
-- `legacy`
-  Mantém o score histórico orientado a maximização.
+- `standard`
+  Mantém o score histórico orientado a maximização. `legacy` segue aceito apenas como alias compatível.
 - `stable`
   Introduz o objective orientado a robustez temporal e minimização.
+
+## Missing values
+
+`missing_policy` aceita:
+
+- `standard`: default compatível com o comportamento atual
+- `separate_bin`: opt-in para bin explícito `Missing`
+- `forbid`: erro em `fit` ou `transform` se houver missing nas features selecionadas
 
 Exemplo:
 

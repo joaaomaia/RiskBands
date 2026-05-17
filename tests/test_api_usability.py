@@ -129,8 +129,8 @@ def test_summary_report_and_diagnostics_methods_are_friendly_aliases(demo_df: pd
     assert not report.empty
     assert not diagnostics.empty
     assert not variable_diagnostics.empty
-    assert report.iloc[0]["score_strategy"] == "legacy"
-    assert summary.iloc[0]["score_strategy"] == "legacy"
+    assert report.iloc[0]["score_strategy"] == "standard"
+    assert summary.iloc[0]["score_strategy"] == "standard"
 
 
 def test_score_table_audit_table_and_metadata_expose_effective_weights(demo_df: pd.DataFrame):
@@ -201,4 +201,4 @@ def test_plotly_notebook_exists_and_references_the_friendly_api():
     assert "fit(" in text
     assert "summary()" in text
     assert "stable" in text
-    assert "legacy" in text
+    assert "standard" in text

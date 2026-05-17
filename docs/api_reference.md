@@ -34,7 +34,8 @@ Common parameters:
 - `check_stability`: enables temporal checks in the flow
 - `use_optuna`: enables hyperparameter search for `strategy="supervised"`
 - `time_col`: period column used by temporal diagnostics
-- `score_strategy`: `"legacy"` or `"stable"`
+- `missing_policy`: `"standard"` (default), `"separate_bin"`, or `"forbid"`
+- `score_strategy`: `"standard"` or `"stable"`; `"legacy"` remains a compatibility alias for `"standard"`
 - `score_weights`: optional weights for `stable`
 - `normalization_strategy`: currently `absolute` for standalone-safe normalization
 - `woe_shrinkage_strength`: shrink intensity applied before temporal scoring
@@ -103,6 +104,7 @@ Main attributes after `fit`:
 - `transform_validation_report_` when `transform(validate=True)` was requested
 - `validation_report_` as the latest validation report compatibility alias
 - `fit_profile_`, `source_profile_`, and `reference_profile_` when available
+- `missing_policy_`, `missing_profile_`, and `missing_decision_log_`
 - `iv_`
 - `iv_by_variable_`
 - `objective_config_`
@@ -153,6 +155,7 @@ Main attributes after `fit`:
 
 - fit metadata and RiskBands version
 - strategy, score strategy, normalization mode, shrinkage configuration
+- missing policy and effective missing policy
 - target, time column, fitted features and generation timestamp
 - auditable score weights and effective score-weight profile
 - per-feature binning tables, score details and audit-friendly summaries
@@ -162,6 +165,7 @@ Main attributes after `fit`:
 - `metadata.json`
 - `binnings.json`
 - friendly CSV outputs such as `summary.csv`, `score_table.csv`, `audit_table.csv`, and `report.csv`
+- missing audit outputs such as `missing_profile.csv` and `missing_decision_log.csv` when available
 - per-feature tables under `feature_tables/`
 - parquet artifacts when the environment has parquet support available
 
@@ -169,9 +173,10 @@ Main attributes after `fit`:
 
 `optimize_bins(...)` now supports two explicit scoring strategies:
 
-- `legacy`
+- `standard`
   - maximize-oriented
   - keeps the historical score based on positive components and penalties
+  - `legacy` is accepted only as a compatibility alias
 - `stable`
   - minimize-oriented
   - explicit stable objective with normalized components
@@ -195,7 +200,7 @@ Default weights:
 - `entropy_weight=0.08`
 - `psi_weight=0.12`
 
-Legacy optimization remains composed of:
+Standard optimization remains composed of:
 
 - base components:
   - `separability`
@@ -215,7 +220,7 @@ The final winner summary is stored in `objective_summary_`.
 
 Interpretation:
 
-- in `legacy`, higher `objective_score` is better
+- in `standard`, higher `objective_score` is better
 - in `stable`, lower `objective_score` is better
 - `objective_preference_score` keeps comparisons consistent across strategies
 

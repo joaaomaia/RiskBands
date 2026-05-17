@@ -17,7 +17,7 @@ import pandas as pd
 
 from .binning_engine import Binner
 from .objectives import (
-    DEFAULT_LEGACY_OBJECTIVE_CONFIG,
+    DEFAULT_STANDARD_OBJECTIVE_CONFIG,
     build_objective_components,
     resolve_objective_config,
     score_objective_components,
@@ -25,7 +25,7 @@ from .objectives import (
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_OBJECTIVE_CONFIG = deepcopy(DEFAULT_LEGACY_OBJECTIVE_CONFIG)
+DEFAULT_OBJECTIVE_CONFIG = deepcopy(DEFAULT_STANDARD_OBJECTIVE_CONFIG)
 
 
 def _flatten_dict(prefix: str, value: Any, out: dict[str, Any]) -> None:
@@ -118,7 +118,7 @@ def optimize_bins(
     """
     Execute Optuna and return the best parameters and fitted binner.
 
-    ``objective_kwargs`` is strategy-aware and can configure either the legacy
+    ``objective_kwargs`` is strategy-aware and can configure either the standard
     score or ``stable`` without coupling the rest of the package to
     Optuna specifics.
     """

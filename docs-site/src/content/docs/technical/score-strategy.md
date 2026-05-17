@@ -28,10 +28,10 @@ Em geral:
 
 Os valores públicos válidos agora são:
 
-- `legacy`
+- `standard`
 - `stable`
 
-`stable` substitui a nomenclatura pública usada anteriormente e passa a ser o nome recomendado daqui para frente.
+`standard` é o nome canônico do score histórico orientado a maximização. `legacy` segue aceito apenas como alias compatível.
 
 ## Quando usar `stable`
 
@@ -52,9 +52,9 @@ Em termos práticos, `stable` é orientado a minimização:
 - menor `objective_score` é melhor
 - maior `objective_preference_score` continua ajudando em comparações consolidadas
 
-## Quando usar `legacy`
+## Quando usar `standard`
 
-`legacy` continua útil quando você quer:
+`standard` continua útil quando você quer:
 
 - reproduzir a leitura histórica do projeto
 - comparar com o comportamento anterior

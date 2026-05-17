@@ -19,7 +19,7 @@ Esse material mostra:
 - `binning_table()`
 - `score_details()`
 - `diagnostics()`
-- comparação entre `legacy` e `stable`
+- comparação entre `standard` e `stable`
 
 ### Quickstart de estabilidade temporal
 

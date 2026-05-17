@@ -19,6 +19,7 @@ from .objectives import (
     build_objective_components,
     build_objective_components_from_diagnostics,
     resolve_objective_config,
+    resolve_score_strategy,
     score_objective_components,
 )
 from .temporal_stability import event_rate_by_time, ks_over_time, temporal_separability_score
@@ -99,6 +100,10 @@ OPTIONAL_BUNDLE_PROFILE_FIELDS = (
     "min_n_bins_metadata",
     "validation_settings",
     "data_schema",
+    "missing_policy",
+    "effective_missing_policy",
+    "missing_profile",
+    "missing_decision_log",
 )
 
 
@@ -377,10 +382,12 @@ def _objective_summary_for_variable(
     objective_kwargs: dict[str, Any] | None,
 ) -> tuple[dict[str, Any], str]:
     effective_objective_kwargs = _resolve_effective_objective_kwargs(binner, objective_kwargs)
-    score_strategy = _coalesce_text(
-        (effective_objective_kwargs or {}).get("score_strategy"),
-        getattr(binner, "score_strategy", None),
-        "legacy",
+    score_strategy = resolve_score_strategy(
+        score_strategy=_coalesce_text(
+            (effective_objective_kwargs or {}).get("score_strategy"),
+            getattr(binner, "score_strategy", None),
+            "standard",
+        )
     )
     summaries = getattr(binner, "objective_summaries_", None)
     if isinstance(summaries, dict) and summaries.get(variable):
@@ -394,7 +401,7 @@ def _objective_summary_for_variable(
         return {}, "unavailable"
 
     child_binner = _resolve_child_binner(binner, variable)
-    if score_strategy != "legacy" and diagnostics is not None and not diagnostics.empty:
+    if score_strategy != "standard" and diagnostics is not None and not diagnostics.empty:
         diagnostics_var = diagnostics.loc[diagnostics["variable"] == variable].copy()
         if not diagnostics_var.empty:
             components = build_objective_components_from_diagnostics(
@@ -407,7 +414,7 @@ def _objective_summary_for_variable(
             derived = score_objective_components(components, objective_kwargs=effective_objective_kwargs)
             return derived, "derived_from_diagnostics"
 
-    if score_strategy == "legacy":
+    if score_strategy == "standard":
         transformed = child_binner.transform(X[[variable]])
         bin_values = transformed if isinstance(transformed, pd.Series) else transformed[variable]
         components = {
@@ -468,7 +475,7 @@ def _objective_summary_for_variable(
             components["ks"] = _safe_float(ks_over_time(event_rate_by_time(tbl, "time")))
 
         derived = score_objective_components(components, objective_kwargs=effective_objective_kwargs)
-        return derived, "derived_legacy_objective"
+        return derived, "derived_standard_objective"
 
     cols = [variable]
     if time_col and time_col in X.columns:
@@ -485,7 +492,7 @@ def _objective_summary_for_variable(
     if iv_value is not None:
         components["iv"] = _safe_float(iv_value, default=0.0)
         if (
-            score_strategy != "legacy"
+            score_strategy != "standard"
             and (
                 time_col is None
                 or time_col not in X_eval.columns
@@ -618,7 +625,7 @@ def build_variable_audit_report(
             "score_strategy": _coalesce_text(
                 objective_summary.get("score_strategy"),
                 getattr(binner, "score_strategy", None),
-                "legacy",
+                "standard",
             ),
             "objective_direction": _coalesce_text(
                 objective_summary.get("objective_direction"),
@@ -918,7 +925,13 @@ def build_binner_metadata(
     metadata = {
         "riskbands_version": resolve_version(),
         "strategy": getattr(binner, "strategy", None),
-        "score_strategy": getattr(binner, "score_strategy", None),
+        "score_strategy": resolve_score_strategy(score_strategy=getattr(binner, "score_strategy", None)),
+        "missing_policy": getattr(binner, "missing_policy_", getattr(binner, "missing_policy", "standard")),
+        "effective_missing_policy": getattr(
+            binner,
+            "effective_missing_policy_",
+            getattr(binner, "missing_policy_", getattr(binner, "missing_policy", "standard")),
+        ),
         "objective_direction": objective_direction,
         "normalization_strategy": normalization_strategy,
         "woe_shrinkage_strength": (
@@ -964,6 +977,26 @@ def _collect_optional_bundle_profile_fields(binner: Binner) -> dict[str, Any]:
     return fields
 
 
+def _normalize_loaded_missing_policy(value: Any) -> str:
+    if value is None:
+        return "standard"
+    text = str(value)
+    if text == "legacy":
+        return "standard"
+    if text in {"standard", "separate_bin", "forbid"}:
+        return text
+    return text
+
+
+def _normalize_loaded_score_strategy(value: Any) -> Any:
+    if value is None:
+        return value
+    try:
+        return resolve_score_strategy(score_strategy=str(value))
+    except ValueError:
+        return value
+
+
 def _normalize_loaded_bundle_payload(payload: dict[str, Any]) -> dict[str, Any]:
     normalized = dict(payload)
     normalized.setdefault(
@@ -971,10 +1004,31 @@ def _normalize_loaded_bundle_payload(payload: dict[str, Any]) -> dict[str, Any]:
         str(normalized.get("artifact_version") or LEGACY_BUNDLE_SCHEMA_VERSION),
     )
     metadata = normalized.get("metadata")
+    if isinstance(metadata, dict):
+        metadata = dict(metadata)
+        metadata["score_strategy"] = _normalize_loaded_score_strategy(
+            metadata.get("score_strategy")
+        )
+        metadata["missing_policy"] = _normalize_loaded_missing_policy(
+            metadata.get("missing_policy")
+        )
+        metadata["effective_missing_policy"] = _normalize_loaded_missing_policy(
+            metadata.get("effective_missing_policy", metadata.get("missing_policy"))
+        )
+        normalized["metadata"] = metadata
     if "riskbands_version" not in normalized and isinstance(metadata, dict):
         normalized["riskbands_version"] = metadata.get("riskbands_version")
     for field in OPTIONAL_BUNDLE_PROFILE_FIELDS:
         normalized.setdefault(field, None)
+    normalized["missing_policy"] = _normalize_loaded_missing_policy(
+        normalized.get("missing_policy")
+    )
+    normalized["effective_missing_policy"] = _normalize_loaded_missing_policy(
+        normalized.get("effective_missing_policy", normalized.get("missing_policy"))
+    )
+    if isinstance(metadata, dict):
+        normalized["metadata"]["missing_policy"] = normalized["missing_policy"]
+        normalized["metadata"]["effective_missing_policy"] = normalized["effective_missing_policy"]
     if normalized.get("reference_profile") is None:
         if normalized.get("source_profile") is not None:
             normalized["reference_profile"] = normalized["source_profile"]
@@ -1026,6 +1080,10 @@ def load_bundle(path: PathLike) -> dict[str, Any]:
         "fit_validation_report": manifest.get("fit_validation_report"),
         "transform_validation_report": manifest.get("transform_validation_report"),
         "validation_report": manifest.get("validation_report"),
+        "missing_policy": manifest.get("missing_policy"),
+        "effective_missing_policy": manifest.get("effective_missing_policy"),
+        "missing_profile": manifest.get("missing_profile"),
+        "missing_decision_log": manifest.get("missing_decision_log"),
     }
 
 
@@ -1129,6 +1187,8 @@ def export_binner_bundle(binner: Binner, path: PathLike) -> Path:
     report = binner.report()
     diagnostics = _resolve_optional_table(binner, kind="bin")
     diagnostics_variable = _resolve_optional_table(binner, kind="variable")
+    missing_profile = getattr(binner, "missing_profile_", pd.DataFrame())
+    missing_decision_log = getattr(binner, "missing_decision_log_", pd.DataFrame())
 
     _write_csv(summary, target_dir / "summary.csv")
     _write_csv(score_details, target_dir / "score_details.csv")
@@ -1138,6 +1198,10 @@ def export_binner_bundle(binner: Binner, path: PathLike) -> Path:
         _write_csv(diagnostics, target_dir / "diagnostics.csv")
     if not diagnostics_variable.empty:
         _write_csv(diagnostics_variable, target_dir / "diagnostics_variable.csv")
+    if missing_profile is not None and not missing_profile.empty:
+        _write_csv(missing_profile, target_dir / "missing_profile.csv")
+    if missing_decision_log is not None and not missing_decision_log.empty:
+        _write_csv(missing_decision_log, target_dir / "missing_decision_log.csv")
     _write_csv(report, target_dir / "report.csv")
 
     feature_dir = target_dir / "feature_tables"
@@ -1184,6 +1248,16 @@ def export_binner_bundle(binner: Binner, path: PathLike) -> Path:
             "diagnostics_csv": "diagnostics.csv" if not diagnostics.empty else None,
             "diagnostics_variable_csv": (
                 "diagnostics_variable.csv" if not diagnostics_variable.empty else None
+            ),
+            "missing_profile_csv": (
+                "missing_profile.csv"
+                if missing_profile is not None and not missing_profile.empty
+                else None
+            ),
+            "missing_decision_log_csv": (
+                "missing_decision_log.csv"
+                if missing_decision_log is not None and not missing_decision_log.empty
+                else None
             ),
             "feature_tables": feature_artifacts,
             "optional_parquet": written_optional,
@@ -1253,6 +1327,12 @@ def _save_excel(binner: Binner, path: Path) -> None:
         audit = _resolve_variable_audit_report(binner)
         if audit is not None:
             audit.to_excel(writer, sheet_name="variable_audit", index=False)
+        missing_profile = getattr(binner, "missing_profile_", None)
+        if missing_profile is not None and not missing_profile.empty:
+            missing_profile.to_excel(writer, sheet_name="missing_profile", index=False)
+        missing_decision_log = getattr(binner, "missing_decision_log_", None)
+        if missing_decision_log is not None and not missing_decision_log.empty:
+            missing_decision_log.to_excel(writer, sheet_name="missing_decisions", index=False)
 
 
 # ------------------------------------------------------------------ #
@@ -1273,6 +1353,14 @@ def _save_json(binner: Binner, path: Path) -> None:
         info["objective_summary"] = _json_safe(binner.objective_summary_)
     if getattr(binner, "objective_summaries_", None) is not None:
         info["objective_summaries"] = _json_safe(binner.objective_summaries_)
+    if getattr(binner, "missing_policy_", None) is not None:
+        info["missing_policy"] = _json_safe(binner.missing_policy_)
+    if getattr(binner, "effective_missing_policy_", None) is not None:
+        info["effective_missing_policy"] = _json_safe(binner.effective_missing_policy_)
+    if getattr(binner, "missing_profile_", None) is not None:
+        info["missing_profile"] = _json_safe(binner.missing_profile_)
+    if getattr(binner, "missing_decision_log_", None) is not None:
+        info["missing_decision_log"] = _json_safe(binner.missing_decision_log_)
     pivot = getattr(binner, "_pivot_", None)
     if pivot is not None:
         info["pivot_event_rate"] = _json_ready_records(pivot.reset_index())

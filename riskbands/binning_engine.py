@@ -21,6 +21,15 @@ from .utils.dataframe_backend import detect_dataframe_backend
 from .utils.dtypes import search_dtypes
 
 _MAX_PROFILE_ROWS_TO_COLLECT = 100_000
+_STANDARD_MISSING_POLICY = "standard"
+_SEPARATE_BIN_MISSING_POLICY = "separate_bin"
+_FORBID_MISSING_POLICY = "forbid"
+_LEGACY_POLICY_ALIAS = "legacy"
+_VALID_MISSING_POLICIES = {
+    _STANDARD_MISSING_POLICY,
+    _SEPARATE_BIN_MISSING_POLICY,
+    _FORBID_MISSING_POLICY,
+}
 
 
 class Binner(BaseEstimator, TransformerMixin):
@@ -41,7 +50,8 @@ class Binner(BaseEstimator, TransformerMixin):
         time_col: str | None = None,
         force_categorical: list[str] | None = None,
         force_numeric: list[str] | None = None,
-        score_strategy: str = "legacy",
+        missing_policy: str = "standard",
+        score_strategy: str = "standard",
         score_weights: dict | None = None,
         normalization_strategy: str = "absolute",
         woe_shrinkage_strength: float = 25.0,
@@ -72,8 +82,11 @@ class Binner(BaseEstimator, TransformerMixin):
         self.time_col = time_col
         self.force_categorical = force_categorical or []
         self.force_numeric = force_numeric or []
+        self.missing_policy = self._normalize_missing_policy(missing_policy)
+        self.missing_policy_ = self.missing_policy
+        self.effective_missing_policy_ = self.missing_policy
         self.objective_kwargs = objective_kwargs or {}
-        resolve_score_strategy(score_strategy=score_strategy)
+        score_strategy = resolve_score_strategy(score_strategy=score_strategy)
         if "score_strategy" in self.objective_kwargs:
             resolve_score_strategy(
                 {"score_strategy": self.objective_kwargs["score_strategy"]},
@@ -113,12 +126,14 @@ class Binner(BaseEstimator, TransformerMixin):
                 "`monotonic` and `monotonic_trend` must match when both are provided."
             )
         if "score_strategy" in params:
-            resolve_score_strategy(score_strategy=params["score_strategy"])
+            params["score_strategy"] = resolve_score_strategy(score_strategy=params["score_strategy"])
         if "objective_kwargs" in params and "score_strategy" in (params["objective_kwargs"] or {}):
             resolve_score_strategy(
                 {"score_strategy": params["objective_kwargs"]["score_strategy"]},
                 score_strategy=None,
             )
+        if "missing_policy" in params:
+            params["missing_policy"] = self._normalize_missing_policy(params["missing_policy"])
         if "min_n_bins" in params:
             params["min_n_bins"] = self._validate_min_n_bins(params["min_n_bins"])
         if "sample_size" in params:
@@ -136,7 +151,22 @@ class Binner(BaseEstimator, TransformerMixin):
         result = super().set_params(**params)
         self.max_n_bins = self.max_bins
         self.monotonic_trend = self.monotonic
+        self.missing_policy_ = self.missing_policy
+        self.effective_missing_policy_ = self.missing_policy
         return result
+
+    # ------------------------------------------------------------------
+    @staticmethod
+    def _normalize_missing_policy(value: str | None) -> str:
+        policy = _STANDARD_MISSING_POLICY if value is None else str(value)
+        if policy == _LEGACY_POLICY_ALIAS:
+            return _STANDARD_MISSING_POLICY
+        if policy not in _VALID_MISSING_POLICIES:
+            allowed = ", ".join(f"'{item}'" for item in sorted(_VALID_MISSING_POLICIES))
+            raise ValueError(
+                f"Unsupported missing_policy '{policy}'. Use one of: {allowed}."
+            )
+        return policy
 
     # ------------------------------------------------------------------
     @staticmethod
@@ -245,6 +275,102 @@ class Binner(BaseEstimator, TransformerMixin):
         return F
 
     # ------------------------------------------------------------------
+    @staticmethod
+    def _pandas_missing_counts(X: pd.DataFrame, columns: Sequence[str]) -> dict[str, int]:
+        if not columns:
+            return {}
+        counts = X.loc[:, list(columns)].isna().sum()
+        return {str(column): int(count) for column, count in counts.items()}
+
+    # ------------------------------------------------------------------
+    @staticmethod
+    def _format_missing_counts(counts: dict[str, int]) -> str:
+        return ", ".join(f"{column}={count}" for column, count in counts.items() if count > 0)
+
+    # ------------------------------------------------------------------
+    def _raise_forbidden_missing(
+        self,
+        counts: dict[str, int],
+        *,
+        context: str,
+        backend: str,
+    ) -> None:
+        present = {column: count for column, count in counts.items() if count > 0}
+        if not present:
+            return
+        detail = self._format_missing_counts(present)
+        raise ValueError(
+            f"missing_policy='forbid' detected missing values during {context} "
+            f"on backend '{backend}': {detail}. "
+            "Clean missing values upstream or use missing_policy='standard' or "
+            "missing_policy='separate_bin' when missing values are expected."
+        )
+
+    # ------------------------------------------------------------------
+    def _check_missing_policy_pandas(
+        self,
+        X: pd.DataFrame,
+        columns: Sequence[str],
+        *,
+        context: str,
+    ) -> None:
+        if self.missing_policy != _FORBID_MISSING_POLICY:
+            return
+        self._raise_forbidden_missing(
+            self._pandas_missing_counts(X, columns),
+            context=context,
+            backend="pandas",
+        )
+
+    # ------------------------------------------------------------------
+    @staticmethod
+    def _spark_column_supports_nan(data_type: Any) -> bool:
+        try:
+            from pyspark.sql import types as T
+        except Exception:  # pragma: no cover - import availability checked by caller
+            return False
+        return isinstance(data_type, (T.DoubleType, T.FloatType))
+
+    # ------------------------------------------------------------------
+    def _spark_missing_count_expressions(self, X, columns: Sequence[str], F):
+        fields = {field.name: field.dataType for field in X.schema.fields}
+        expressions = []
+        for column in columns:
+            col_expr = F.col(column)
+            missing_condition = col_expr.isNull()
+            if self._spark_column_supports_nan(fields.get(column)):
+                missing_condition = missing_condition | F.isnan(col_expr)
+            expressions.append(
+                F.sum(F.when(missing_condition, F.lit(1)).otherwise(F.lit(0))).alias(str(column))
+            )
+        return expressions
+
+    # ------------------------------------------------------------------
+    def _pyspark_missing_counts(self, X, columns: Sequence[str]) -> dict[str, int]:
+        if not columns:
+            return {}
+        F = self._spark_functions()
+        expressions = self._spark_missing_count_expressions(X, columns, F)
+        row = X.agg(*expressions).collect()[0]
+        return {str(column): int(row[str(column)] or 0) for column in columns}
+
+    # ------------------------------------------------------------------
+    def _check_missing_policy_pyspark(
+        self,
+        X,
+        columns: Sequence[str],
+        *,
+        context: str,
+    ) -> None:
+        if self.missing_policy != _FORBID_MISSING_POLICY:
+            return
+        self._raise_forbidden_missing(
+            self._pyspark_missing_counts(X, columns),
+            context=context,
+            backend="pyspark",
+        )
+
+    # ------------------------------------------------------------------
     def _normalize_pyspark_fit_inputs(
         self,
         X,
@@ -349,6 +475,7 @@ class Binner(BaseEstimator, TransformerMixin):
             features=features,
             time_col=time_col,
         )
+        self._check_missing_policy_pyspark(X, feature_columns, context="fit")
         source_rows = int(X.count())
         selected_spark = X.select(*collect_columns)
         sampled_spark, sampling_plan = self._sample_pyspark_dataframe(
@@ -525,7 +652,10 @@ class Binner(BaseEstimator, TransformerMixin):
         default_bin = getattr(strategy, "default_bin_", mapping.get(unknown_token))
         col_expr = F.col(column)
         str_col = col_expr.cast("string")
-        expr = F.when(col_expr.isNull(), F.lit(mapping.get(missing_token, default_bin)))
+        if self.missing_policy == _SEPARATE_BIN_MISSING_POLICY:
+            expr = F.when(col_expr.isNull(), F.lit("Missing"))
+        else:
+            expr = F.when(col_expr.isNull(), F.lit(mapping.get(missing_token, default_bin)))
         for category, label in sorted(mapping.items(), key=lambda item: str(item[0])):
             if category in {missing_token, unknown_token}:
                 continue
@@ -567,6 +697,7 @@ class Binner(BaseEstimator, TransformerMixin):
             feature=feature,
             features=features,
         )
+        self._check_missing_policy_pyspark(X, selected_columns, context="transform")
         F = self._spark_functions()
         transformed = X
         for selected_column in selected_columns:
@@ -1032,6 +1163,88 @@ class Binner(BaseEstimator, TransformerMixin):
         return mask
 
     # ------------------------------------------------------------------
+    def _fitted_summary_mask(self, summary: pd.DataFrame) -> pd.Series:
+        if summary.empty:
+            return pd.Series(dtype=bool, index=summary.index)
+
+        mask = pd.Series(True, index=summary.index)
+        if "count" in summary.columns:
+            counts = pd.to_numeric(summary["count"], errors="coerce").fillna(0)
+            mask &= counts > 0
+        if "bin" in summary.columns:
+            labels_raw = summary["bin"].astype(str)
+            labels = labels_raw.str.strip().str.lower()
+            technical = labels.isin({"total", "totals", "special", "special codes", ""})
+            technical |= labels.str.startswith("special")
+            if self.missing_policy != _SEPARATE_BIN_MISSING_POLICY:
+                technical |= labels.isin({"missing"})
+                technical |= labels.str.startswith("missing")
+            mask &= ~technical
+            if "variable" in summary.columns:
+                mask &= labels_raw != summary["variable"].astype(str)
+        return mask
+
+    # ------------------------------------------------------------------
+    def _filter_fitted_summary(self, summary: pd.DataFrame) -> pd.DataFrame:
+        return summary.loc[self._fitted_summary_mask(summary)].reset_index(drop=True)
+
+    # ------------------------------------------------------------------
+    def _refine_bins_for_policy(
+        self,
+        bin_summary: pd.DataFrame,
+        *,
+        min_er_delta: float,
+        trend: str | None = None,
+        time_col: str | None = None,
+        check_stability: bool = False,
+    ) -> pd.DataFrame:
+        if self.missing_policy != _SEPARATE_BIN_MISSING_POLICY:
+            return refine_bins(
+                bin_summary,
+                min_er_delta=min_er_delta,
+                trend=trend,
+                time_col=time_col,
+                check_stability=check_stability,
+            )
+
+        label_column = "Bin" if "Bin" in bin_summary.columns else "bin"
+        labels = bin_summary[label_column].astype(str).str.strip().str.lower()
+        missing_mask = labels.str.startswith("missing")
+        if not missing_mask.any():
+            return refine_bins(
+                bin_summary,
+                min_er_delta=min_er_delta,
+                trend=trend,
+                time_col=time_col,
+                check_stability=check_stability,
+            )
+
+        parts = []
+        regular = bin_summary.loc[~missing_mask].copy()
+        if not regular.empty:
+            parts.append(
+                refine_bins(
+                    regular,
+                    min_er_delta=min_er_delta,
+                    trend=trend,
+                    time_col=time_col,
+                    check_stability=check_stability,
+                )
+            )
+        missing = bin_summary.loc[missing_mask].copy()
+        if not missing.empty:
+            parts.append(
+                refine_bins(
+                    missing,
+                    min_er_delta=min_er_delta,
+                    trend=None,
+                    time_col=None,
+                    check_stability=False,
+                )
+            )
+        return pd.concat(parts, ignore_index=True) if parts else pd.DataFrame()
+
+    # ------------------------------------------------------------------
     @classmethod
     def _count_regular_bins(cls, summary: pd.DataFrame) -> int:
         return int(cls._regular_bin_mask(summary).sum())
@@ -1125,6 +1338,112 @@ class Binner(BaseEstimator, TransformerMixin):
     def _build_fit_profile(self, X: pd.DataFrame, y: pd.Series) -> pd.DataFrame:
         transformed = self.transform(X, return_type="dataframe")
         return self._build_profile_from_transformed(transformed, y)
+
+    # ------------------------------------------------------------------
+    def _build_missing_audit_from_fit(
+        self,
+        X: pd.DataFrame,
+        y: pd.Series,
+        *,
+        backend: str,
+    ) -> None:
+        feature_columns = list(getattr(self, "feature_names_in_", X.columns))
+        counts = self._pandas_missing_counts(X, feature_columns)
+        transformed = self.transform(X.loc[:, feature_columns], return_type="dataframe")
+        target = pd.to_numeric(pd.Series(y, index=X.index), errors="coerce")
+        profile_records = []
+        decision_records = []
+
+        for variable in feature_columns:
+            n_missing = int(counts.get(str(variable), 0))
+            missing_detected = n_missing > 0
+            missing_mask = X[variable].isna() if variable in X.columns else pd.Series(False, index=X.index)
+            bin_label = None
+            is_missing_bin = False
+            events_missing = None
+            event_rate_missing = None
+            if missing_detected:
+                missing_bins = transformed.loc[missing_mask, variable]
+                unique_labels = list(dict.fromkeys(missing_bins.map(self._bin_label_key).tolist()))
+                if unique_labels:
+                    bin_label = None if unique_labels[0] == "<NA>" else missing_bins.iloc[0]
+                    is_missing_bin = any(self._bin_flag(label, "missing") for label in missing_bins)
+                events_missing = float(target.loc[missing_mask].sum(skipna=True))
+                event_rate_missing = events_missing / n_missing if n_missing else None
+                profile_records.append(
+                    {
+                        "variable": variable,
+                        "policy": self.missing_policy,
+                        "effective_policy": self.missing_policy,
+                        "n_missing_fit": n_missing,
+                        "share_missing_fit": n_missing / len(X) if len(X) else np.nan,
+                        "events_missing_fit": events_missing,
+                        "event_rate_missing_fit": event_rate_missing,
+                        "is_missing_bin": bool(is_missing_bin),
+                        "bin_label": bin_label,
+                        "backend": backend,
+                        "context": "fit",
+                    }
+                )
+
+            if not missing_detected:
+                action = "no_missing_detected"
+            elif self.missing_policy == _SEPARATE_BIN_MISSING_POLICY:
+                action = "separate_bin_created" if is_missing_bin else "separate_bin_requested"
+            elif self.missing_policy == _FORBID_MISSING_POLICY:
+                action = "forbidden_missing_detected"
+            else:
+                action = "standard_behavior_preserved"
+
+            decision_records.append(
+                {
+                    "variable": variable,
+                    "policy_requested": self.missing_policy,
+                    "effective_policy": self.missing_policy,
+                    "missing_detected": bool(missing_detected),
+                    "n_missing_fit": n_missing,
+                    "action": action,
+                    "training_only": True,
+                    "backend": backend,
+                    "notes": (
+                        "Missing values are transformed to an explicit missing bin."
+                        if action == "separate_bin_created"
+                        else (
+                            "Current standard missing behavior was preserved."
+                            if action == "standard_behavior_preserved"
+                            else "No missing values were observed during fit."
+                        )
+                    ),
+                }
+            )
+
+        self.missing_profile_ = pd.DataFrame(profile_records)
+        self.missing_decision_log_ = pd.DataFrame(decision_records)
+        self.missing_policy_ = self.missing_policy
+        self.effective_missing_policy_ = self.missing_policy
+
+    # ------------------------------------------------------------------
+    @staticmethod
+    def _missing_summary_from_profile(profile: pd.DataFrame | None) -> dict[str, Any]:
+        if profile is None or profile.empty or "is_missing_bin" not in profile.columns:
+            return {
+                "variables_with_missing_bins": 0,
+                "missing_profile_rows": 0,
+                "missing_rows": 0,
+            }
+        missing_rows = profile.loc[profile["is_missing_bin"].fillna(False).astype(bool)]
+        if missing_rows.empty:
+            return {
+                "variables_with_missing_bins": 0,
+                "missing_profile_rows": 0,
+                "missing_rows": 0,
+            }
+        n_values = pd.to_numeric(missing_rows.get("n", pd.Series(dtype=float)), errors="coerce").fillna(0)
+        return {
+            "variables_with_missing_bins": int(missing_rows["variable"].nunique(dropna=False)),
+            "missing_profile_rows": int(len(missing_rows)),
+            "missing_rows": int(n_values.sum()),
+        }
 
     # ------------------------------------------------------------------
     def _build_profile_from_transformed(self, transformed: pd.DataFrame, y: pd.Series) -> pd.DataFrame:
@@ -1534,6 +1853,7 @@ class Binner(BaseEstimator, TransformerMixin):
         profile = getattr(self, "fit_profile_", pd.DataFrame())
         if profile is None:
             profile = pd.DataFrame()
+        missing_summary = self._missing_summary_from_profile(profile)
 
         bin_alerts = []
         variable_status = []
@@ -1633,6 +1953,7 @@ class Binner(BaseEstimator, TransformerMixin):
         return {
             "validation_type": "fit",
             "status": "warning" if warning_count else "ok",
+            "missing_policy": self.missing_policy,
             "settings": settings,
             "summary": {
                 "variables_fitted": int(len(variable_status)),
@@ -1653,6 +1974,7 @@ class Binner(BaseEstimator, TransformerMixin):
                 ),
                 "possible_sample_size_issue": sample_size_issue,
                 "source_profile_status": source_profile_status,
+                **missing_summary,
             },
             "variable_status": variable_status,
             "bin_alerts": bin_alerts,
@@ -1691,6 +2013,7 @@ class Binner(BaseEstimator, TransformerMixin):
                 "validation_type": "transform",
                 "status": "skipped",
                 "backend": backend,
+                "missing_policy": self.missing_policy,
                 "settings": settings,
                 "reason": "target_not_available",
                 "reference_profile_source": getattr(self, "reference_profile_source_", "missing"),
@@ -1700,6 +2023,7 @@ class Binner(BaseEstimator, TransformerMixin):
                 "validation_type": "transform",
                 "status": "warning",
                 "backend": backend,
+                "missing_policy": self.missing_policy,
                 "settings": settings,
                 "reason": "reference_profile_missing",
                 "reference_profile_source": getattr(self, "reference_profile_source_", "missing"),
@@ -1728,11 +2052,13 @@ class Binner(BaseEstimator, TransformerMixin):
             if n_application_rows is not None
             else self._profile_n_rows(application_profile)
         )
+        application_missing_summary = self._missing_summary_from_profile(application_profile)
 
         return {
             "validation_type": "transform",
             "status": status,
             "backend": backend,
+            "missing_policy": self.missing_policy,
             "settings": settings,
             "reference_profile_source": getattr(self, "reference_profile_source_", "missing"),
             "summary": {
@@ -1751,6 +2077,7 @@ class Binner(BaseEstimator, TransformerMixin):
                     if not comparison.empty and comparison["share_abs_diff"].notna().any()
                     else None
                 ),
+                **application_missing_summary,
             },
             "event_rate_status": event_rate_alerts,
             "alerts": alerts,
@@ -2033,6 +2360,10 @@ class Binner(BaseEstimator, TransformerMixin):
         self.validation_report_ = None
         self.application_profile_ = None
         self.source_profile_ = None
+        self.missing_profile_ = pd.DataFrame()
+        self.missing_decision_log_ = pd.DataFrame()
+        self.missing_policy_ = self.missing_policy
+        self.effective_missing_policy_ = self.missing_policy
         self.validation_settings_ = None
         self.sampling_metadata_ = self._pandas_fit_sampling_metadata(len(X))
         self.input_backend_ = "pandas"
@@ -2045,6 +2376,7 @@ class Binner(BaseEstimator, TransformerMixin):
             "n_rows_fit": int(len(X)),
         }
         X_features = X.drop(columns=[time_col], errors="ignore") if time_col else X.copy()
+        self._check_missing_policy_pandas(X_features, selected_features, context="fit")
 
         num_cols, cat_cols = search_dtypes(
             pd.concat([X_features, y.rename("target")], axis=1),
@@ -2085,6 +2417,7 @@ class Binner(BaseEstimator, TransformerMixin):
                 min_event_rate_diff=self.min_event_rate_diff,
                 monotonic=self.monotonic,
                 check_stability=self.check_stability,
+                missing_policy=self.missing_policy,
             )
             self._per_feature_binners = {}
             self.best_params_ = {}
@@ -2125,6 +2458,7 @@ class Binner(BaseEstimator, TransformerMixin):
             self._compute_iv_metrics()
             self._refresh_min_n_bins_metadata()
             self.fit_profile_ = self._build_fit_profile(X_features, y)
+            self._build_missing_audit_from_fit(X_features, y, backend="pandas")
             self._refresh_reference_profile()
             if validate:
                 self.fit_validation_report_ = self._build_fit_validation_report()
@@ -2149,19 +2483,14 @@ class Binner(BaseEstimator, TransformerMixin):
             strat = get_strategy(self.strategy, **self._numeric_strategy_kwargs())
             strat.fit(X_features[[col]], y, monotonic_trend=self.monotonic)
 
-            summary = refine_bins(
+            summary = self._refine_bins_for_policy(
                 strat.bin_summary_,
                 min_er_delta=self.min_event_rate_diff,
                 trend=self.monotonic,
                 time_col=time_col,
                 check_stability=self.check_stability,
             )
-            summary = summary[
-                (summary["count"] > 0)
-                & (~summary["bin"].astype(str).str.lower().isin(["total", "special", "missing"]))
-                & (summary["bin"] != summary["variable"])
-                & (summary["bin"] != "")
-            ].reset_index(drop=True)
+            summary = self._filter_fitted_summary(summary)
             summary = self._prepare_binning_summary(summary)
 
             self._per_feature_binners[col] = strat
@@ -2170,22 +2499,20 @@ class Binner(BaseEstimator, TransformerMixin):
         for col in cat_cols:
             from .strategies.categorical import CategoricalBinning
 
-            strat = CategoricalBinning(max_bins=self.max_bins)
+            strat = CategoricalBinning(
+                max_bins=self.max_bins,
+                separate_missing=self.missing_policy == _SEPARATE_BIN_MISSING_POLICY,
+            )
             strat.fit(X_features[[col]], y)
 
-            summary = refine_bins(
+            summary = self._refine_bins_for_policy(
                 strat.bin_summary_,
                 min_er_delta=self.min_event_rate_diff,
                 trend=None,
                 time_col=None,
                 check_stability=False,
             )
-            summary = summary[
-                (summary["count"] > 0)
-                & (~summary["bin"].astype(str).str.lower().isin(["total", "special", "missing"]))
-                & (summary["bin"] != summary["variable"])
-                & (summary["bin"] != "")
-            ].reset_index(drop=True)
+            summary = self._filter_fitted_summary(summary)
             summary = summary.sort_values("event_rate", ascending=False).reset_index(drop=True)
             summary = self._prepare_binning_summary(summary)
 
@@ -2203,6 +2530,7 @@ class Binner(BaseEstimator, TransformerMixin):
         self._compute_iv_metrics()
         self._refresh_min_n_bins_metadata()
         self.fit_profile_ = self._build_fit_profile(X_features, y)
+        self._build_missing_audit_from_fit(X_features, y, backend="pandas")
         self._refresh_reference_profile()
         if validate:
             self.fit_validation_report_ = self._build_fit_validation_report()
@@ -2251,6 +2579,7 @@ class Binner(BaseEstimator, TransformerMixin):
             copy=copy,
         )
         X = self._coerce_force_numeric_columns(X, columns=selected_columns)
+        self._check_missing_policy_pandas(X, selected_columns, context="transform")
 
         out = {}
         for col in selected_columns:
