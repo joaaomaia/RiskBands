@@ -31,6 +31,10 @@ export default defineConfig({
           label: 'Português (Brasil)',
           lang: 'pt-BR',
         },
+        en: {
+          label: 'English',
+          lang: 'en',
+        },
       },
       lastUpdated: true,
       social: [
@@ -121,41 +125,86 @@ export default defineConfig({
       sidebar: [
         {
           label: 'Porta técnica',
+          translations: { en: 'Technical guide' },
           items: [
-            { label: 'Instalação', link: '/technical/installation/' },
-            { label: 'Quickstart', link: '/technical/quickstart/' },
-            { label: 'Score e estratégias', link: '/technical/score-strategy/' },
-            { label: 'Missing policy', link: '/technical/missing-policy/' },
-            { label: 'Outputs e diagnóstico', link: '/technical/outputs/' },
-            { label: 'Auditoria e plots', link: '/technical/audit-and-plots/' },
-            { label: 'Optuna', link: '/technical/optuna/' },
-            { label: 'Visão geral da API', link: '/technical/api-overview/' },
-            { label: 'Exemplos', link: '/technical/examples/' },
+            { label: 'Instalação', translations: { en: 'Installation' }, slug: 'technical/installation' },
+            { label: 'Quickstart', slug: 'technical/quickstart' },
+            {
+              label: 'Score e estratégias',
+              translations: { en: 'Score and strategies' },
+              slug: 'technical/score-strategy',
+            },
+            { label: 'Missing policy', slug: 'technical/missing-policy' },
+            {
+              label: 'Outputs e diagnóstico',
+              translations: { en: 'Outputs and diagnostics' },
+              slug: 'technical/outputs',
+            },
+            {
+              label: 'Auditoria e plots',
+              translations: { en: 'Audit and plots' },
+              slug: 'technical/audit-and-plots',
+            },
+            { label: 'Optuna', slug: 'technical/optuna' },
+            {
+              label: 'Visão geral da API',
+              translations: { en: 'API overview' },
+              slug: 'technical/api-overview',
+            },
+            { label: 'Exemplos', translations: { en: 'Examples' }, slug: 'technical/examples' },
           ],
         },
         {
           label: 'Porta metodológica',
+          translations: { en: 'Methodology' },
           items: [
-            { label: 'Por que RiskBands', link: '/methodology/why-riskbands/' },
+            {
+              label: 'Por que RiskBands',
+              translations: { en: 'Why RiskBands' },
+              slug: 'methodology/why-riskbands',
+            },
             {
               label: 'Por que não usar apenas OptimalBinning',
-              link: '/methodology/why-not-only-optimal-binning/',
+              translations: { en: 'Why not only OptimalBinning' },
+              slug: 'methodology/why-not-only-optimal-binning',
             },
-            { label: 'Benchmark PD vintage', link: '/methodology/pd-vintage-benchmark/' },
-            { label: 'Como ler os gráficos', link: '/methodology/how-to-read-the-charts/' },
+            {
+              label: 'Benchmark PD vintage',
+              translations: { en: 'PD vintage benchmark' },
+              slug: 'methodology/pd-vintage-benchmark',
+            },
+            {
+              label: 'Como ler os gráficos',
+              translations: { en: 'How to read the charts' },
+              slug: 'methodology/how-to-read-the-charts',
+            },
             {
               label: 'Robustez temporal em risco de crédito',
-              link: '/methodology/temporal-robustness-in-credit-risk/',
+              translations: { en: 'Temporal robustness in credit risk' },
+              slug: 'methodology/temporal-robustness-in-credit-risk',
             },
           ],
         },
         {
           label: 'Projeto',
+          translations: { en: 'Project' },
           items: [
-            { label: 'Release Notes', link: '/reference/release-notes/' },
-            { label: 'Evolução após v1.0.0', link: '/reference/after-v1-0/' },
-            { label: 'Publicações', link: '/reference/publications/' },
-            { label: 'Desenvolvimento', link: '/project/development/' },
+            { label: 'Release Notes', slug: 'reference/release-notes' },
+            {
+              label: 'Evolução após v1.0.0',
+              translations: { en: 'Evolution after v1.0.0' },
+              slug: 'reference/after-v1-0',
+            },
+            {
+              label: 'Publicações',
+              translations: { en: 'Publications' },
+              slug: 'reference/publications',
+            },
+            {
+              label: 'Desenvolvimento',
+              translations: { en: 'Development' },
+              slug: 'project/development',
+            },
           ],
         },
       ],
