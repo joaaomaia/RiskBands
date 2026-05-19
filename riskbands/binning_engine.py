@@ -160,9 +160,19 @@ class Binner(BaseEstimator, TransformerMixin):
         if "missing_policy" in params:
             params["missing_policy"] = self._normalize_missing_policy(params["missing_policy"])
         prospective_missing_policy = params.get("missing_policy", self.missing_policy)
-        if "missing_merge_criterion" in params or "missing_policy" in params:
+        if "missing_merge_criterion" in params:
             params["missing_merge_criterion"] = self._normalize_missing_merge_criterion(
-                params.get("missing_merge_criterion", self.missing_merge_criterion),
+                params["missing_merge_criterion"],
+                missing_policy=prospective_missing_policy,
+            )
+        elif "missing_policy" in params:
+            inherited_criterion = (
+                self.missing_merge_criterion
+                if prospective_missing_policy == _MERGE_MISSING_POLICY
+                else None
+            )
+            params["missing_merge_criterion"] = self._normalize_missing_merge_criterion(
+                inherited_criterion,
                 missing_policy=prospective_missing_policy,
             )
         if "missing_merge_fallback" in params:
@@ -1957,6 +1967,59 @@ class Binner(BaseEstimator, TransformerMixin):
         self.bin_summary = summary.loc[~remove_mask].reset_index(drop=True)
 
     # ------------------------------------------------------------------
+    def _collect_missing_merge_audit_from_child_binners(self) -> bool:
+        if not hasattr(self, "_per_feature_binners") or not self._per_feature_binners:
+            return False
+
+        feature_columns = list(getattr(self, "feature_names_in_", list(self._per_feature_binners)))
+        profile_frames = []
+        decision_frames = []
+        candidate_frames = []
+        merge_map: dict[str, Any] = {}
+        merge_metrics: dict[str, dict[str, Any]] = {}
+
+        for variable in feature_columns:
+            child = self._per_feature_binners.get(variable)
+            if not isinstance(child, Binner) or not child._is_missing_merge_enabled():
+                return False
+            if not hasattr(child, "missing_decision_log_"):
+                return False
+
+            profile = getattr(child, "missing_profile_", pd.DataFrame())
+            if isinstance(profile, pd.DataFrame) and not profile.empty:
+                profile_frames.append(profile.copy(deep=True))
+
+            decision_log = getattr(child, "missing_decision_log_", pd.DataFrame())
+            if isinstance(decision_log, pd.DataFrame) and not decision_log.empty:
+                decision_frames.append(decision_log.copy(deep=True))
+
+            candidates = getattr(child, "missing_merge_candidates_", pd.DataFrame())
+            if isinstance(candidates, pd.DataFrame) and not candidates.empty:
+                candidate_frames.append(candidates.copy(deep=True))
+
+            for key, value in (getattr(child, "missing_merge_map_", {}) or {}).items():
+                merge_map[str(key)] = value
+            for key, value in (getattr(child, "_missing_merge_metrics_", {}) or {}).items():
+                merge_metrics[str(key)] = dict(value) if isinstance(value, dict) else value
+
+        self.missing_profile_ = (
+            pd.concat(profile_frames, ignore_index=True) if profile_frames else pd.DataFrame()
+        )
+        self.missing_decision_log_ = (
+            pd.concat(decision_frames, ignore_index=True) if decision_frames else pd.DataFrame()
+        )
+        self.missing_merge_candidates_ = (
+            pd.concat(candidate_frames, ignore_index=True) if candidate_frames else pd.DataFrame()
+        )
+        self.missing_merge_map_ = merge_map
+        self._missing_merge_metrics_ = merge_metrics
+        self.missing_policy_ = self.missing_policy
+        self.effective_missing_policy_ = self.missing_policy
+        self.missing_merge_criterion_ = self.missing_merge_criterion
+        self.missing_merge_fallback_ = self.missing_merge_fallback
+        return True
+
+    # ------------------------------------------------------------------
     def _transform_pandas_core(
         self,
         X: pd.DataFrame,
@@ -2110,17 +2173,18 @@ class Binner(BaseEstimator, TransformerMixin):
         backend: str,
     ) -> None:
         if self._is_missing_merge_enabled():
-            pre_transformed = self._transform_pandas_core(
-                X_features,
-                list(getattr(self, "feature_names_in_", X_features.columns)),
-            )
-            pre_profile = self._build_profile_from_transformed(pre_transformed, y)
-            self._build_missing_merge_audit_from_fit(
-                X_features,
-                y,
-                pre_profile,
-                backend=backend,
-            )
+            if not self._collect_missing_merge_audit_from_child_binners():
+                pre_transformed = self._transform_pandas_core(
+                    X_features,
+                    list(getattr(self, "feature_names_in_", X_features.columns)),
+                )
+                pre_profile = self._build_profile_from_transformed(pre_transformed, y)
+                self._build_missing_merge_audit_from_fit(
+                    X_features,
+                    y,
+                    pre_profile,
+                    backend=backend,
+                )
             merged_fit_profile = self._build_fit_profile(X_features, y)
             self._apply_missing_merge_to_bin_summary(merged_profile=merged_fit_profile)
             self._compute_iv_metrics()
