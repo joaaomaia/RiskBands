@@ -102,8 +102,13 @@ OPTIONAL_BUNDLE_PROFILE_FIELDS = (
     "data_schema",
     "missing_policy",
     "effective_missing_policy",
+    "missing_merge_criterion",
+    "missing_merge_fallback",
     "missing_profile",
     "missing_decision_log",
+    "missing_merge_candidates",
+    "missing_merge_map",
+    "missing_transform_fallback_log",
 )
 
 
@@ -574,6 +579,12 @@ def build_variable_audit_report(
             dataset_name,
             diagnostics.attrs.get("dataset") if diagnostics is not None else None,
         )
+        missing_decision_row = {}
+        missing_decision_log = getattr(binner, "missing_decision_log_", None)
+        if missing_decision_log is not None and not missing_decision_log.empty:
+            missing_match = missing_decision_log.loc[missing_decision_log["variable"] == variable]
+            if not missing_match.empty:
+                missing_decision_row = missing_match.iloc[0].to_dict()
 
         row = {
             "dataset": dataset_value,
@@ -650,6 +661,28 @@ def build_variable_audit_report(
                 objective_config.get("woe_shrinkage_strength"),
                 default=getattr(binner, "woe_shrinkage_strength", np.nan),
             ),
+            "missing_policy": getattr(binner, "missing_policy_", getattr(binner, "missing_policy", "standard")),
+            "effective_missing_policy": getattr(
+                binner,
+                "effective_missing_policy_",
+                getattr(binner, "missing_policy_", getattr(binner, "missing_policy", "standard")),
+            ),
+            "missing_merge_criterion": getattr(
+                binner,
+                "missing_merge_criterion_",
+                getattr(binner, "missing_merge_criterion", None),
+            ),
+            "missing_merge_fallback": getattr(
+                binner,
+                "missing_merge_fallback_",
+                getattr(binner, "missing_merge_fallback", None),
+            ),
+            "missing_merge_action": missing_decision_row.get("action"),
+            "missing_merge_status": missing_decision_row.get("status"),
+            "missing_merged_into": missing_decision_row.get("selected_bin_label"),
+            "missing_original_n": missing_decision_row.get("n_missing_fit"),
+            "missing_original_event_rate": missing_decision_row.get("event_rate_missing_fit"),
+            "missing_merge_distance": missing_decision_row.get("distance"),
         }
 
         for column in BASE_COMPONENT_COLUMNS:
@@ -932,6 +965,16 @@ def build_binner_metadata(
             "effective_missing_policy_",
             getattr(binner, "missing_policy_", getattr(binner, "missing_policy", "standard")),
         ),
+        "missing_merge_criterion": getattr(
+            binner,
+            "missing_merge_criterion_",
+            getattr(binner, "missing_merge_criterion", None),
+        ),
+        "missing_merge_fallback": getattr(
+            binner,
+            "missing_merge_fallback_",
+            getattr(binner, "missing_merge_fallback", None),
+        ),
         "objective_direction": objective_direction,
         "normalization_strategy": normalization_strategy,
         "woe_shrinkage_strength": (
@@ -983,7 +1026,7 @@ def _normalize_loaded_missing_policy(value: Any) -> str:
     text = str(value)
     if text == "legacy":
         return "standard"
-    if text in {"standard", "separate_bin", "forbid"}:
+    if text in {"standard", "separate_bin", "forbid", "merge"}:
         return text
     return text
 
@@ -1082,8 +1125,13 @@ def load_bundle(path: PathLike) -> dict[str, Any]:
         "validation_report": manifest.get("validation_report"),
         "missing_policy": manifest.get("missing_policy"),
         "effective_missing_policy": manifest.get("effective_missing_policy"),
+        "missing_merge_criterion": manifest.get("missing_merge_criterion"),
+        "missing_merge_fallback": manifest.get("missing_merge_fallback"),
         "missing_profile": manifest.get("missing_profile"),
         "missing_decision_log": manifest.get("missing_decision_log"),
+        "missing_merge_candidates": manifest.get("missing_merge_candidates"),
+        "missing_merge_map": manifest.get("missing_merge_map"),
+        "missing_transform_fallback_log": manifest.get("missing_transform_fallback_log"),
     }
 
 
@@ -1189,6 +1237,12 @@ def export_binner_bundle(binner: Binner, path: PathLike) -> Path:
     diagnostics_variable = _resolve_optional_table(binner, kind="variable")
     missing_profile = getattr(binner, "missing_profile_", pd.DataFrame())
     missing_decision_log = getattr(binner, "missing_decision_log_", pd.DataFrame())
+    missing_merge_candidates = getattr(binner, "missing_merge_candidates_", pd.DataFrame())
+    missing_transform_fallback_log = getattr(
+        binner,
+        "missing_transform_fallback_log_",
+        pd.DataFrame(),
+    )
 
     _write_csv(summary, target_dir / "summary.csv")
     _write_csv(score_details, target_dir / "score_details.csv")
@@ -1202,6 +1256,10 @@ def export_binner_bundle(binner: Binner, path: PathLike) -> Path:
         _write_csv(missing_profile, target_dir / "missing_profile.csv")
     if missing_decision_log is not None and not missing_decision_log.empty:
         _write_csv(missing_decision_log, target_dir / "missing_decision_log.csv")
+    if missing_merge_candidates is not None and not missing_merge_candidates.empty:
+        _write_csv(missing_merge_candidates, target_dir / "missing_merge_candidates.csv")
+    if missing_transform_fallback_log is not None and not missing_transform_fallback_log.empty:
+        _write_csv(missing_transform_fallback_log, target_dir / "missing_transform_fallback_log.csv")
     _write_csv(report, target_dir / "report.csv")
 
     feature_dir = target_dir / "feature_tables"
@@ -1257,6 +1315,16 @@ def export_binner_bundle(binner: Binner, path: PathLike) -> Path:
             "missing_decision_log_csv": (
                 "missing_decision_log.csv"
                 if missing_decision_log is not None and not missing_decision_log.empty
+                else None
+            ),
+            "missing_merge_candidates_csv": (
+                "missing_merge_candidates.csv"
+                if missing_merge_candidates is not None and not missing_merge_candidates.empty
+                else None
+            ),
+            "missing_transform_fallback_log_csv": (
+                "missing_transform_fallback_log.csv"
+                if missing_transform_fallback_log is not None and not missing_transform_fallback_log.empty
                 else None
             ),
             "feature_tables": feature_artifacts,
@@ -1333,6 +1401,12 @@ def _save_excel(binner: Binner, path: Path) -> None:
         missing_decision_log = getattr(binner, "missing_decision_log_", None)
         if missing_decision_log is not None and not missing_decision_log.empty:
             missing_decision_log.to_excel(writer, sheet_name="missing_decisions", index=False)
+        missing_merge_candidates = getattr(binner, "missing_merge_candidates_", None)
+        if missing_merge_candidates is not None and not missing_merge_candidates.empty:
+            missing_merge_candidates.to_excel(writer, sheet_name="missing_merge_candidates", index=False)
+        missing_transform_log = getattr(binner, "missing_transform_fallback_log_", None)
+        if missing_transform_log is not None and not missing_transform_log.empty:
+            missing_transform_log.to_excel(writer, sheet_name="missing_transform_log", index=False)
 
 
 # ------------------------------------------------------------------ #
@@ -1357,10 +1431,20 @@ def _save_json(binner: Binner, path: Path) -> None:
         info["missing_policy"] = _json_safe(binner.missing_policy_)
     if getattr(binner, "effective_missing_policy_", None) is not None:
         info["effective_missing_policy"] = _json_safe(binner.effective_missing_policy_)
+    if getattr(binner, "missing_merge_criterion_", None) is not None:
+        info["missing_merge_criterion"] = _json_safe(binner.missing_merge_criterion_)
+    if getattr(binner, "missing_merge_fallback_", None) is not None:
+        info["missing_merge_fallback"] = _json_safe(binner.missing_merge_fallback_)
     if getattr(binner, "missing_profile_", None) is not None:
         info["missing_profile"] = _json_safe(binner.missing_profile_)
     if getattr(binner, "missing_decision_log_", None) is not None:
         info["missing_decision_log"] = _json_safe(binner.missing_decision_log_)
+    if getattr(binner, "missing_merge_candidates_", None) is not None:
+        info["missing_merge_candidates"] = _json_safe(binner.missing_merge_candidates_)
+    if getattr(binner, "missing_merge_map_", None) is not None:
+        info["missing_merge_map"] = _json_safe(binner.missing_merge_map_)
+    if getattr(binner, "missing_transform_fallback_log_", None) is not None:
+        info["missing_transform_fallback_log"] = _json_safe(binner.missing_transform_fallback_log_)
     pivot = getattr(binner, "_pivot_", None)
     if pivot is not None:
         info["pivot_event_rate"] = _json_ready_records(pivot.reset_index())
@@ -1375,5 +1459,3 @@ def _save_json(binner: Binner, path: Path) -> None:
         info["variable_audit_report"] = _json_ready_records(audit)
     info["binnings_artifact"] = build_binnings_json_artifact(binner)
     path.write_text(json.dumps(_json_safe(info), indent=2, ensure_ascii=False), encoding="utf-8")
-
-
