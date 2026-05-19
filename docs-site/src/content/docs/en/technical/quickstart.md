@@ -63,74 +63,42 @@ need to audit missing values explicitly, use `missing_policy="separate_bin"`.
 When missing values must be blocked before binning, use
 `missing_policy="forbid"`.
 
-These policies do not perform opaque imputation and do not include merge
-policies.
+When missing should remain audited but be routed to a regular bin, use
+`missing_policy="merge"` with `missing_merge_criterion="nearest_event_rate"` or
+`missing_merge_criterion="nearest_woe"`.
+
+These policies do not perform opaque imputation. In merge mode, the rule is
+learned during `fit` and reused during `transform`, without retargeting from
+application data.
 
 For complete pandas and PySpark examples, see
 [Missing policy](../missing-policy/).
-
-## Why this flow is friendlier
-
-It follows familiar conventions:
-
-- `fit(...)`
-- `transform(...)`
-- `fit_transform(...)`
-- pandas `DataFrame` and `Series` as the first option
-- short tables for notebooks before opening full detail
-
-It also avoids requiring you to assemble pivots, bundles, or internal
-dictionaries at the beginning.
 
 ## What to look at first
 
 ### `summary()`
 
-This is the best first stop after fitting.
-
-Use it when you want to answer quickly:
-
-- how many bins were kept?
-- what was the IV?
-- which score strategy is active?
-- are there relevant temporal warnings?
+The best first stop after fitting: bins, IV, score strategy, and temporal
+warnings.
 
 ### `score_table()`
 
-This is the shortest reading for explaining the objective.
-
-It helps inspect:
-
-- final score
-- comparison score
-- objective direction
-- weights used
-- the most relevant components and penalties
+Short reading for final score, comparison score, objective direction, weights,
+and the most relevant components.
 
 ### `audit_table()`
 
-This is the consolidated view for auditable review.
-
-It combines:
-
-- final cuts
-- score
-- coverage
-- rare bins
-- reversals
-- summarized rationale
+Consolidated view for auditable review: final cuts, score, coverage, rare bins,
+reversals, and summarized rationale.
 
 ## When to use `stable`
 
-For a new user, `stable` is usually the best public strategy to start with
-when:
+For a new user, `stable` is usually the best public strategy to start with when
+a temporal column exists, stability matters, and you want to balance separation
+and robustness.
 
-- a temporal column exists
-- stability really matters
-- you want to balance separation and robustness
-
-If you need to reproduce a more historical behavior or compare against the
-previous approach, use `standard`.
+If you need to reproduce a historical behavior or compare against the previous
+approach, use `standard`.
 
 ## Next steps
 

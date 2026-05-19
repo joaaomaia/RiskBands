@@ -2,8 +2,8 @@
 
 Este guia explica como usar `missing_policy` no RiskBands em fluxos pandas e
 PySpark, com foco em risco de credito, auditabilidade e revisao defensavel do
-binning. Ele complementa o contrato tecnico da v2.2.0 e prepara a trilha
-docs-only v2.2.0 documentation update.
+binning. Ele reflete a preparacao da v2.3.0 para merge auditavel de missing
+values, sem afirmar publicacao.
 
 ## Por que missing values importam
 
@@ -35,6 +35,7 @@ Valores aceitos:
 | `standard` | Preserva o comportamento compativel atual. | Quando voce precisa manter compatibilidade com fluxos existentes. | E o default. |
 | `separate_bin` | Cria um bin explicito `Missing` quando ha missing nas features selecionadas. | Quando missing pode carregar sinal de risco e precisa aparecer no reporting. | Recomendado para analise auditavel de missing. |
 | `forbid` | Falha em `fit` ou `transform` se houver missing nas features selecionadas. | Quando a governanca exige que dados ausentes sejam tratados antes do binning. | Nao corrige os dados; bloqueia o fluxo. |
+| `merge` | Aprende no `fit` um bin regular de destino para o grupo missing. | Quando missing deve ser auditado, mas roteado para o bin mais parecido. | Requer `missing_merge_criterion`. |
 
 `legacy` nao e recomendacao nova para `missing_policy`. Quando aparecer em
 metadados antigos, ele e tratado como compatibilidade historica e normalizado
@@ -86,6 +87,46 @@ Use quando:
 - o time de model risk quer revisar se missing deve ficar separado no scorecard.
 
 Essa politica nao faz imputacao opaca. Ela separa missing como bin observavel.
+
+## `merge`
+
+`merge` e uma politica opt-in para pandas. Ela primeiro trata missing como grupo
+observavel no `fit`, depois escolhe um bin regular de destino com criterio
+explicito e auditavel.
+
+```python
+binner = RiskBands(
+    max_bins=4,
+    missing_policy="merge",
+    missing_merge_criterion="nearest_event_rate",
+    missing_merge_fallback="separate_bin",
+)
+```
+
+Os criterios suportados sao:
+
+- `nearest_event_rate`: escolhe o bin regular cuja taxa de evento no fit fica
+  mais perto da taxa de evento do grupo missing.
+- `nearest_woe`: escolhe o bin regular cujo WoE no fit fica mais perto do WoE
+  do grupo missing.
+
+Use `nearest_event_rate` quando a revisao quer explicar a decisao em termos de
+taxa de evento observada. Use `nearest_woe` quando a similaridade do scorecard
+deve seguir a escala WoE ja usada no binner.
+
+`missing_merge_fallback` controla missing que aparece no `transform` sem uma
+decisao aprendida no `fit`:
+
+- `separate_bin`: retorna `Missing` para esses valores.
+- `raise`: falha com erro claro.
+
+O `transform(...)` nunca aprende uma nova regra de merge. Ele usa apenas
+`missing_merge_map_`, aprendido no `fit`, e nao usa target, event rate, WoE ou
+distribuicao da base de aplicacao para retargeting.
+
+Com `return_woe=True`, missing values roteados por merge recebem o WoE do bin de
+destino aprendido. Se nao houve destino aprendido e o fallback gerou `Missing`,
+nao ha WoE ajustado para esse novo label e o metodo falha com erro claro.
 
 ## `forbid`
 
@@ -142,6 +183,11 @@ print(df_binned.head())
 print(binner.missing_profile_)
 print(binner.missing_decision_log_)
 ```
+
+O mesmo exemplo tambem roda `missing_policy="merge"` com
+`missing_merge_criterion="nearest_event_rate"` e
+`missing_merge_criterion="nearest_woe"`, imprime `missing_merge_candidates_` e
+faz roundtrip de bundle para confirmar persistencia dos campos de merge.
 
 ## Exemplo PySpark
 
@@ -205,6 +251,10 @@ decisions = binner.missing_decision_log_
 - `effective_missing_policy`
 - `missing_profile`
 - `missing_decision_log`
+- `missing_merge_criterion`
+- `missing_merge_fallback`
+- `missing_merge_candidates`
+- `missing_merge_map`
 
 ```python
 from riskbands.reporting import load_bundle
@@ -221,12 +271,13 @@ compatibilidade.
 
 ## O que ainda nao existe
 
-Esta sprint nao implementa novas politicas nem muda o comportamento do core.
-Ainda nao existem:
+Na preparacao v2.3.0, o escopo e propositalmente estreito. Ainda nao existem:
 
-- merge policies auditaveis para unir o bin missing a outro bin;
+- `temporal_stable` como criterio de merge;
+- `monotonic_neighbor` como criterio de merge;
+- criterios de merge alem de `nearest_event_rate` e `nearest_woe`;
+- PySpark merge completo;
 - imputacao inteligente dentro do RiskBands;
-- similaridade comportamental automatica para decidir destino de missing;
 - backend Spark distribuido completo para o fitting estatistico.
 
 Esses itens devem ser tratados como pesquisa ou trabalho futuro, nunca como

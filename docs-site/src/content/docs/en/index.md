@@ -27,7 +27,7 @@ features:
     description: Learn how to interpret `summary()`, `report()`, `score_details()`, `diagnostics()`, and `binning_table()`.
     link: ./technical/outputs/
   - title: Auditable missing values
-    description: Use `standard`, `separate_bin`, or `forbid` without opaque imputation and with a persisted audit trail in bundles.
+    description: Use `standard`, `separate_bin`, `forbid`, or `merge` without opaque imputation and with a persisted audit trail in bundles.
     link: ./technical/missing-policy/
   - title: API overview
     description: See the public surface for onboarding, audit, temporal reading, exports, and public plots.

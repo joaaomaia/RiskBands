@@ -98,7 +98,7 @@ distance metric, event-rate distance, and WOE distance.
 
 ## PySpark Boundary
 
-PySpark merge remains intentionally unsupported in E2. Fit or transform with
+PySpark merge remains intentionally unsupported in v2.3.0. Fit or transform with
 `missing_policy="merge"` raises a clear `NotImplementedError` for both
 `nearest_event_rate` and `nearest_woe`. Existing PySpark behavior for
 `separate_bin` and `forbid` remains covered by regression tests.

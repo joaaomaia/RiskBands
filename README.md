@@ -187,10 +187,25 @@ no binning:
   categorico.
 - `forbid` falha em `fit` ou `transform` quando houver missing nas features
   selecionadas.
+- `merge` e opt-in para unir o grupo missing a um bin regular aprendido no
+  `fit`, preservando a trilha auditavel.
+
+Com `missing_policy="merge"`, escolha explicitamente o criterio:
+
+- `missing_merge_criterion="nearest_event_rate"` escolhe o bin regular com
+  menor distancia absoluta de event rate em relacao ao grupo missing no fit.
+- `missing_merge_criterion="nearest_woe"` escolhe o bin regular com menor
+  distancia absoluta de WoE em relacao ao grupo missing no fit.
+
+`missing_merge_fallback="separate_bin"` mantem missing novo de transform como
+`Missing` quando nao houve decisao aprendida no fit. `missing_merge_fallback="raise"`
+falha nesse caso.
 
 Bundles novos persistem `missing_policy`, `effective_missing_policy`,
-`missing_profile` e `missing_decision_log`. Bundles antigos sem esses campos
-carregam como `standard`.
+`missing_profile`, `missing_decision_log`, `missing_merge_criterion`,
+`missing_merge_fallback`, `missing_merge_candidates` e `missing_merge_map`
+quando esses campos existem. Bundles antigos sem esses campos carregam como
+`standard`, com campos de merge ausentes como `None`.
 
 Guia dedicado:
 [docs/missing_policy_user_guide.md](docs/missing_policy_user_guide.md) ou
@@ -214,28 +229,60 @@ print(binner.missing_profile_)
 print(binner.missing_decision_log_)
 ```
 
+Exemplo de merge auditavel:
+
+```python
+binner = RiskBands(
+    max_bins=4,
+    missing_policy="merge",
+    missing_merge_criterion="nearest_event_rate",
+    missing_merge_fallback="separate_bin",
+)
+
+binner.fit(df, y="target", column="score")
+df_binned = binner.transform(df[["score"]])
+
+print(binner.missing_profile_)
+print(binner.missing_decision_log_)
+print(binner.missing_merge_candidates_)
+```
+
+Troque o criterio para `missing_merge_criterion="nearest_woe"` quando a
+similaridade por WoE for mais alinhada a revisao do scorecard. Em ambos os
+casos, a decisao e aprendida somente no `fit`; `transform(...)` nao recalcula
+destino usando a base de aplicacao.
+
 Exemplos executaveis:
 
 - `python examples/missing_policy/missing_policy_pandas_demo.py`
 - `python examples/missing_policy/missing_policy_pyspark_demo.py`
 
-## Destaques da versao 2.2.0
+## Destaques da versao 2.3.0
 
-A versao 2.2.0 consolida a politica auditavel de missing values:
+A versao 2.3.0 prepara a release de merge auditavel de missing values:
 
 - `missing_policy="standard"` permanece como default compativel.
 - `missing_policy="separate_bin"` cria bin explicito `Missing` quando essa escolha
   for intencional.
 - `missing_policy="forbid"` falha quando missing values devem ser tratados antes
   do binning.
+- `missing_policy="merge"` permite unir o grupo missing a um bin regular usando
+  `nearest_event_rate` ou `nearest_woe`.
+- `missing_merge_fallback` controla o comportamento quando missing aparece no
+  transform sem uma decisao aprendida no fit.
+- `missing_profile_`, `missing_decision_log_`, `missing_merge_candidates_` e
+  `missing_merge_map_` preservam a auditoria do merge.
+- `return_woe=True` em pandas usa o WoE do bin de destino aprendido.
+- bundles e reporting persistem criterio, fallback, candidatos e mapa de merge.
 - `standard` e o nome canonico do score historico; `legacy` segue como alias
   compativel.
 - pandas e PySpark seguem suportados, com PySpark opcional via
   `riskbands[spark]` e restrito a `pyspark>=3.5,<4`.
 - bundles antigos seguem carregando como `standard` quando nao possuem os novos
-  campos de missing policy.
+  campos de missing policy ou missing merge.
 
-Fora do escopo desta versao: merge policies, imputacao inteligente opaca e um
+Fora do escopo desta versao: `temporal_stable`, `monotonic_neighbor`, PySpark
+merge completo, criterios adicionais de merge, imputacao inteligente opaca e um
 backend Spark distribuido completo para fitting.
 
 ## Export auditavel e supply chain

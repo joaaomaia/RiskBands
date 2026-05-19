@@ -93,7 +93,7 @@ Bundle export and JSON/Excel report paths persist the merge audit fields.
 
 ## PySpark Boundary
 
-E1 does not implement PySpark merge routing. PySpark fit or transform with
+v2.3.0 does not implement PySpark merge routing. PySpark fit or transform with
 `missing_policy="merge"` raises:
 
 ```text

@@ -1,6 +1,6 @@
 ---
 title: "Missing policy"
-description: "How to use standard, separate_bin, and forbid to handle missing values with an auditable trail in RiskBands."
+description: "How to use standard, separate_bin, forbid, and merge to handle missing values with an auditable trail in RiskBands."
 ---
 
 ## Core idea
@@ -25,9 +25,40 @@ binner = RiskBands(missing_policy="separate_bin")
 | `standard` | Preserves the current compatible behavior. | Reproducing existing flows and compatibility. |
 | `separate_bin` | Creates an explicit `Missing` bin for missing values in selected features. | Auditable analysis of missing values as their own group. |
 | `forbid` | Fails during `fit` or `transform` when missing values are found. | Governance that requires upstream treatment before binning. |
+| `merge` | Learns a regular destination bin for the missing group during `fit`. | When missing should remain audited but be routed to the closest bin. |
 
 `legacy` may appear in old metadata for compatibility, but it is not a new
 recommendation. The current canonical name is `standard`.
+
+## Auditable merge
+
+`missing_policy="merge"` is opt-in and requires an explicit criterion:
+
+```python
+binner = RiskBands(
+    missing_policy="merge",
+    missing_merge_criterion="nearest_event_rate",
+    missing_merge_fallback="separate_bin",
+)
+```
+
+```python
+binner = RiskBands(
+    missing_policy="merge",
+    missing_merge_criterion="nearest_woe",
+    missing_merge_fallback="raise",
+)
+```
+
+`nearest_event_rate` selects the regular bin with the smallest absolute event-rate
+distance from the missing group during fit. `nearest_woe` uses the smallest
+absolute WoE distance from the same fit profile.
+
+Merge is not opaque imputation. The decision is stored in
+`missing_decision_log_`, candidates are stored in `missing_merge_candidates_`,
+and the learned routing map is stored in `missing_merge_map_`. `transform(...)`
+uses only the fit-time decision; it does not learn a new rule from application
+data.
 
 ## pandas example
 
@@ -120,6 +151,10 @@ the action taken per variable.
 - `effective_missing_policy`
 - `missing_profile`
 - `missing_decision_log`
+- `missing_merge_criterion`
+- `missing_merge_fallback`
+- `missing_merge_candidates`
+- `missing_merge_map`
 
 ```python
 from riskbands.reporting import load_bundle
@@ -135,13 +170,13 @@ Old bundles without these fields continue to load as `standard`.
 
 ## What is not implemented
 
-This page documents the current contract. It does not announce new features.
+This page documents the current contract. There are not yet:
 
-There are not yet:
-
-- auditable merge policies to merge the missing bin into another bin;
+- `temporal_stable` as a merge criterion;
+- `monotonic_neighbor` as a merge criterion;
+- merge criteria beyond `nearest_event_rate` and `nearest_woe`;
+- complete PySpark merge support;
 - intelligent imputation inside RiskBands;
-- automatic behavioral similarity for missing values;
 - fully distributed statistical fitting in Spark.
 
 RiskBands helps make the decision defensible and auditable, but it does not
