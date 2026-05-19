@@ -8,7 +8,7 @@ from tests.test_missing_values_pyspark_current_behavior import install_to_pandas
 pytestmark = pytest.mark.spark
 pytest_plugins = ["tests.test_missing_values_pyspark_current_behavior"]
 
-SPARK_MERGE_MESSAGE = 'missing_policy="merge" with PySpark is not implemented in this release'
+SPARK_MERGE_MESSAGE = 'missing_policy="merge" with PySpark fit is not implemented in this release'
 
 
 def _numeric_spark_frame(spark_session, rows):
@@ -64,7 +64,7 @@ def test_merge_spark_boundary_fails_before_collecting_data(spark_session, monkey
         ).fit(sdf, y="target", column="score")
 
 
-def test_merge_pandas_fit_spark_transform_fails_explicitly(spark_session):
+def test_merge_pandas_fit_spark_transform_is_allowed(spark_session):
     binner = RiskBands(
         missing_policy="merge",
         missing_merge_criterion="nearest_event_rate",
@@ -72,11 +72,13 @@ def test_merge_pandas_fit_spark_transform_fails_explicitly(spark_session):
     ).fit(make_numeric_missing_frame(), y="target", column="score")
     sdf = _numeric_spark_frame(spark_session, [(1.0, 0), (None, 1)])
 
-    with pytest.raises(NotImplementedError, match=SPARK_MERGE_MESSAGE):
-        binner.transform(sdf, column="score")
+    transformed = binner.transform(sdf, column="score")
+
+    assert transformed.__class__.__module__.startswith("pyspark")
+    assert "Missing" not in transformed.toPandas()["score"].tolist()
 
 
-def test_merge_nearest_woe_pandas_fit_spark_transform_fails_explicitly(spark_session):
+def test_merge_nearest_woe_pandas_fit_spark_transform_is_allowed(spark_session):
     binner = RiskBands(
         missing_policy="merge",
         missing_merge_criterion="nearest_woe",
@@ -84,8 +86,10 @@ def test_merge_nearest_woe_pandas_fit_spark_transform_fails_explicitly(spark_ses
     ).fit(make_numeric_missing_frame(), y="target", column="score")
     sdf = _numeric_spark_frame(spark_session, [(1.0, 0), (None, 1)])
 
-    with pytest.raises(NotImplementedError, match=SPARK_MERGE_MESSAGE):
-        binner.transform(sdf, column="score")
+    transformed = binner.transform(sdf, column="score")
+
+    assert transformed.__class__.__module__.startswith("pyspark")
+    assert "Missing" not in transformed.toPandas()["score"].tolist()
 
 
 def test_separate_bin_spark_transform_still_works(spark_session):
