@@ -1230,7 +1230,12 @@ def _try_write_parquet(df: pd.DataFrame, path: Path) -> bool:
         return False
 
 
-def export_binner_bundle(binner: Binner, path: PathLike) -> Path:
+def export_binner_bundle(
+    binner: Binner,
+    path: PathLike,
+    *,
+    include_audit_report: bool = True,
+) -> Path:
     target_dir = Path(path)
     target_dir.mkdir(parents=True, exist_ok=True)
 
@@ -1335,6 +1340,7 @@ def export_binner_bundle(binner: Binner, path: PathLike) -> Path:
                 if missing_transform_fallback_log is not None and not missing_transform_fallback_log.empty
                 else None
             ),
+            "audit_report_html": "audit_report.html" if include_audit_report else None,
             "feature_tables": feature_artifacts,
             "optional_parquet": written_optional,
         },
@@ -1345,6 +1351,14 @@ def export_binner_bundle(binner: Binner, path: PathLike) -> Path:
         json.dumps(_json_safe(manifest), indent=2, ensure_ascii=False),
         encoding="utf-8",
     )
+    if include_audit_report:
+        from .audit_report import export_audit_report_html
+
+        export_audit_report_html(
+            binner,
+            target_dir / "audit_report.html",
+            bundle_path=target_dir,
+        )
     return target_dir
 
 

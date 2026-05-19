@@ -65,7 +65,8 @@ Common methods:
 - `feature_binning_table(column=None, feature=None)`
 - `get_binning_table(column=None, feature=None)`
 - `export_binnings_json(path)`
-- `export_bundle(path)`
+- `export_audit_report(path, title=None, dataset_name=None)`
+- `export_bundle(path, include_audit_report=True)`
 - `plot_event_rate_stability(pivot=None, **kwargs)`
 - `plot_bad_rate_over_time(X=None, y=None, time_col=None, column=None, ...)`
 - `plot_bad_rate_heatmap(X=None, y=None, time_col=None, column=None, ...)`
@@ -206,8 +207,19 @@ Main attributes after `fit`:
 - friendly CSV outputs such as `summary.csv`, `score_table.csv`, `audit_table.csv`, and `report.csv`
 - missing audit outputs such as `missing_profile.csv` and `missing_decision_log.csv` when available
 - merge audit outputs such as `missing_merge_candidates.csv` when available
+- `audit_report.html` by default, unless `include_audit_report=False`
 - per-feature tables under `feature_tables/`
 - parquet artifacts when the environment has parquet support available
+
+`export_audit_report(path, title=None, dataset_name=None)` creates a standalone
+HTML narrative report with embedded CSS and no external assets. It explains the
+model configuration, variables, missing policies, missing merge decisions,
+merge candidates, validation alerts, bundle inventory, and known limitations.
+
+The report is print-friendly and can be exported to PDF by the browser. Native
+PDF export is not part of the public API in this release. The report organizes
+evidence and technical decisions, but it does not replace independent formal
+validation or constitute regulatory certification.
 
 ## Credit-Oriented Optimization
 

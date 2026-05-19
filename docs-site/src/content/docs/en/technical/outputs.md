@@ -21,6 +21,7 @@ After fitting a `Binner`, the public API exposes friendly artifacts:
 - `plot_bin_share_over_time()`
 - `plot_score_components()`
 - `export_binnings_json()`
+- `export_audit_report()`
 - `export_bundle()`
 
 Useful post-fit attributes are also available, such as:
@@ -67,8 +68,14 @@ This is the best entry point to investigate:
 `export_binnings_json(path)` generates a single JSON with metadata, score
 weights, bins by feature, summary, score details, and feature-level audit.
 
-`export_bundle(path)` generates readable JSON, CSVs, feature-level tables, and
-optional Parquet when an engine is available.
+`export_audit_report(path)` generates `audit_report.html`: a standalone
+narrative HTML report with embedded CSS, no external assets, print-friendly
+styling, and an audit/model-risk audience.
+
+`export_bundle(path)` generates readable JSON, CSVs, feature-level tables,
+optional Parquet when an engine is available, and `audit_report.html` by
+default. Use `export_bundle(path, include_audit_report=False)` only when the
+bundle must omit the narrative HTML.
 
 Bundles also persist the missing-values trail when available:
 `missing_policy`, `effective_missing_policy`, `missing_profile`,
@@ -86,6 +93,18 @@ to review candidates and distances and `missing_merge_map_` to see the learned
 destination.
 
 Dedicated guide: [Missing policy](../missing-policy/).
+
+## Narrative audit report
+
+`audit_report.html` explains configuration, variables, missing policies, merge
+decisions, evaluated candidates, validation, alerts, bundle inventory, and
+limitations. For merge, the text makes clear that the decision was learned
+during `fit` and reused during `transform`, without recalculating event rate or
+WoE on application data.
+
+The HTML is self-contained and can be printed or exported to PDF by the browser.
+It organizes technical evidence, but it does not replace independent formal
+validation and does not constitute regulatory certification.
 
 ## Fast score reading
 
@@ -105,5 +124,6 @@ score_table = binner.score_table()
 audit_table = binner.audit_table()
 
 binner.export_binnings_json("artifacts/riskbands_binnings.json")
+binner.export_audit_report("artifacts/audit_report.html")
 binner.export_bundle("artifacts/run_2026_04_14")
 ```

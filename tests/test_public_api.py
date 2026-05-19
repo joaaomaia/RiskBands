@@ -26,6 +26,8 @@ def test_public_api_exports_are_importable():
     assert ks_over_time is KsFromSubmodule
     assert psi_over_time is not None
     assert temporal_separability_score is not None
+    assert hasattr(Binner, "export_audit_report")
+    assert hasattr(RiskBands, "export_audit_report")
 
 
 def test_riskbands_preferred_import_styles_construct_equivalent_objects():
