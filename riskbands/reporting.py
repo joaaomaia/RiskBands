@@ -682,7 +682,15 @@ def build_variable_audit_report(
             "missing_merged_into": missing_decision_row.get("selected_bin_label"),
             "missing_original_n": missing_decision_row.get("n_missing_fit"),
             "missing_original_event_rate": missing_decision_row.get("event_rate_missing_fit"),
+            "missing_original_woe": missing_decision_row.get(
+                "missing_woe",
+                missing_decision_row.get("woe_missing_fit"),
+            ),
+            "missing_selected_bin_woe": missing_decision_row.get("selected_bin_woe"),
+            "missing_merge_distance_metric": missing_decision_row.get("distance_metric"),
             "missing_merge_distance": missing_decision_row.get("distance"),
+            "missing_merge_distance_event_rate": missing_decision_row.get("distance_event_rate"),
+            "missing_merge_distance_woe": missing_decision_row.get("distance_woe"),
         }
 
         for column in BASE_COMPONENT_COLUMNS:

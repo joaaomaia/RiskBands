@@ -4,6 +4,7 @@ import pandas as pd
 
 from riskbands import RiskBands
 from tests.test_missing_merge_nearest_event_rate_pandas import fit_numeric_merge
+from tests.test_missing_merge_nearest_woe_pandas import fit_numeric_woe_merge
 from tests.test_missing_values_current_behavior import make_numeric_missing_frame
 
 
@@ -38,6 +39,33 @@ def test_save_report_json_contains_missing_merge_fields(tmp_path):
     assert payload["missing_decision_log"][0]["action"] == "missing_merged"
     assert payload["missing_merge_candidates"][0]["selected"] is True
     assert payload["missing_merge_map"]
+
+
+def test_report_exposes_nearest_woe_distance_fields():
+    binner, _ = fit_numeric_woe_merge()
+
+    report = binner.report()
+    row = report.iloc[0]
+
+    assert row["missing_policy"] == "merge"
+    assert row["missing_merge_criterion"] == "nearest_woe"
+    assert row["missing_merge_distance_metric"] == "abs_woe_diff"
+    assert row["missing_merge_distance_woe"] == binner.missing_decision_log_.iloc[0]["distance_woe"]
+    assert row["missing_original_woe"] == binner.missing_decision_log_.iloc[0]["missing_woe"]
+    assert row["missing_selected_bin_woe"] == binner.missing_decision_log_.iloc[0]["selected_bin_woe"]
+
+
+def test_save_report_json_contains_nearest_woe_fields(tmp_path):
+    binner, _ = fit_numeric_woe_merge()
+    path = tmp_path / "report.json"
+
+    binner.save_report(path)
+    payload = json.loads(path.read_text(encoding="utf-8"))
+
+    assert payload["missing_merge_criterion"] == "nearest_woe"
+    assert payload["missing_decision_log"][0]["distance_metric"] == "abs_woe_diff"
+    assert payload["missing_decision_log"][0]["distance_woe"] is not None
+    assert payload["missing_merge_candidates"][0]["distance_woe"] is not None
 
 
 def test_missing_merge_reporting_does_not_revert_standard_objective_name():
