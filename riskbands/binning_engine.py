@@ -44,9 +44,9 @@ _VALID_MISSING_MERGE_FALLBACKS = {
     _SEPARATE_BIN_MISSING_MERGE_FALLBACK,
     _RAISE_MISSING_MERGE_FALLBACK,
 }
-_PYSPARK_MISSING_MERGE_UNIMPLEMENTED_MESSAGE = (
-    'missing_policy="merge" with PySpark fit is not implemented in this release. '
-    "Fit with pandas first, then use Spark transform with return_woe=False."
+_PYSPARK_MISSING_MERGE_SAMPLED_FIT_CAVEAT = (
+    "missing_policy='merge' Spark fit uses a controlled sampled-to-pandas path; "
+    "the missing merge decision is learned on the sampled fit rows, not on the full Spark DataFrame."
 )
 
 
@@ -466,7 +466,7 @@ class Binner(BaseEstimator, TransformerMixin):
     ) -> None:
         if self.missing_policy == _MERGE_MISSING_POLICY:
             if context == "fit":
-                raise NotImplementedError(_PYSPARK_MISSING_MERGE_UNIMPLEMENTED_MESSAGE)
+                return
             fit_backend = getattr(self, "fit_backend_", None)
             if fit_backend not in {"pandas", "pandas_core"}:
                 raise NotImplementedError(
@@ -587,6 +587,56 @@ class Binner(BaseEstimator, TransformerMixin):
         return sampled, plan
 
     # ------------------------------------------------------------------
+    def _sampled_missing_merge_metadata(
+        self,
+        *,
+        source_rows: int,
+        fit_rows: int,
+        sampling_plan: dict[str, Any],
+    ) -> dict[str, Any]:
+        return {
+            "merge_decision_learned_on_sample": True,
+            "merge_decision_fit_mode": "sampled_to_pandas",
+            "merge_decision_n_rows_source": int(source_rows),
+            "merge_decision_n_rows_fit": int(fit_rows),
+            "merge_decision_sample_size_requested": sampling_plan.get("sample_size_requested"),
+            "merge_decision_sample_size_type": sampling_plan.get("sample_size_type"),
+            "merge_decision_sample_fraction_effective": sampling_plan.get("sample_fraction_effective"),
+            "sampling_caveat": _PYSPARK_MISSING_MERGE_SAMPLED_FIT_CAVEAT,
+        }
+
+    # ------------------------------------------------------------------
+    def _annotate_sampled_missing_merge_artifacts(self, merge_metadata: dict[str, Any]) -> None:
+        if self.missing_policy != _MERGE_MISSING_POLICY:
+            return
+        caveat = str(merge_metadata.get("sampling_caveat") or "")
+        scalar_metadata = {
+            key: value
+            for key, value in merge_metadata.items()
+            if not isinstance(value, (dict, list, tuple, set))
+        }
+        for attr_name in (
+            "missing_profile_",
+            "missing_decision_log_",
+            "missing_merge_candidates_",
+        ):
+            table = getattr(self, attr_name, None)
+            if not isinstance(table, pd.DataFrame) or table.empty:
+                continue
+            annotated = table.copy()
+            for key, value in scalar_metadata.items():
+                annotated[key] = value
+            if "notes" in annotated.columns and caveat:
+                annotated["notes"] = annotated["notes"].map(
+                    lambda value: (
+                        f"{value} Sampling caveat: {caveat}"
+                        if pd.notna(value) and caveat not in str(value)
+                        else value
+                    )
+                )
+            setattr(self, attr_name, annotated)
+
+    # ------------------------------------------------------------------
     def _fit_pyspark(
         self,
         X,
@@ -636,6 +686,9 @@ class Binner(BaseEstimator, TransformerMixin):
 
         sampling_metadata = {
             **sampling_plan,
+            "input_backend": "pyspark",
+            "fit_backend": "pandas_core",
+            "fit_mode": "sampled_to_pandas",
             "sampling_applied": True,
             "sampling_strategy": "random",
             "stratified": False,
@@ -654,6 +707,15 @@ class Binner(BaseEstimator, TransformerMixin):
             "target_name": target_name,
             "time_col": time_col,
         }
+        if self.missing_policy == _MERGE_MISSING_POLICY:
+            merge_metadata = self._sampled_missing_merge_metadata(
+                source_rows=source_rows,
+                fit_rows=fit_rows,
+                sampling_plan=sampling_plan,
+            )
+            sampling_metadata.update(merge_metadata)
+            backend_metadata.update(merge_metadata)
+            self._annotate_sampled_missing_merge_artifacts(merge_metadata)
         self.input_backend_ = "pyspark"
         self.fit_backend_ = "pandas_core"
         self.backend_metadata_ = backend_metadata

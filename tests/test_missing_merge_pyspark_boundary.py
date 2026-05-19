@@ -8,9 +8,6 @@ from tests.test_missing_values_pyspark_current_behavior import install_to_pandas
 pytestmark = pytest.mark.spark
 pytest_plugins = ["tests.test_missing_values_pyspark_current_behavior"]
 
-SPARK_MERGE_MESSAGE = 'missing_policy="merge" with PySpark fit is not implemented in this release'
-
-
 def _numeric_spark_frame(spark_session, rows):
     from pyspark.sql import types as T
 
@@ -23,45 +20,61 @@ def _numeric_spark_frame(spark_session, rows):
     return spark_session.createDataFrame(rows, schema=schema)
 
 
-def test_merge_spark_fit_fails_explicitly(spark_session):
-    sdf = _numeric_spark_frame(spark_session, [(1.0, 0), (None, 1), (3.0, 0), (4.0, 1)])
+def test_merge_spark_fit_nearest_event_rate_is_sampled_to_pandas(spark_session):
+    rows = [(float(idx % 7), int(idx % 2 == 0)) for idx in range(28)]
+    rows.extend([(None, 1), (float("nan"), 0)])
+    sdf = _numeric_spark_frame(spark_session, rows)
 
-    with pytest.raises(NotImplementedError, match=SPARK_MERGE_MESSAGE):
-        RiskBands(
-            missing_policy="merge",
-            missing_merge_criterion="nearest_event_rate",
-        ).fit(sdf, y="target", column="score")
+    binner = RiskBands(
+        sample_size=len(rows),
+        min_event_rate_diff=0.0,
+        missing_policy="merge",
+        missing_merge_criterion="nearest_event_rate",
+    ).fit(sdf, y="target", column="score")
+
+    assert binner.input_backend_ == "pyspark"
+    assert binner.fit_backend_ == "pandas_core"
+    assert binner.backend_metadata_["fit_mode"] == "sampled_to_pandas"
+    assert binner.sampling_metadata_["merge_decision_learned_on_sample"] is True
+    assert binner.missing_merge_map_["score"]
 
 
-def test_merge_nearest_woe_spark_fit_fails_explicitly(spark_session):
-    sdf = _numeric_spark_frame(spark_session, [(1.0, 0), (None, 1), (3.0, 0), (4.0, 1)])
+def test_merge_spark_fit_nearest_woe_is_sampled_to_pandas(spark_session):
+    rows = [(float(idx % 7), int(idx % 3 == 0)) for idx in range(28)]
+    rows.extend([(None, 1), (float("nan"), 0)])
+    sdf = _numeric_spark_frame(spark_session, rows)
 
-    with pytest.raises(NotImplementedError, match=SPARK_MERGE_MESSAGE):
-        RiskBands(
-            missing_policy="merge",
-            missing_merge_criterion="nearest_woe",
-        ).fit(sdf, y="target", column="score")
+    binner = RiskBands(
+        sample_size=len(rows),
+        min_event_rate_diff=0.0,
+        missing_policy="merge",
+        missing_merge_criterion="nearest_woe",
+    ).fit(sdf, y="target", column="score")
+
+    assert binner.input_backend_ == "pyspark"
+    assert binner.fit_backend_ == "pandas_core"
+    assert binner.backend_metadata_["fit_mode"] == "sampled_to_pandas"
+    assert binner.sampling_metadata_["merge_decision_learned_on_sample"] is True
+    assert binner.missing_merge_map_["score"]
 
 
 @pytest.mark.parametrize("criterion", ["nearest_event_rate", "nearest_woe"])
-def test_merge_spark_boundary_fails_before_collecting_data(spark_session, monkeypatch, criterion):
-    sdf = _numeric_spark_frame(spark_session, [(1.0, 0), (None, 1), (3.0, 0), (4.0, 1)])
-    from pyspark.sql import DataFrame as SparkDataFrame
+def test_merge_spark_boundary_records_sampling_caveat(spark_session, criterion):
+    rows = [(float(idx % 5), int(idx % 2 == 0)) for idx in range(18)]
+    rows.extend([(None, 1), (float("nan"), 0)])
+    sdf = _numeric_spark_frame(spark_session, rows)
 
-    def fail_collect(self, *args, **kwargs):
-        raise AssertionError("missing_policy='merge' PySpark boundary should fail before collect")
+    binner = RiskBands(
+        sample_size=len(rows),
+        min_event_rate_diff=0.0,
+        missing_policy="merge",
+        missing_merge_criterion=criterion,
+    ).fit(sdf, y="target", column="score")
 
-    def fail_to_pandas(self, *args, **kwargs):
-        raise AssertionError("missing_policy='merge' PySpark boundary should fail before toPandas")
-
-    monkeypatch.setattr(SparkDataFrame, "collect", fail_collect)
-    monkeypatch.setattr(SparkDataFrame, "toPandas", fail_to_pandas)
-
-    with pytest.raises(NotImplementedError, match=SPARK_MERGE_MESSAGE):
-        RiskBands(
-            missing_policy="merge",
-            missing_merge_criterion=criterion,
-        ).fit(sdf, y="target", column="score")
+    caveat = binner.sampling_metadata_["sampling_caveat"]
+    assert "sampled-to-pandas" in caveat
+    assert binner.missing_decision_log_["merge_decision_learned_on_sample"].eq(True).all()
+    assert binner.missing_decision_log_["sampling_caveat"].eq(caveat).all()
 
 
 def test_merge_pandas_fit_spark_transform_is_allowed(spark_session):

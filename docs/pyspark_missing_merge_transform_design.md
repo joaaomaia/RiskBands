@@ -14,10 +14,22 @@ The missing merge decision is still learned only during pandas fit. Spark transf
 
 Sprint G1B does not add API surface. It hardens the same G1 path with adversarial tests and regression gates around pandas/Spark equivalence, multi-feature transforms, missing detection, validation, bundle metadata, and static source guards.
 
+## G2 sampled-fit status
+
+Sprint G2 adds a narrow fit boundary:
+
+```text
+Spark fit -> controlled sample -> pandas core missing merge -> Spark transform
+```
+
+The missing merge decision is learned on sampled pandas rows, not on the full Spark DataFrame. See `docs/pyspark_missing_merge_sampled_fit_design.md` for the fit-side contract, metadata fields, and caveats.
+
 ## Allowed
 
 - `RiskBands(..., missing_policy="merge").fit(pandas_df, y=...)`
+- `RiskBands(..., missing_policy="merge").fit(spark_df, y=...)` through sampled-to-pandas only
 - `binner.transform(spark_df, return_woe=False)` after the pandas fit
+- `binner.transform(spark_df, return_woe=False)` after the Spark sampled fit
 - `missing_merge_criterion="nearest_event_rate"`
 - `missing_merge_criterion="nearest_woe"`
 - `missing_merge_fallback="separate_bin"`
@@ -28,10 +40,9 @@ Sprint G1B does not add API surface. It hardens the same G1 path with adversaria
 
 ## Still blocked
 
-- Spark fit with `missing_policy="merge"`
 - Spark `return_woe=True`
-- PySpark learning of merge decisions
-- Spark sampled-to-pandas fit with merge enabled
+- Spark-native learning of merge decisions
+- Any implication that sampled merge decisions were learned on the full Spark DataFrame
 
 ## Spark transform semantics
 
@@ -72,6 +83,7 @@ The audit bundle persists:
 - `missing_merge_criterion`
 - `missing_merge_fallback`
 - `missing_merge_map`
+- sampled-fit caveat metadata when Spark fit used sampled-to-pandas
 - missing profile and decision logs
 - missing merge candidate tables
 - Spark transform fallback logs when a fallback error is observed before export
@@ -91,6 +103,5 @@ Collection remains allowed only in named aggregate/profile helpers, such as miss
 
 ## Next steps
 
-- G2: design Spark sampled-to-pandas fit support for merge, if still desired.
-- G3: decide whether a reconstructed callable estimator from bundle is required, separate from the current audit-only `load_bundle(...)` contract.
+- G3: decide whether Spark-native missing merge fit or reconstructed callable estimators from bundle are required.
 - G4: update public docs and release notes only after functional gates are accepted.
