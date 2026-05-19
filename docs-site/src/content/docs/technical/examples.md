@@ -37,6 +37,8 @@ forma auditavel sem imputacao opaca.
 
 - [Demo pandas de missing policy](https://github.com/joaaomaia/RiskBands/blob/main/examples/missing_policy/missing_policy_pandas_demo.py)
 - [Demo PySpark de missing policy](https://github.com/joaaomaia/RiskBands/blob/main/examples/missing_policy/missing_policy_pyspark_demo.py)
+- [Diagnostico comparativo de missing policy](https://github.com/joaaomaia/RiskBands/blob/main/examples/missing_policy/missing_policy_comparison_demo.py)
+- [Exemplo sintetico de credito com missing merge](https://github.com/joaaomaia/RiskBands/blob/main/examples/missing_policy/credit_risk_missing_merge_demo.py)
 
 Eles mostram:
 
@@ -50,6 +52,8 @@ Eles mostram:
 - `missing_merge_candidates_`
 - bundle com campos de missing policy e missing merge
 - guarda opcional para PySpark
+- comparacao entre `standard`, `separate_bin`, `forbid`, `merge + nearest_event_rate` e `merge + nearest_woe`
+- exemplo sintetico de risco de credito sem dados reais
 
 ### PD vintage champion challenger
 
