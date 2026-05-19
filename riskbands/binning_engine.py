@@ -24,12 +24,28 @@ _MAX_PROFILE_ROWS_TO_COLLECT = 100_000
 _STANDARD_MISSING_POLICY = "standard"
 _SEPARATE_BIN_MISSING_POLICY = "separate_bin"
 _FORBID_MISSING_POLICY = "forbid"
+_MERGE_MISSING_POLICY = "merge"
 _LEGACY_POLICY_ALIAS = "legacy"
 _VALID_MISSING_POLICIES = {
     _STANDARD_MISSING_POLICY,
     _SEPARATE_BIN_MISSING_POLICY,
     _FORBID_MISSING_POLICY,
+    _MERGE_MISSING_POLICY,
 }
+_NEAREST_EVENT_RATE_MISSING_MERGE_CRITERION = "nearest_event_rate"
+_VALID_MISSING_MERGE_CRITERIA = {
+    _NEAREST_EVENT_RATE_MISSING_MERGE_CRITERION,
+}
+_SEPARATE_BIN_MISSING_MERGE_FALLBACK = "separate_bin"
+_RAISE_MISSING_MERGE_FALLBACK = "raise"
+_VALID_MISSING_MERGE_FALLBACKS = {
+    _SEPARATE_BIN_MISSING_MERGE_FALLBACK,
+    _RAISE_MISSING_MERGE_FALLBACK,
+}
+_PYSPARK_MISSING_MERGE_UNIMPLEMENTED_MESSAGE = (
+    'missing_policy="merge" with PySpark is not implemented in this release. '
+    'Use pandas fit/transform or missing_policy="separate_bin"/"forbid".'
+)
 
 
 class Binner(BaseEstimator, TransformerMixin):
@@ -51,6 +67,8 @@ class Binner(BaseEstimator, TransformerMixin):
         force_categorical: list[str] | None = None,
         force_numeric: list[str] | None = None,
         missing_policy: str = "standard",
+        missing_merge_criterion: str | None = None,
+        missing_merge_fallback: str = "separate_bin",
         score_strategy: str = "standard",
         score_weights: dict | None = None,
         normalization_strategy: str = "absolute",
@@ -83,8 +101,15 @@ class Binner(BaseEstimator, TransformerMixin):
         self.force_categorical = force_categorical or []
         self.force_numeric = force_numeric or []
         self.missing_policy = self._normalize_missing_policy(missing_policy)
+        self.missing_merge_criterion = self._normalize_missing_merge_criterion(
+            missing_merge_criterion,
+            missing_policy=self.missing_policy,
+        )
+        self.missing_merge_fallback = self._normalize_missing_merge_fallback(missing_merge_fallback)
         self.missing_policy_ = self.missing_policy
         self.effective_missing_policy_ = self.missing_policy
+        self.missing_merge_criterion_ = self.missing_merge_criterion
+        self.missing_merge_fallback_ = self.missing_merge_fallback
         self.objective_kwargs = objective_kwargs or {}
         score_strategy = resolve_score_strategy(score_strategy=score_strategy)
         if "score_strategy" in self.objective_kwargs:
@@ -134,6 +159,16 @@ class Binner(BaseEstimator, TransformerMixin):
             )
         if "missing_policy" in params:
             params["missing_policy"] = self._normalize_missing_policy(params["missing_policy"])
+        prospective_missing_policy = params.get("missing_policy", self.missing_policy)
+        if "missing_merge_criterion" in params or "missing_policy" in params:
+            params["missing_merge_criterion"] = self._normalize_missing_merge_criterion(
+                params.get("missing_merge_criterion", self.missing_merge_criterion),
+                missing_policy=prospective_missing_policy,
+            )
+        if "missing_merge_fallback" in params:
+            params["missing_merge_fallback"] = self._normalize_missing_merge_fallback(
+                params["missing_merge_fallback"]
+            )
         if "min_n_bins" in params:
             params["min_n_bins"] = self._validate_min_n_bins(params["min_n_bins"])
         if "sample_size" in params:
@@ -153,6 +188,8 @@ class Binner(BaseEstimator, TransformerMixin):
         self.monotonic_trend = self.monotonic
         self.missing_policy_ = self.missing_policy
         self.effective_missing_policy_ = self.missing_policy
+        self.missing_merge_criterion_ = self.missing_merge_criterion
+        self.missing_merge_fallback_ = self.missing_merge_fallback
         return result
 
     # ------------------------------------------------------------------
@@ -167,6 +204,43 @@ class Binner(BaseEstimator, TransformerMixin):
                 f"Unsupported missing_policy '{policy}'. Use one of: {allowed}."
             )
         return policy
+
+    # ------------------------------------------------------------------
+    @staticmethod
+    def _normalize_missing_merge_criterion(
+        value: str | None,
+        *,
+        missing_policy: str,
+    ) -> str | None:
+        if value is None:
+            if missing_policy == _MERGE_MISSING_POLICY:
+                raise ValueError(
+                    "`missing_merge_criterion` is required when missing_policy='merge'. "
+                    "Use 'nearest_event_rate'."
+                )
+            return None
+        criterion = str(value)
+        if missing_policy != _MERGE_MISSING_POLICY:
+            raise ValueError(
+                "`missing_merge_criterion` can only be used with missing_policy='merge'."
+            )
+        if criterion not in _VALID_MISSING_MERGE_CRITERIA:
+            allowed = ", ".join(f"'{item}'" for item in sorted(_VALID_MISSING_MERGE_CRITERIA))
+            raise ValueError(
+                f"Unsupported missing_merge_criterion '{criterion}'. Use one of: {allowed}."
+            )
+        return criterion
+
+    # ------------------------------------------------------------------
+    @staticmethod
+    def _normalize_missing_merge_fallback(value: str | None) -> str:
+        fallback = _SEPARATE_BIN_MISSING_MERGE_FALLBACK if value is None else str(value)
+        if fallback not in _VALID_MISSING_MERGE_FALLBACKS:
+            allowed = ", ".join(f"'{item}'" for item in sorted(_VALID_MISSING_MERGE_FALLBACKS))
+            raise ValueError(
+                f"Unsupported missing_merge_fallback '{fallback}'. Use one of: {allowed}."
+            )
+        return fallback
 
     # ------------------------------------------------------------------
     @staticmethod
@@ -362,6 +436,8 @@ class Binner(BaseEstimator, TransformerMixin):
         *,
         context: str,
     ) -> None:
+        if self.missing_policy == _MERGE_MISSING_POLICY:
+            raise NotImplementedError(_PYSPARK_MISSING_MERGE_UNIMPLEMENTED_MESSAGE)
         if self.missing_policy != _FORBID_MISSING_POLICY:
             return
         self._raise_forbidden_missing(
@@ -1176,7 +1252,7 @@ class Binner(BaseEstimator, TransformerMixin):
             labels = labels_raw.str.strip().str.lower()
             technical = labels.isin({"total", "totals", "special", "special codes", ""})
             technical |= labels.str.startswith("special")
-            if self.missing_policy != _SEPARATE_BIN_MISSING_POLICY:
+            if not self._uses_explicit_missing_bin():
                 technical |= labels.isin({"missing"})
                 technical |= labels.str.startswith("missing")
             mask &= ~technical
@@ -1189,6 +1265,20 @@ class Binner(BaseEstimator, TransformerMixin):
         return summary.loc[self._fitted_summary_mask(summary)].reset_index(drop=True)
 
     # ------------------------------------------------------------------
+    def _uses_explicit_missing_bin(self) -> bool:
+        return self.missing_policy in {
+            _SEPARATE_BIN_MISSING_POLICY,
+            _MERGE_MISSING_POLICY,
+        }
+
+    # ------------------------------------------------------------------
+    def _is_missing_merge_enabled(self) -> bool:
+        return (
+            self.missing_policy == _MERGE_MISSING_POLICY
+            and self.missing_merge_criterion == _NEAREST_EVENT_RATE_MISSING_MERGE_CRITERION
+        )
+
+    # ------------------------------------------------------------------
     def _refine_bins_for_policy(
         self,
         bin_summary: pd.DataFrame,
@@ -1198,7 +1288,7 @@ class Binner(BaseEstimator, TransformerMixin):
         time_col: str | None = None,
         check_stability: bool = False,
     ) -> pd.DataFrame:
-        if self.missing_policy != _SEPARATE_BIN_MISSING_POLICY:
+        if not self._uses_explicit_missing_bin():
             return refine_bins(
                 bin_summary,
                 min_er_delta=min_er_delta,
@@ -1421,6 +1511,625 @@ class Binner(BaseEstimator, TransformerMixin):
         self.missing_decision_log_ = pd.DataFrame(decision_records)
         self.missing_policy_ = self.missing_policy
         self.effective_missing_policy_ = self.missing_policy
+
+    # ------------------------------------------------------------------
+    @staticmethod
+    def _row_number(row: pd.Series, field: str, default=np.nan) -> float:
+        value = pd.to_numeric(pd.Series([row.get(field)]), errors="coerce").iloc[0]
+        return float(value) if pd.notna(value) else default
+
+    # ------------------------------------------------------------------
+    def _candidate_row_from_profile(
+        self,
+        *,
+        variable: str,
+        missing_row: pd.Series,
+        candidate: pd.Series,
+        rank: int,
+        selected: bool = False,
+    ) -> dict[str, Any]:
+        missing_event_rate = self._row_number(missing_row, "event_rate")
+        candidate_event_rate = self._row_number(candidate, "event_rate")
+        distance = (
+            abs(missing_event_rate - candidate_event_rate)
+            if np.isfinite(missing_event_rate) and np.isfinite(candidate_event_rate)
+            else np.nan
+        )
+        return {
+            "variable": variable,
+            "criterion": self.missing_merge_criterion,
+            "candidate_rank": rank,
+            "candidate_bin_id": candidate.get("bin_id"),
+            "candidate_bin_label": candidate.get("bin_label"),
+            "candidate_bin_order": candidate.get("bin_order"),
+            "candidate_n": self._row_number(candidate, "n", default=0.0),
+            "candidate_events": self._row_number(candidate, "events", default=0.0),
+            "candidate_non_events": self._row_number(candidate, "non_events", default=0.0),
+            "candidate_event_rate": candidate_event_rate,
+            "missing_n": self._row_number(missing_row, "n", default=0.0),
+            "missing_events": self._row_number(missing_row, "events", default=0.0),
+            "missing_non_events": self._row_number(missing_row, "non_events", default=0.0),
+            "missing_event_rate": missing_event_rate,
+            "distance_event_rate": distance,
+            "distance_metric": "abs_event_rate_diff",
+            "selected": bool(selected),
+        }
+
+    # ------------------------------------------------------------------
+    def _build_missing_merge_audit_from_fit(
+        self,
+        X: pd.DataFrame,
+        y: pd.Series,
+        pre_profile: pd.DataFrame,
+        *,
+        backend: str,
+    ) -> None:
+        feature_columns = list(getattr(self, "feature_names_in_", X.columns))
+        counts = self._pandas_missing_counts(X, feature_columns)
+        profile_records = []
+        decision_records = []
+        candidate_records = []
+        merge_map: dict[str, Any] = {}
+        merge_metrics: dict[str, dict[str, Any]] = {}
+
+        for variable in feature_columns:
+            variable_profile = pre_profile.loc[pre_profile["variable"] == variable].copy()
+            n_missing = int(counts.get(str(variable), 0))
+            missing_detected = n_missing > 0
+            missing_rows = variable_profile.loc[
+                variable_profile.get("is_missing_bin", pd.Series(False, index=variable_profile.index))
+                .fillna(False)
+                .astype(bool)
+            ]
+
+            if missing_detected and not missing_rows.empty:
+                missing_row = missing_rows.iloc[0]
+                missing_n = self._row_number(missing_row, "n", default=float(n_missing))
+                missing_events = self._row_number(missing_row, "events", default=0.0)
+                missing_non_events = self._row_number(missing_row, "non_events", default=missing_n - missing_events)
+                missing_event_rate = self._row_number(missing_row, "event_rate")
+                missing_share = self._row_number(missing_row, "share")
+                profile_record_index = len(profile_records)
+                profile_records.append(
+                    {
+                        "variable": variable,
+                        "policy": self.missing_policy,
+                        "effective_policy": self.missing_policy,
+                        "n_missing_fit": int(missing_n),
+                        "share_missing_fit": missing_share,
+                        "events_missing_fit": missing_events,
+                        "event_rate_missing_fit": missing_event_rate,
+                        "is_missing_bin": True,
+                        "bin_label": missing_row.get("bin_label", "Missing"),
+                        "backend": backend,
+                        "context": "fit",
+                        "merge_criterion": self.missing_merge_criterion,
+                        "merged_into_bin_label": None,
+                        "merge_distance": None,
+                        "merge_status": None,
+                    }
+                )
+            else:
+                missing_row = pd.Series(dtype=object)
+                missing_n = float(n_missing)
+                missing_events = 0.0
+                missing_non_events = 0.0
+                missing_event_rate = np.nan
+                missing_share = np.nan
+                profile_record_index = None
+
+            base_decision = {
+                "variable": variable,
+                "policy_requested": self.missing_policy,
+                "effective_policy": self.missing_policy,
+                "merge_criterion": self.missing_merge_criterion,
+                "missing_merge_criterion": self.missing_merge_criterion,
+                "missing_merge_fallback": self.missing_merge_fallback,
+                "missing_detected": bool(missing_detected),
+                "n_missing_fit": n_missing,
+                "event_rate_missing_fit": missing_event_rate if np.isfinite(missing_event_rate) else None,
+                "training_only": True,
+                "backend": backend,
+                "fallback": self.missing_merge_fallback,
+                "fallback_used": False,
+                "selected_bin_label": None,
+                "selected_bin_order": None,
+                "selected_bin_event_rate": None,
+                "distance_metric": "abs_event_rate_diff",
+                "distance_value": None,
+                "distance": None,
+                "tie_break_rule": "distance_event_rate asc, candidate_n desc, bin_order asc, bin_label asc",
+                "tie_break_applied": False,
+                "tie_detected": False,
+                "candidate_count": 0,
+                "candidate_bins": [],
+                "metrics_before": None,
+                "metrics_after": None,
+            }
+
+            if not missing_detected:
+                decision_records.append(
+                    {
+                        **base_decision,
+                        "action": "no_missing_detected",
+                        "status": "no_missing_detected",
+                        "reason": "no_missing_detected",
+                        "notes": "No missing values were observed during fit; no merge destination was learned.",
+                    }
+                )
+                continue
+
+            if missing_rows.empty:
+                reason = "missing_profile_unavailable"
+                if self.missing_merge_fallback == _RAISE_MISSING_MERGE_FALLBACK:
+                    raise ValueError(
+                        f"missing_policy='merge' could not build a missing profile for variable "
+                        f"'{variable}'."
+                    )
+                if profile_record_index is not None:
+                    profile_records[profile_record_index]["merge_status"] = "kept_separate"
+                decision_records.append(
+                    {
+                        **base_decision,
+                        "action": "missing_kept_separate",
+                        "status": "kept_separate",
+                        "fallback_used": True,
+                        "reason": reason,
+                        "notes": (
+                            "Missing values were kept as a separate bin because the missing profile was unavailable."
+                        ),
+                    }
+                )
+                continue
+
+            regular = variable_profile.loc[
+                variable_profile.get("is_regular_bin", pd.Series(False, index=variable_profile.index))
+                .fillna(False)
+                .astype(bool)
+            ].copy()
+            if regular.empty:
+                reason = "no_regular_candidate_bins"
+                if self.missing_merge_fallback == _RAISE_MISSING_MERGE_FALLBACK:
+                    raise ValueError(
+                        f"missing_policy='merge' found missing values for variable '{variable}', "
+                        "but no regular candidate bin is available for nearest_event_rate merge."
+                    )
+                if profile_record_index is not None:
+                    profile_records[profile_record_index]["merge_status"] = "kept_separate"
+                decision_records.append(
+                    {
+                        **base_decision,
+                        "action": "missing_kept_separate",
+                        "status": "kept_separate",
+                        "fallback_used": True,
+                        "reason": reason,
+                        "notes": (
+                            "Missing values were kept as a separate bin because no regular candidate bin was available."
+                        ),
+                    }
+                )
+                continue
+
+            candidate_rows = []
+            for _, candidate in regular.iterrows():
+                record = self._candidate_row_from_profile(
+                    variable=variable,
+                    missing_row=missing_row,
+                    candidate=candidate,
+                    rank=0,
+                )
+                candidate_rows.append((record, candidate))
+
+            candidate_rows = [
+                (record, candidate)
+                for record, candidate in candidate_rows
+                if np.isfinite(float(record["distance_event_rate"]))
+            ]
+            if not candidate_rows:
+                reason = "criterion_not_available"
+                if self.missing_merge_fallback == _RAISE_MISSING_MERGE_FALLBACK:
+                    raise ValueError(
+                        f"missing_policy='merge' could not compute nearest_event_rate candidates "
+                        f"for variable '{variable}'."
+                    )
+                if profile_record_index is not None:
+                    profile_records[profile_record_index]["merge_status"] = "kept_separate"
+                decision_records.append(
+                    {
+                        **base_decision,
+                        "action": "missing_kept_separate",
+                        "status": "kept_separate",
+                        "fallback_used": True,
+                        "reason": reason,
+                        "notes": (
+                            "Missing values were kept as a separate bin because candidate distances were unavailable."
+                        ),
+                    }
+                )
+                continue
+
+            sorted_candidates = sorted(
+                candidate_rows,
+                key=lambda item: (
+                    float(item[0]["distance_event_rate"]),
+                    -float(item[0]["candidate_n"]),
+                    self._row_number(item[1], "bin_order", default=float("inf")),
+                    self._bin_label_key(item[1].get("bin_label")),
+                ),
+            )
+            best_distance = float(sorted_candidates[0][0]["distance_event_rate"])
+            tied = [
+                item
+                for item in sorted_candidates
+                if np.isclose(float(item[0]["distance_event_rate"]), best_distance)
+            ]
+            selected_record, selected_candidate = sorted_candidates[0]
+            selected_label = selected_candidate.get("bin_label")
+            selected_order = selected_candidate.get("bin_order")
+
+            candidate_bins_payload = []
+            for rank, (record, _candidate) in enumerate(sorted_candidates, start=1):
+                ranked_record = {
+                    **record,
+                    "candidate_rank": rank,
+                    "selected": rank == 1,
+                }
+                candidate_records.append(ranked_record)
+                candidate_bins_payload.append(
+                    {
+                        "candidate_rank": rank,
+                        "bin_label": ranked_record["candidate_bin_label"],
+                        "bin_order": ranked_record["candidate_bin_order"],
+                        "n": ranked_record["candidate_n"],
+                        "events": ranked_record["candidate_events"],
+                        "event_rate": ranked_record["candidate_event_rate"],
+                        "distance": ranked_record["distance_event_rate"],
+                        "selected": rank == 1,
+                    }
+                )
+
+            candidate_n = self._row_number(selected_candidate, "n", default=0.0)
+            candidate_events = self._row_number(selected_candidate, "events", default=0.0)
+            candidate_non_events = self._row_number(selected_candidate, "non_events", default=0.0)
+            selected_event_rate = self._row_number(selected_candidate, "event_rate")
+            post_n = missing_n + candidate_n
+            post_events = missing_events + candidate_events
+            post_non_events = missing_non_events + candidate_non_events
+            post_event_rate = post_events / post_n if post_n else np.nan
+            post_share = post_n / len(X) if len(X) else np.nan
+            metrics_before = {
+                "missing": {
+                    "n": missing_n,
+                    "events": missing_events,
+                    "non_events": missing_non_events,
+                    "event_rate": missing_event_rate,
+                    "share": missing_share,
+                },
+                "selected_bin": {
+                    "n": candidate_n,
+                    "events": candidate_events,
+                    "non_events": candidate_non_events,
+                    "event_rate": self._row_number(selected_candidate, "event_rate"),
+                    "share": self._row_number(selected_candidate, "share"),
+                },
+            }
+            metrics_after = {
+                "merged_bin": {
+                    "n": post_n,
+                    "events": post_events,
+                    "non_events": post_non_events,
+                    "event_rate": post_event_rate,
+                    "share": post_share,
+                }
+            }
+            merge_map[str(variable)] = selected_label
+            merge_metrics[str(variable)] = {
+                "selected_bin_label": selected_label,
+                "selected_bin_order": selected_order,
+                "post_n": post_n,
+                "post_events": post_events,
+                "post_non_events": post_non_events,
+                "post_event_rate": post_event_rate,
+            }
+            if profile_record_index is not None:
+                profile_records[profile_record_index]["merged_into_bin_label"] = selected_label
+                profile_records[profile_record_index]["merge_distance"] = best_distance
+                profile_records[profile_record_index]["merge_status"] = "merged"
+            decision_records.append(
+                {
+                    **base_decision,
+                    "action": "missing_merged",
+                    "status": "merged",
+                    "reason": None,
+                    "selected_bin_label": selected_label,
+                    "selected_bin_order": selected_order,
+                    "selected_bin_event_rate": selected_event_rate,
+                    "distance_value": best_distance,
+                    "distance": best_distance,
+                    "tie_break_applied": len(tied) > 1,
+                    "tie_detected": len(tied) > 1,
+                    "candidate_count": len(sorted_candidates),
+                    "candidate_bins": candidate_bins_payload,
+                    "metrics_before": metrics_before,
+                    "metrics_after": metrics_after,
+                    "notes": "Missing values were merged into the nearest event-rate regular bin using training data.",
+                }
+            )
+
+        self.missing_profile_ = pd.DataFrame(profile_records)
+        self.missing_decision_log_ = pd.DataFrame(decision_records)
+        self.missing_merge_candidates_ = pd.DataFrame(candidate_records)
+        self.missing_merge_map_ = merge_map
+        self._missing_merge_metrics_ = merge_metrics
+        self.missing_policy_ = self.missing_policy
+        self.effective_missing_policy_ = self.missing_policy
+        self.missing_merge_criterion_ = self.missing_merge_criterion
+        self.missing_merge_fallback_ = self.missing_merge_fallback
+
+    # ------------------------------------------------------------------
+    def _profile_row_for_bin(
+        self,
+        profile: pd.DataFrame | None,
+        variable: str,
+        bin_label: Any,
+    ) -> pd.Series | None:
+        if profile is None or profile.empty:
+            return None
+        required = {"variable", "bin_label"}
+        if not required.issubset(profile.columns):
+            return None
+        variable_mask = profile["variable"].astype(str) == str(variable)
+        label_mask = profile["bin_label"].map(self._bin_label_key) == self._bin_label_key(bin_label)
+        rows = profile.loc[variable_mask & label_mask]
+        if rows.empty:
+            return None
+        return rows.iloc[0]
+
+    # ------------------------------------------------------------------
+    def _apply_profile_metrics_to_summary_row(
+        self,
+        summary: pd.DataFrame,
+        mask: pd.Series,
+        profile_row: pd.Series,
+    ) -> None:
+        column_map = {
+            "count": "n",
+            "n": "n",
+            "event": "events",
+            "events": "events",
+            "non_event": "non_events",
+            "non_events": "non_events",
+            "event_rate": "event_rate",
+            "Event Rate": "event_rate",
+            "share": "share",
+            "count_pct": "share",
+            "Count (%)": "share",
+            "woe": "woe",
+            "WoE": "woe",
+            "iv_component": "iv_component",
+            "IV": "iv_component",
+        }
+        for summary_column, profile_column in column_map.items():
+            if summary_column not in summary.columns or profile_column not in profile_row.index:
+                continue
+            summary.loc[mask, summary_column] = profile_row[profile_column]
+
+    # ------------------------------------------------------------------
+    def _apply_missing_merge_to_bin_summary(self, merged_profile: pd.DataFrame | None = None) -> None:
+        merge_map = getattr(self, "missing_merge_map_", {}) or {}
+        merge_metrics = getattr(self, "_missing_merge_metrics_", {}) or {}
+        if not merge_map or self.bin_summary is None or self.bin_summary.empty:
+            return
+
+        summary = self.bin_summary.copy()
+        for derived_column in ("share", "woe", "iv_component"):
+            if derived_column not in summary.columns:
+                summary[derived_column] = np.nan
+
+        remove_mask = pd.Series(False, index=summary.index)
+        for variable, selected_label in merge_map.items():
+            variable_mask = summary["variable"].astype(str) == str(variable)
+            labels = summary["bin"].map(self._bin_label_key)
+            selected_mask = variable_mask & (labels == self._bin_label_key(selected_label))
+            if merged_profile is not None and not merged_profile.empty:
+                for row_index in summary.index[variable_mask]:
+                    profile_row = self._profile_row_for_bin(
+                        merged_profile,
+                        str(variable),
+                        summary.at[row_index, "bin"],
+                    )
+                    if profile_row is not None:
+                        self._apply_profile_metrics_to_summary_row(
+                            summary,
+                            pd.Series(summary.index == row_index, index=summary.index),
+                            profile_row,
+                        )
+            metrics = merge_metrics.get(str(variable), {})
+            if selected_mask.any() and metrics:
+                summary.loc[selected_mask, "count"] = metrics.get("post_n")
+                summary.loc[selected_mask, "event"] = metrics.get("post_events")
+                summary.loc[selected_mask, "non_event"] = metrics.get("post_non_events")
+                summary.loc[selected_mask, "event_rate"] = metrics.get("post_event_rate")
+            label_text = summary["bin"].astype(str).str.strip().str.lower()
+            remove_mask |= variable_mask & (label_text == "missing")
+            remove_mask |= variable_mask & label_text.str.startswith("missing")
+
+        self.bin_summary = summary.loc[~remove_mask].reset_index(drop=True)
+
+    # ------------------------------------------------------------------
+    def _transform_pandas_core(
+        self,
+        X: pd.DataFrame,
+        selected_columns: Sequence[str],
+        *,
+        return_woe: bool = False,
+    ) -> pd.DataFrame:
+        out = {}
+        for col in selected_columns:
+            binner = self._per_feature_binners[col]
+            sig = inspect.signature(binner.transform)
+            kwargs = {"return_woe": return_woe} if "return_woe" in sig.parameters else {}
+            transformed = binner.transform(X[[col]], **kwargs)
+            out[col] = transformed if isinstance(transformed, pd.Series) else transformed[col]
+        return pd.DataFrame(out, index=X.index)
+
+    # ------------------------------------------------------------------
+    def _route_missing_merge_pandas(
+        self,
+        transformed: pd.DataFrame,
+        X: pd.DataFrame,
+        selected_columns: Sequence[str],
+    ) -> pd.DataFrame:
+        if self.missing_policy != _MERGE_MISSING_POLICY:
+            return transformed
+
+        routed = transformed.copy()
+        merge_map = getattr(self, "missing_merge_map_", {}) or {}
+        transform_records = []
+        for column in selected_columns:
+            if column not in X.columns:
+                continue
+            missing_mask = X[column].isna()
+            if not bool(missing_mask.any()):
+                continue
+            n_missing = int(missing_mask.sum())
+            column_key = str(column)
+            if column_key in merge_map:
+                selected_label = merge_map[column_key]
+                routed.loc[missing_mask, column] = selected_label
+                transform_records.append(
+                    {
+                        "variable": column,
+                        "missing_detected": True,
+                        "n_missing_transform": n_missing,
+                        "action": "missing_routed_to_learned_merge",
+                        "selected_bin_label": selected_label,
+                        "fallback_used": False,
+                        "training_decision_used": True,
+                    }
+                )
+                continue
+            if self.missing_merge_fallback == _SEPARATE_BIN_MISSING_MERGE_FALLBACK:
+                routed.loc[missing_mask, column] = "Missing"
+                transform_records.append(
+                    {
+                        "variable": column,
+                        "missing_detected": True,
+                        "n_missing_transform": n_missing,
+                        "action": "missing_transform_fallback_separate_bin",
+                        "selected_bin_label": "Missing",
+                        "fallback_used": True,
+                        "training_decision_used": False,
+                    }
+                )
+                continue
+            transform_records.append(
+                {
+                    "variable": column,
+                    "missing_detected": True,
+                    "n_missing_transform": n_missing,
+                    "action": "missing_transform_fallback_raise",
+                    "selected_bin_label": None,
+                    "fallback_used": True,
+                    "training_decision_used": False,
+                }
+            )
+            self.missing_transform_fallback_log_ = pd.DataFrame(transform_records)
+            raise ValueError(
+                f"missing_policy='merge' detected missing values during transform for "
+                f"feature '{column}', but no missing merge decision was learned during fit."
+            )
+        self.missing_transform_fallback_log_ = pd.DataFrame(transform_records)
+        return routed
+
+    # ------------------------------------------------------------------
+    def _fitted_woe_lookup(self, variable: str) -> dict[str, float]:
+        profile = getattr(self, "fit_profile_", None)
+        if profile is None or profile.empty or "woe" not in profile.columns:
+            return {}
+        rows = profile.loc[profile["variable"].astype(str) == str(variable)]
+        lookup: dict[str, float] = {}
+        for _, row in rows.iterrows():
+            woe = pd.to_numeric(pd.Series([row.get("woe")]), errors="coerce").iloc[0]
+            if np.isfinite(float(woe)):
+                lookup[self._bin_label_key(row.get("bin_label"))] = float(woe)
+        return lookup
+
+    # ------------------------------------------------------------------
+    def _map_missing_merge_labels_to_woe(
+        self,
+        transformed: pd.DataFrame,
+        selected_columns: Sequence[str],
+    ) -> pd.DataFrame:
+        mapped = transformed.copy()
+        merge_map = getattr(self, "missing_merge_map_", {}) or {}
+        for column in selected_columns:
+            if column not in mapped.columns:
+                continue
+            labels = mapped[column]
+            label_keys = labels.map(self._bin_label_key)
+            if label_keys.map(lambda value: self._bin_flag(value, "missing")).any() and str(column) not in merge_map:
+                raise ValueError(
+                    f"missing_policy='merge' cannot return WoE for missing values in feature "
+                    f"'{column}' because no missing merge decision was learned during fit and "
+                    "fallback 'separate_bin' has no fitted WoE."
+                )
+            woe_lookup = self._fitted_woe_lookup(str(column))
+            if not woe_lookup:
+                raise ValueError(
+                    f"missing_policy='merge' cannot return WoE for feature '{column}' because no fitted "
+                    "WoE lookup is available."
+                )
+            unknown = sorted({key for key in label_keys if key not in woe_lookup})
+            if unknown:
+                formatted = ", ".join(map(str, unknown[:5]))
+                raise ValueError(
+                    f"missing_policy='merge' cannot return WoE for feature '{column}' because fitted "
+                    f"WoE is unavailable for transformed bin label(s): {formatted}."
+                )
+            mapped[column] = label_keys.map(woe_lookup).astype(float)
+        return mapped
+
+    # ------------------------------------------------------------------
+    def _missing_merge_destination_woe(self, variable: str, selected_label: Any) -> float:
+        woe_lookup = self._fitted_woe_lookup(variable)
+        selected_key = self._bin_label_key(selected_label)
+        if selected_key not in woe_lookup:
+            raise ValueError(
+                f"missing_policy='merge' cannot return WoE for missing values in feature "
+                f"'{variable}' because the learned destination bin has no fitted WoE."
+            )
+        return woe_lookup[selected_key]
+
+    # ------------------------------------------------------------------
+    def _finalize_fit_missing_audit(
+        self,
+        X_features: pd.DataFrame,
+        y: pd.Series,
+        *,
+        backend: str,
+    ) -> None:
+        if self._is_missing_merge_enabled():
+            pre_transformed = self._transform_pandas_core(
+                X_features,
+                list(getattr(self, "feature_names_in_", X_features.columns)),
+            )
+            pre_profile = self._build_profile_from_transformed(pre_transformed, y)
+            self._build_missing_merge_audit_from_fit(
+                X_features,
+                y,
+                pre_profile,
+                backend=backend,
+            )
+            merged_fit_profile = self._build_fit_profile(X_features, y)
+            self._apply_missing_merge_to_bin_summary(merged_profile=merged_fit_profile)
+            self._compute_iv_metrics()
+            self._refresh_min_n_bins_metadata()
+            self.fit_profile_ = merged_fit_profile
+            return
+
+        self.fit_profile_ = self._build_fit_profile(X_features, y)
+        self._build_missing_audit_from_fit(X_features, y, backend=backend)
 
     # ------------------------------------------------------------------
     @staticmethod
@@ -2362,8 +3071,14 @@ class Binner(BaseEstimator, TransformerMixin):
         self.source_profile_ = None
         self.missing_profile_ = pd.DataFrame()
         self.missing_decision_log_ = pd.DataFrame()
+        self.missing_merge_candidates_ = pd.DataFrame()
+        self.missing_merge_map_ = {}
+        self._missing_merge_metrics_ = {}
+        self.missing_transform_fallback_log_ = pd.DataFrame()
         self.missing_policy_ = self.missing_policy
         self.effective_missing_policy_ = self.missing_policy
+        self.missing_merge_criterion_ = self.missing_merge_criterion
+        self.missing_merge_fallback_ = self.missing_merge_fallback
         self.validation_settings_ = None
         self.sampling_metadata_ = self._pandas_fit_sampling_metadata(len(X))
         self.input_backend_ = "pandas"
@@ -2418,6 +3133,8 @@ class Binner(BaseEstimator, TransformerMixin):
                 monotonic=self.monotonic,
                 check_stability=self.check_stability,
                 missing_policy=self.missing_policy,
+                missing_merge_criterion=self.missing_merge_criterion,
+                missing_merge_fallback=self.missing_merge_fallback,
             )
             self._per_feature_binners = {}
             self.best_params_ = {}
@@ -2457,8 +3174,7 @@ class Binner(BaseEstimator, TransformerMixin):
             )
             self._compute_iv_metrics()
             self._refresh_min_n_bins_metadata()
-            self.fit_profile_ = self._build_fit_profile(X_features, y)
-            self._build_missing_audit_from_fit(X_features, y, backend="pandas")
+            self._finalize_fit_missing_audit(X_features, y, backend="pandas")
             self._refresh_reference_profile()
             if validate:
                 self.fit_validation_report_ = self._build_fit_validation_report()
@@ -2501,7 +3217,7 @@ class Binner(BaseEstimator, TransformerMixin):
 
             strat = CategoricalBinning(
                 max_bins=self.max_bins,
-                separate_missing=self.missing_policy == _SEPARATE_BIN_MISSING_POLICY,
+                separate_missing=self._uses_explicit_missing_bin(),
             )
             strat.fit(X_features[[col]], y)
 
@@ -2529,8 +3245,7 @@ class Binner(BaseEstimator, TransformerMixin):
         )
         self._compute_iv_metrics()
         self._refresh_min_n_bins_metadata()
-        self.fit_profile_ = self._build_fit_profile(X_features, y)
-        self._build_missing_audit_from_fit(X_features, y, backend="pandas")
+        self._finalize_fit_missing_audit(X_features, y, backend="pandas")
         self._refresh_reference_profile()
         if validate:
             self.fit_validation_report_ = self._build_fit_validation_report()
@@ -2581,15 +3296,15 @@ class Binner(BaseEstimator, TransformerMixin):
         X = self._coerce_force_numeric_columns(X, columns=selected_columns)
         self._check_missing_policy_pandas(X, selected_columns, context="transform")
 
-        out = {}
-        for col in selected_columns:
-            binner = self._per_feature_binners[col]
-            sig = inspect.signature(binner.transform)
-            kwargs = {"return_woe": return_woe} if "return_woe" in sig.parameters else {}
-            transformed = binner.transform(X[[col]], **kwargs)
-            out[col] = transformed if isinstance(transformed, pd.Series) else transformed[col]
-
-        transformed_df = pd.DataFrame(out, index=X.index)
+        core_return_woe = return_woe and self.missing_policy != _MERGE_MISSING_POLICY
+        transformed_df = self._transform_pandas_core(
+            X,
+            selected_columns,
+            return_woe=core_return_woe,
+        )
+        transformed_df = self._route_missing_merge_pandas(transformed_df, X, selected_columns)
+        if return_woe and self.missing_policy == _MERGE_MISSING_POLICY:
+            transformed_df = self._map_missing_merge_labels_to_woe(transformed_df, selected_columns)
         if validate:
             self._validate_transform_pandas(transformed_df, original_input, backend="pandas")
         if return_type == "dataframe":
