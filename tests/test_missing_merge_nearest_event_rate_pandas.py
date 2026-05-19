@@ -92,6 +92,43 @@ def test_numeric_merge_return_woe_routes_missing_to_selected_bin_woe():
     assert transformed.loc[0, "score"] == pytest.approx(profile_row["woe"])
 
 
+def test_optuna_merge_preserves_child_missing_audit_artifacts():
+    df = make_numeric_event_rate_frame(missing_events=10, missing_non_events=10)
+    binner = RiskBands(
+        max_bins=5,
+        min_event_rate_diff=0.0,
+        use_optuna=True,
+        missing_policy="merge",
+        missing_merge_criterion="nearest_event_rate",
+        strategy_kwargs={"n_trials": 2, "sampler_seed": 123},
+    ).fit(df, y="target", column="score")
+    child = binner._per_feature_binners["score"]
+    decision = binner.missing_decision_log_.iloc[0]
+    child_decision = child.missing_decision_log_.iloc[0]
+    selected_label = decision["selected_bin_label"]
+    profile_row = row_for_label(binner.missing_profile_, "bin_label", "Missing")
+
+    transformed = binner.transform(pd.DataFrame({"score": [np.nan, -5.0]}))
+    transformed_woe = binner.transform(pd.DataFrame({"score": [np.nan, -5.0]}), return_woe=True)
+    fit_profile_row = row_for_label(binner.fit_profile_, "bin_label", selected_label)
+    summary_row = row_for_label(binner.bin_summary, "bin", selected_label)
+
+    assert decision["action"] == "missing_merged"
+    assert selected_label == child_decision["selected_bin_label"]
+    assert profile_row["merged_into_bin_label"] == selected_label
+    assert int(profile_row["n_missing_fit"]) == int(df["score"].isna().sum())
+    assert binner.missing_merge_map_["score"] == selected_label
+    assert not binner.missing_merge_candidates_.empty
+    assert transformed.loc[0, "score"] == selected_label
+    assert transformed.loc[0, "score"] != "Missing"
+    assert pd.api.types.is_numeric_dtype(transformed_woe["score"])
+    assert not isinstance(transformed_woe.loc[0, "score"], str)
+    assert transformed_woe.loc[0, "score"] == pytest.approx(fit_profile_row["woe"])
+    assert "Missing" not in set(binner.bin_summary["bin"].astype(str))
+    assert summary_row["count"] == pytest.approx(fit_profile_row["n"])
+    assert summary_row["event_rate"] == pytest.approx(fit_profile_row["event_rate"])
+
+
 def test_bin_summary_selected_bin_matches_fit_profile_after_missing_merge():
     binner, _ = fit_numeric_merge()
     decision = binner.missing_decision_log_.iloc[0]

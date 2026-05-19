@@ -103,11 +103,33 @@ def test_set_params_validates_missing_merge_contract():
     assert binner.missing_merge_fallback == "raise"
 
 
-def test_set_params_rejects_incompatible_criterion():
+def test_set_params_clears_merge_criterion_when_leaving_merge_policy():
     binner = RiskBands(
         missing_policy="merge",
         missing_merge_criterion="nearest_event_rate",
     )
 
+    binner.set_params(missing_policy="standard")
+
+    assert binner.missing_policy == "standard"
+    assert binner.missing_policy_ == "standard"
+    assert binner.missing_merge_criterion is None
+    assert binner.missing_merge_criterion_ is None
+    assert binner.missing_merge_fallback == "separate_bin"
+
     with pytest.raises(ValueError, match="missing_merge_criterion.*missing_policy='merge'"):
-        binner.set_params(missing_policy="standard")
+        binner.set_params(
+            missing_policy="standard",
+            missing_merge_criterion="nearest_event_rate",
+        )
+
+    with pytest.raises(ValueError, match="missing_merge_criterion.*required"):
+        binner.set_params(missing_policy="merge")
+
+    binner.set_params(
+        missing_policy="merge",
+        missing_merge_criterion="nearest_event_rate",
+    )
+
+    assert binner.missing_policy == "merge"
+    assert binner.missing_merge_criterion == "nearest_event_rate"
