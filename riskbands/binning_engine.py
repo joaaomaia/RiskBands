@@ -45,8 +45,8 @@ _VALID_MISSING_MERGE_FALLBACKS = {
     _RAISE_MISSING_MERGE_FALLBACK,
 }
 _PYSPARK_MISSING_MERGE_UNIMPLEMENTED_MESSAGE = (
-    'missing_policy="merge" with PySpark is not implemented in this release. '
-    'Use pandas fit/transform or missing_policy="separate_bin"/"forbid".'
+    'missing_policy="merge" with PySpark fit is not implemented in this release. '
+    "Fit with pandas first, then use Spark transform with return_woe=False."
 )
 
 
@@ -418,18 +418,34 @@ class Binner(BaseEstimator, TransformerMixin):
         return isinstance(data_type, (T.DoubleType, T.FloatType))
 
     # ------------------------------------------------------------------
+    @staticmethod
+    def _spark_data_types_by_column(X) -> dict[str, Any]:
+        schema = getattr(X, "schema", None)
+        fields = getattr(schema, "fields", []) or []
+        return {
+            str(field.name): getattr(field, "dataType", None)
+            for field in fields
+            if hasattr(field, "name")
+        }
+
+    # ------------------------------------------------------------------
     def _spark_missing_count_expressions(self, X, columns: Sequence[str], F):
-        fields = {field.name: field.dataType for field in X.schema.fields}
+        fields = self._spark_data_types_by_column(X)
         expressions = []
         for column in columns:
-            col_expr = F.col(column)
-            missing_condition = col_expr.isNull()
-            if self._spark_column_supports_nan(fields.get(column)):
-                missing_condition = missing_condition | F.isnan(col_expr)
+            missing_condition = self._spark_missing_condition(column, F, data_type=fields.get(str(column)))
             expressions.append(
                 F.sum(F.when(missing_condition, F.lit(1)).otherwise(F.lit(0))).alias(str(column))
             )
         return expressions
+
+    # ------------------------------------------------------------------
+    def _spark_missing_condition(self, column: str, F, *, data_type: Any | None = None):
+        col_expr = F.col(column)
+        missing_condition = col_expr.isNull()
+        if self._spark_column_supports_nan(data_type):
+            missing_condition = missing_condition | F.isnan(col_expr)
+        return missing_condition
 
     # ------------------------------------------------------------------
     def _pyspark_missing_counts(self, X, columns: Sequence[str]) -> dict[str, int]:
@@ -449,7 +465,40 @@ class Binner(BaseEstimator, TransformerMixin):
         context: str,
     ) -> None:
         if self.missing_policy == _MERGE_MISSING_POLICY:
-            raise NotImplementedError(_PYSPARK_MISSING_MERGE_UNIMPLEMENTED_MESSAGE)
+            if context == "fit":
+                raise NotImplementedError(_PYSPARK_MISSING_MERGE_UNIMPLEMENTED_MESSAGE)
+            fit_backend = getattr(self, "fit_backend_", None)
+            if fit_backend not in {"pandas", "pandas_core"}:
+                raise NotImplementedError(
+                    "missing_policy='merge' Spark transform is only supported after pandas fit."
+                )
+            if self.missing_merge_fallback != _RAISE_MISSING_MERGE_FALLBACK:
+                return
+            merge_map = getattr(self, "missing_merge_map_", {}) or {}
+            columns_without_decision = [column for column in columns if str(column) not in merge_map]
+            counts = self._pyspark_missing_counts(X, columns_without_decision)
+            present = {column: count for column, count in counts.items() if count > 0}
+            if not present:
+                return
+            variable, count = next(iter(present.items()))
+            self.missing_transform_fallback_log_ = pd.DataFrame(
+                [
+                    {
+                        "variable": variable,
+                        "missing_detected": True,
+                        "n_missing_transform": int(count),
+                        "action": "missing_transform_fallback_raise",
+                        "selected_bin_label": None,
+                        "fallback_used": True,
+                        "training_decision_used": False,
+                        "backend": "pyspark",
+                    }
+                ]
+            )
+            raise ValueError(
+                "missing_policy='merge' detected missing values during Spark transform "
+                f"for feature {variable}, but no merge decision was learned during fit."
+            )
         if self.missing_policy != _FORBID_MISSING_POLICY:
             return
         self._raise_forbidden_missing(
@@ -683,27 +732,33 @@ class Binner(BaseEstimator, TransformerMixin):
         return labels.loc[mask].tolist()
 
     # ------------------------------------------------------------------
-    def _numeric_supervised_spark_expression(self, column: str, F):
+    def _missing_merge_spark_label(self, column: str) -> Any:
+        merge_map = getattr(self, "missing_merge_map_", {}) or {}
+        if str(column) in merge_map:
+            return merge_map[str(column)]
+        if self.missing_merge_fallback == _SEPARATE_BIN_MISSING_MERGE_FALLBACK:
+            return "Missing"
+        return "Missing"
+
+    # ------------------------------------------------------------------
+    def _numeric_supervised_spark_expression(self, column: str, F, *, data_type: Any | None = None):
         model = self._per_feature_binners[column].models_[column]
         splits = [float(split) for split in getattr(model, "splits", [])]
         labels = self._regular_model_bins(model.binning_table.build())
         if len(labels) != len(splits) + 1:
             labels = self.binning_table(column=column)["bin"].tolist()
         col_expr = F.col(column)
-        missing_condition = col_expr.isNull()
-        try:
-            missing_condition = missing_condition | F.isnan(col_expr)
-        except Exception:  # pragma: no cover - depends on Spark/F implementation
-            missing_condition = col_expr.isNull()
-        expr = F.when(missing_condition, F.lit("Missing"))
+        missing_condition = self._spark_missing_condition(column, F, data_type=data_type)
+        missing_label = (
+            self._missing_merge_spark_label(column)
+            if self.missing_policy == _MERGE_MISSING_POLICY
+            else "Missing"
+        )
+        expr = F.when(missing_condition, F.lit(missing_label))
 
         for idx, label in enumerate(labels):
             if not splits:
-                condition = col_expr.isNotNull()
-                try:
-                    condition = condition & (~F.isnan(col_expr))
-                except Exception:  # pragma: no cover
-                    condition = col_expr.isNotNull()
+                condition = ~missing_condition
             elif idx == 0:
                 condition = col_expr < F.lit(splits[0])
             elif idx == len(labels) - 1:
@@ -714,13 +769,20 @@ class Binner(BaseEstimator, TransformerMixin):
         return expr.otherwise(F.lit(labels[-1] if labels else None))
 
     # ------------------------------------------------------------------
-    def _numeric_unsupervised_spark_expression(self, column: str, F):
+    def _numeric_unsupervised_spark_expression(self, column: str, F, *, data_type: Any | None = None):
         strategy = self._per_feature_binners[column]
         column_index = list(getattr(strategy._kbd, "feature_names_in_", [column])).index(column)
         edges = [float(edge) for edge in strategy._kbd.bin_edges_[column_index]]
         labels = [float(idx) for idx in range(max(0, len(edges) - 1))]
         col_expr = F.col(column)
-        expr = F.when(col_expr.isNull(), F.lit(float("nan")))
+        missing_condition = self._spark_missing_condition(column, F, data_type=data_type)
+        if self.missing_policy == _MERGE_MISSING_POLICY:
+            missing_label = self._missing_merge_spark_label(column)
+        elif self.missing_policy == _SEPARATE_BIN_MISSING_POLICY:
+            missing_label = "Missing"
+        else:
+            missing_label = float("nan")
+        expr = F.when(missing_condition, F.lit(missing_label))
         for idx, label in enumerate(labels):
             if idx == 0:
                 condition = col_expr < F.lit(edges[1])
@@ -740,7 +802,9 @@ class Binner(BaseEstimator, TransformerMixin):
         default_bin = getattr(strategy, "default_bin_", mapping.get(unknown_token))
         col_expr = F.col(column)
         str_col = col_expr.cast("string")
-        if self.missing_policy == _SEPARATE_BIN_MISSING_POLICY:
+        if self.missing_policy == _MERGE_MISSING_POLICY:
+            expr = F.when(col_expr.isNull(), F.lit(self._missing_merge_spark_label(column)))
+        elif self.missing_policy == _SEPARATE_BIN_MISSING_POLICY:
             expr = F.when(col_expr.isNull(), F.lit("Missing"))
         else:
             expr = F.when(col_expr.isNull(), F.lit(mapping.get(missing_token, default_bin)))
@@ -751,12 +815,12 @@ class Binner(BaseEstimator, TransformerMixin):
         return expr.otherwise(F.lit(default_bin))
 
     # ------------------------------------------------------------------
-    def _spark_transform_expression(self, column: str, F):
+    def _spark_transform_expression(self, column: str, F, *, data_type: Any | None = None):
         strategy = self._per_feature_binners[column]
         if hasattr(strategy, "models_") and column in getattr(strategy, "models_", {}):
-            return self._numeric_supervised_spark_expression(column, F)
+            return self._numeric_supervised_spark_expression(column, F, data_type=data_type)
         if hasattr(strategy, "_kbd"):
-            return self._numeric_unsupervised_spark_expression(column, F)
+            return self._numeric_unsupervised_spark_expression(column, F, data_type=data_type)
         if hasattr(strategy, "category_mapping_"):
             return self._categorical_spark_expression(column, F)
         raise TypeError(f"Feature '{column}' uses an unsupported binner for Spark transform.")
@@ -787,11 +851,16 @@ class Binner(BaseEstimator, TransformerMixin):
         )
         self._check_missing_policy_pyspark(X, selected_columns, context="transform")
         F = self._spark_functions()
+        fields = self._spark_data_types_by_column(X)
         transformed = X
         for selected_column in selected_columns:
             transformed = transformed.withColumn(
                 selected_column,
-                self._spark_transform_expression(selected_column, F),
+                self._spark_transform_expression(
+                    selected_column,
+                    F,
+                    data_type=fields.get(str(selected_column)),
+                ),
             )
         output = transformed.select(*selected_columns)
         if validate:
@@ -2523,6 +2592,7 @@ class Binner(BaseEstimator, TransformerMixin):
         settings = self._default_validation_settings()
         max_profile_rows = int(settings.get("max_profile_rows_to_collect", _MAX_PROFILE_ROWS_TO_COLLECT))
         existing_columns = list(X.columns)
+        fields = self._spark_data_types_by_column(X)
         bin_col = self._make_temp_column_name(existing_columns, "__riskbands_bin_label")
         target_col = self._make_temp_column_name(
             [*existing_columns, bin_col],
@@ -2538,7 +2608,14 @@ class Binner(BaseEstimator, TransformerMixin):
 
         for variable in feature_columns:
             profile_sdf = (
-                X.withColumn(bin_col, self._spark_transform_expression(variable, F))
+                X.withColumn(
+                    bin_col,
+                    self._spark_transform_expression(
+                        variable,
+                        F,
+                        data_type=fields.get(str(variable)),
+                    ),
+                )
                 .withColumn(target_col, F.col(target_name).cast("double"))
                 .groupBy(bin_col)
                 .agg(
