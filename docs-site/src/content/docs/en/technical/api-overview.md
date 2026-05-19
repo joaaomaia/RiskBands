@@ -38,6 +38,7 @@ compatibility, and `RiskBands is Binner` remains true.
 | `audit_table()` | Consolidated auditable review | Combines cuts, score, penalties, coverage, and rationale |
 | `diagnostics()` | Detailed temporal reading | Opens stability by bin or by variable |
 | `export_binnings_json()` | Single JSON artifact | Makes versioning and governance easier |
+| `export_audit_report()` | Narrative HTML report | Explains bundle, missing policies, merge, validation, and limitations in audit-friendly language |
 | `export_bundle()` | Complete audit package | Generates JSON, CSV, and feature-level tables |
 | `BinComparator` | Champion/challenger comparison | Helps choose between multiple candidates |
 
@@ -60,6 +61,7 @@ score_table = binner.score_table()
 audit_table = binner.audit_table()
 
 binner.export_binnings_json("artifacts/riskbands_binnings.json")
+binner.export_audit_report("artifacts/audit_report.html")
 binner.export_bundle("artifacts/run_2026_04_14")
 ```
 
@@ -117,6 +119,11 @@ After the first `fit`, the most useful trio is usually:
 - `summary()` for a short reading
 - `score_table()` to understand score and weights
 - `audit_table()` to open the auditable review
+
+To share the result with audit, governance, or model risk, use
+`export_audit_report("audit_report.html")`. The HTML is standalone,
+print-friendly, and is also included in the bundle by default through
+`export_bundle(...)`.
 
 ## Next steps
 

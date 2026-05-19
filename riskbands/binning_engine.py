@@ -4459,12 +4459,26 @@ class Binner(BaseEstimator, TransformerMixin):
         export_binnings_json(self, path)
 
     # ------------------------------------------------------------------
-    def export_bundle(self, path: str) -> None:
+    def export_bundle(self, path: str, *, include_audit_report: bool = True) -> None:
         """Export a complete audit bundle with JSON and tabular artifacts."""
         from .reporting import export_binner_bundle
 
         self._ensure_fitted()
-        export_binner_bundle(self, path)
+        export_binner_bundle(self, path, include_audit_report=include_audit_report)
+
+    # ------------------------------------------------------------------
+    def export_audit_report(
+        self,
+        path: str,
+        *,
+        title: str | None = None,
+        dataset_name: str | None = None,
+    ) -> None:
+        """Export a standalone narrative audit report as self-contained HTML."""
+        from .audit_report import export_audit_report_html
+
+        self._ensure_fitted()
+        export_audit_report_html(self, path, title=title, dataset_name=dataset_name)
 
     # ------------------------------------------------------------------
     def save_report(self, path: str) -> None:

@@ -141,3 +141,5 @@ artifacts/local/
 
 docs/presentations/
 docs/goals/
+examples/_tmp_riskbands_bundle_smoke/
+examples/exemplo0.ipynb

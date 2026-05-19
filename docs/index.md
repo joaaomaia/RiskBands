@@ -10,7 +10,8 @@ Entry point for the project documentation.
 4. Inspect the detailed diagnostics with `temporal_bin_diagnostics(...)`.
 5. Summarize stability with `temporal_variable_summary(...)`.
 6. Consolidate the rationale with `variable_audit_report(...)`.
-7. Compare candidates with `BinComparator` when doing champion/challenger.
+7. Export the narrative audit HTML with `export_audit_report(...)` or the full bundle with `export_bundle(...)`.
+8. Compare candidates with `BinComparator` when doing champion/challenger.
 
 ## Quick Navigation
 
@@ -24,6 +25,8 @@ Entry point for the project documentation.
   Dedicated guide for `standard`, `separate_bin`, `forbid`, `merge`, pandas/PySpark examples, audit fields, and bundle reporting.
 - [docs/missing_policy_methodological_guide.md](missing_policy_methodological_guide.md)
   Methodological guidance for choosing missing policies and reviewing merge decisions.
+- [docs/audit_bundle_narrative_report.md](audit_bundle_narrative_report.md)
+  Guide for the standalone narrative audit report generated as `audit_report.html`.
 - [docs/releases/2.3.0.md](releases/2.3.0.md)
   v2.3.0 release-prep notes for auditable missing merge policies.
 - [docs/missing_merge_nearest_event_rate_design.md](missing_merge_nearest_event_rate_design.md)
@@ -48,6 +51,8 @@ Entry point for the project documentation.
   Comparative diagnostic for `standard`, `separate_bin`, `forbid`, and both merge criteria.
 - [examples/missing_policy/credit_risk_missing_merge_demo.py](../examples/missing_policy/credit_risk_missing_merge_demo.py)
   Synthetic credit-risk example with informative missingness and auditable merge decisions.
+- [examples/audit_report/audit_bundle_report_demo.py](../examples/audit_report/audit_bundle_report_demo.py)
+  Small synthetic example that exports `audit_report.html` and a bundle containing the same narrative report.
 - [examples/pd_vintage_champion_challenger/pd_vintage_champion_challenger.py](../examples/pd_vintage_champion_challenger/pd_vintage_champion_challenger.py)
   Credit-risk / PD anchor example with vintages.
 

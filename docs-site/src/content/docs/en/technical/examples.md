@@ -55,6 +55,19 @@ They show:
 - comparison across `standard`, `separate_bin`, `forbid`, `merge + nearest_event_rate`, and `merge + nearest_woe`
 - synthetic credit-risk data without real or sensitive records
 
+### Narrative audit report
+
+- [Audit report demo](https://github.com/joaaomaia/RiskBands/blob/main/examples/audit_report/audit_bundle_report_demo.py)
+
+This flow shows:
+
+- a small synthetic dataset;
+- `missing_policy="merge"`;
+- `missing_merge_criterion="nearest_event_rate"`;
+- `export_audit_report("audit_report.html")`;
+- `export_bundle("bundle")` with `audit_report.html` included by default;
+- generated file paths without opening a browser automatically.
+
 ### PD vintage champion/challenger
 
 - [Champion/challenger script](https://github.com/joaaomaia/RiskBands/blob/main/examples/pd_vintage_champion_challenger/pd_vintage_champion_challenger.py)
@@ -82,8 +95,9 @@ decision.
 3. API overview
 4. Outputs and diagnostics
 5. Missing policy
-6. PD vintage champion/challenger
-7. PD vintage benchmark
+6. Narrative audit report
+7. PD vintage champion/challenger
+8. PD vintage benchmark
 
 ### If you want to start with the methodology
 

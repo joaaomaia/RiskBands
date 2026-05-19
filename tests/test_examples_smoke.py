@@ -251,6 +251,31 @@ def test_credit_risk_missing_merge_example_flow_smoke():
     assert len(results["method_notes"]) >= 3
 
 
+def test_audit_bundle_report_example_flow_smoke(tmp_path):
+    module = _load_example_module(
+        "examples/audit_report/audit_bundle_report_demo.py"
+    )
+
+    results = module.run_audit_bundle_report_demo(output_dir=tmp_path)
+
+    audit_report = results["audit_report_path"]
+    bundle_dir = results["bundle_dir"]
+    bundle_audit_report = results["bundle_audit_report_path"]
+
+    assert audit_report.exists()
+    assert bundle_dir.exists()
+    assert bundle_audit_report.exists()
+    assert (bundle_dir / "metadata.json").exists()
+    assert (bundle_dir / "missing_merge_candidates.csv").exists()
+    assert not results["missing_decision_log"].empty
+    assert not results["missing_merge_candidates"].empty
+
+    html = audit_report.read_text(encoding="utf-8")
+    assert "<!doctype html>" in html
+    assert "Relatório de Auditoria do Binning" in html
+    assert "Decisões de merge de missing" in html
+
+
 def test_missing_policy_pyspark_example_optional_guard(monkeypatch):
     module = _load_example_module(
         "examples/missing_policy/missing_policy_pyspark_demo.py"
