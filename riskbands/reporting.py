@@ -1008,6 +1008,21 @@ def build_binner_metadata(
     sampling_metadata = getattr(binner, "sampling_metadata_", None)
     if sampling_metadata is not None:
         metadata["sampling_metadata"] = _json_safe(sampling_metadata)
+        if isinstance(sampling_metadata, dict):
+            for key in (
+                "merge_decision_learned_on_sample",
+                "merge_decision_count",
+                "merge_decision_variables",
+                "merge_decision_fit_mode",
+                "merge_decision_n_rows_source",
+                "merge_decision_n_rows_fit",
+                "merge_decision_sample_size_requested",
+                "merge_decision_sample_size_type",
+                "merge_decision_sample_fraction_effective",
+                "sampling_caveat",
+            ):
+                if key in sampling_metadata:
+                    metadata[key] = _json_safe(sampling_metadata[key])
     backend_metadata = getattr(binner, "backend_metadata_", None)
     if backend_metadata is not None:
         metadata["backend_metadata"] = _json_safe(backend_metadata)

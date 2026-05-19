@@ -16,7 +16,6 @@ from tests.test_missing_merge_nearest_woe_pandas import (
 pytestmark = pytest.mark.spark
 pytest_plugins = ["tests.test_missing_values_pyspark_current_behavior"]
 
-SPARK_MERGE_FIT_MESSAGE = 'missing_policy="merge" with PySpark fit is not implemented'
 SPARK_WOE_MESSAGE = "PySpark transform currently supports return_woe=False only"
 
 
@@ -175,24 +174,26 @@ def test_categorical_nearest_woe_merge_routes_null_and_keeps_unknown_distinct(sp
     assert str(unknown_value) != str(missing_value)
 
 
-def test_merge_spark_fit_still_fails_before_collection(spark_session, monkeypatch):
-    sdf = _numeric_spark_frame(spark_session, [(1.0, 0), (None, 1), (3.0, 0), (4.0, 1)])
-    from pyspark.sql import DataFrame as SparkDataFrame
+def test_merge_spark_fit_uses_sampled_to_pandas_boundary(spark_session):
+    rows = [(float(idx % 6), int(idx % 3 == 0)) for idx in range(18)]
+    rows.extend([(None, 1), (float("nan"), 0)])
+    sdf = _numeric_spark_frame(spark_session, rows)
 
-    def fail_collect(self, *args, **kwargs):
-        raise AssertionError("missing_policy='merge' PySpark fit should fail before collect")
+    binner = RiskBands(
+        max_bins=3,
+        min_event_rate_diff=0.0,
+        sample_size=len(rows),
+        missing_policy="merge",
+        missing_merge_criterion="nearest_event_rate",
+    ).fit(sdf, y="target", column="score")
 
-    def fail_to_pandas(self, *args, **kwargs):
-        raise AssertionError("missing_policy='merge' PySpark fit should fail before toPandas")
-
-    monkeypatch.setattr(SparkDataFrame, "collect", fail_collect)
-    monkeypatch.setattr(SparkDataFrame, "toPandas", fail_to_pandas)
-
-    with pytest.raises(NotImplementedError, match=SPARK_MERGE_FIT_MESSAGE):
-        RiskBands(
-            missing_policy="merge",
-            missing_merge_criterion="nearest_event_rate",
-        ).fit(sdf, y="target", column="score")
+    assert binner.input_backend_ == "pyspark"
+    assert binner.fit_backend_ == "pandas_core"
+    assert binner.backend_metadata_["fit_mode"] == "sampled_to_pandas"
+    assert binner.sampling_metadata_["merge_decision_learned_on_sample"] is True
+    assert binner.sampling_metadata_["n_rows_source"] == len(rows)
+    assert binner.sampling_metadata_["n_rows_fit"] == len(rows)
+    assert binner.missing_merge_map_["score"]
 
 
 def test_merge_spark_transform_return_woe_still_fails(spark_session):

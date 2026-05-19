@@ -129,6 +129,15 @@ def _model_config_from_metadata(metadata: dict[str, Any]) -> dict[str, Any]:
         "effective_missing_policy",
         "missing_merge_criterion",
         "missing_merge_fallback",
+        "merge_decision_learned_on_sample",
+        "merge_decision_count",
+        "merge_decision_variables",
+        "merge_decision_fit_mode",
+        "merge_decision_n_rows_source",
+        "merge_decision_n_rows_fit",
+        "merge_decision_sample_size_requested",
+        "merge_decision_sample_fraction_effective",
+        "sampling_caveat",
         "objective_direction",
         "normalization_strategy",
         "woe_shrinkage_strength",
@@ -196,7 +205,8 @@ def _missing_decision_narrative(row: Mapping[str, Any]) -> str:
     if action == "no_missing_detected":
         return (
             f"Não foram encontrados valores ausentes em {variable} no conjunto de fit. "
-            "Nenhum merge de missing foi necessário."
+            "Nenhum destino de merge foi aprendido; se valores ausentes aparecerem no transform, "
+            f"será usado o fallback '{fallback or 'configurado'}'."
         )
     if action in {"separate_bin_created", "separate_bin_requested"}:
         return (
@@ -247,8 +257,18 @@ def _summarize_missing_decisions(binner: Any) -> list[dict[str, Any]]:
 def _summarize_missing(binner: Any, decisions: list[dict[str, Any]]) -> dict[str, Any]:
     profile = getattr(binner, "missing_profile_", pd.DataFrame())
     candidates = getattr(binner, "missing_merge_candidates_", pd.DataFrame())
+    sampling_metadata = getattr(binner, "sampling_metadata_", None)
+    sampling_caveat = None
+    merge_decision_learned_on_sample = None
+    merge_decision_count = None
+    merge_decision_variables = None
+    if isinstance(sampling_metadata, Mapping):
+        sampling_caveat = sampling_metadata.get("sampling_caveat")
+        merge_decision_learned_on_sample = sampling_metadata.get("merge_decision_learned_on_sample")
+        merge_decision_count = sampling_metadata.get("merge_decision_count")
+        merge_decision_variables = sampling_metadata.get("merge_decision_variables")
     actions = [str(row.get("action") or "") for row in decisions]
-    return {
+    summary = {
         "missing_policy": getattr(binner, "missing_policy_", getattr(binner, "missing_policy", None)),
         "effective_missing_policy": getattr(binner, "effective_missing_policy_", None),
         "missing_merge_criterion": getattr(binner, "missing_merge_criterion_", None),
@@ -260,6 +280,15 @@ def _summarize_missing(binner: Any, decisions: list[dict[str, Any]]) -> dict[str
         "fallback_decisions": actions.count("missing_kept_separate"),
         "no_missing_decisions": actions.count("no_missing_detected"),
     }
+    if merge_decision_learned_on_sample is not None:
+        summary["merge_decision_learned_on_sample"] = merge_decision_learned_on_sample
+    if merge_decision_count is not None:
+        summary["merge_decision_count"] = merge_decision_count
+    if merge_decision_variables is not None:
+        summary["merge_decision_variables"] = merge_decision_variables
+    if sampling_caveat:
+        summary["sampling_caveat"] = sampling_caveat
+    return summary
 
 
 def _validation_context(binner: Any) -> dict[str, Any]:
@@ -423,6 +452,19 @@ def _limitations() -> list[str]:
     ]
 
 
+def _sampling_caveats_from_metadata(metadata: Mapping[str, Any]) -> list[str]:
+    caveats = []
+    sampling_caveat = metadata.get("sampling_caveat")
+    if sampling_caveat:
+        caveats.append(str(sampling_caveat))
+    sampling_metadata = metadata.get("sampling_metadata")
+    if isinstance(sampling_metadata, Mapping):
+        nested_caveat = sampling_metadata.get("sampling_caveat")
+        if nested_caveat and str(nested_caveat) not in caveats:
+            caveats.append(str(nested_caveat))
+    return caveats
+
+
 def build_audit_report_context(
     binner: Any,
     *,
@@ -468,6 +510,10 @@ def build_audit_report_context(
         table_name="missing_merge_candidates",
         warnings=warnings,
     )
+    limitations = _limitations()
+    for caveat in _sampling_caveats_from_metadata(metadata):
+        if caveat not in limitations:
+            limitations.append(caveat)
 
     context = {
         "generated_at": datetime.now(timezone.utc).isoformat(),
@@ -511,7 +557,7 @@ def build_audit_report_context(
             bundle_path,
             current_report_path=current_report_path,
         ),
-        "limitations": _limitations(),
+        "limitations": limitations,
         "warnings": warnings,
         "appendix": {
             "context_contract": [
