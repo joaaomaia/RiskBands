@@ -33,8 +33,10 @@ _VALID_MISSING_POLICIES = {
     _MERGE_MISSING_POLICY,
 }
 _NEAREST_EVENT_RATE_MISSING_MERGE_CRITERION = "nearest_event_rate"
+_NEAREST_WOE_MISSING_MERGE_CRITERION = "nearest_woe"
 _VALID_MISSING_MERGE_CRITERIA = {
     _NEAREST_EVENT_RATE_MISSING_MERGE_CRITERION,
+    _NEAREST_WOE_MISSING_MERGE_CRITERION,
 }
 _SEPARATE_BIN_MISSING_MERGE_FALLBACK = "separate_bin"
 _RAISE_MISSING_MERGE_FALLBACK = "raise"
@@ -226,7 +228,7 @@ class Binner(BaseEstimator, TransformerMixin):
             if missing_policy == _MERGE_MISSING_POLICY:
                 raise ValueError(
                     "`missing_merge_criterion` is required when missing_policy='merge'. "
-                    "Use 'nearest_event_rate'."
+                    "Use 'nearest_event_rate' or 'nearest_woe'."
                 )
             return None
         criterion = str(value)
@@ -1285,7 +1287,7 @@ class Binner(BaseEstimator, TransformerMixin):
     def _is_missing_merge_enabled(self) -> bool:
         return (
             self.missing_policy == _MERGE_MISSING_POLICY
-            and self.missing_merge_criterion == _NEAREST_EVENT_RATE_MISSING_MERGE_CRITERION
+            and self.missing_merge_criterion in _VALID_MISSING_MERGE_CRITERIA
         )
 
     # ------------------------------------------------------------------
@@ -1540,14 +1542,32 @@ class Binner(BaseEstimator, TransformerMixin):
     ) -> dict[str, Any]:
         missing_event_rate = self._row_number(missing_row, "event_rate")
         candidate_event_rate = self._row_number(candidate, "event_rate")
-        distance = (
+        distance_event_rate = (
             abs(missing_event_rate - candidate_event_rate)
             if np.isfinite(missing_event_rate) and np.isfinite(candidate_event_rate)
             else np.nan
         )
+        missing_woe = self._row_number(missing_row, "woe")
+        candidate_woe = self._row_number(candidate, "woe")
+        distance_woe = (
+            abs(missing_woe - candidate_woe)
+            if np.isfinite(missing_woe) and np.isfinite(candidate_woe)
+            else np.nan
+        )
+        criterion = self.missing_merge_criterion
+        distance = (
+            distance_woe
+            if criterion == _NEAREST_WOE_MISSING_MERGE_CRITERION
+            else distance_event_rate
+        )
+        distance_metric = (
+            "abs_woe_diff"
+            if criterion == _NEAREST_WOE_MISSING_MERGE_CRITERION
+            else "abs_event_rate_diff"
+        )
         return {
             "variable": variable,
-            "criterion": self.missing_merge_criterion,
+            "criterion": criterion,
             "candidate_rank": rank,
             "candidate_bin_id": candidate.get("bin_id"),
             "candidate_bin_label": candidate.get("bin_label"),
@@ -1556,12 +1576,16 @@ class Binner(BaseEstimator, TransformerMixin):
             "candidate_events": self._row_number(candidate, "events", default=0.0),
             "candidate_non_events": self._row_number(candidate, "non_events", default=0.0),
             "candidate_event_rate": candidate_event_rate,
+            "candidate_woe": candidate_woe,
             "missing_n": self._row_number(missing_row, "n", default=0.0),
             "missing_events": self._row_number(missing_row, "events", default=0.0),
             "missing_non_events": self._row_number(missing_row, "non_events", default=0.0),
             "missing_event_rate": missing_event_rate,
-            "distance_event_rate": distance,
-            "distance_metric": "abs_event_rate_diff",
+            "missing_woe": missing_woe,
+            "distance_event_rate": distance_event_rate,
+            "distance_woe": distance_woe,
+            "distance": distance,
+            "distance_metric": distance_metric,
             "selected": bool(selected),
         }
 
@@ -1583,6 +1607,17 @@ class Binner(BaseEstimator, TransformerMixin):
         merge_metrics: dict[str, dict[str, Any]] = {}
 
         for variable in feature_columns:
+            criterion = self.missing_merge_criterion
+            distance_field = (
+                "distance_woe"
+                if criterion == _NEAREST_WOE_MISSING_MERGE_CRITERION
+                else "distance_event_rate"
+            )
+            distance_metric = (
+                "abs_woe_diff"
+                if criterion == _NEAREST_WOE_MISSING_MERGE_CRITERION
+                else "abs_event_rate_diff"
+            )
             variable_profile = pre_profile.loc[pre_profile["variable"] == variable].copy()
             n_missing = int(counts.get(str(variable), 0))
             missing_detected = n_missing > 0
@@ -1598,6 +1633,7 @@ class Binner(BaseEstimator, TransformerMixin):
                 missing_events = self._row_number(missing_row, "events", default=0.0)
                 missing_non_events = self._row_number(missing_row, "non_events", default=missing_n - missing_events)
                 missing_event_rate = self._row_number(missing_row, "event_rate")
+                missing_woe = self._row_number(missing_row, "woe")
                 missing_share = self._row_number(missing_row, "share")
                 profile_record_index = len(profile_records)
                 profile_records.append(
@@ -1609,6 +1645,7 @@ class Binner(BaseEstimator, TransformerMixin):
                         "share_missing_fit": missing_share,
                         "events_missing_fit": missing_events,
                         "event_rate_missing_fit": missing_event_rate,
+                        "woe_missing_fit": missing_woe if np.isfinite(missing_woe) else None,
                         "is_missing_bin": True,
                         "bin_label": missing_row.get("bin_label", "Missing"),
                         "backend": backend,
@@ -1625,6 +1662,7 @@ class Binner(BaseEstimator, TransformerMixin):
                 missing_events = 0.0
                 missing_non_events = 0.0
                 missing_event_rate = np.nan
+                missing_woe = np.nan
                 missing_share = np.nan
                 profile_record_index = None
 
@@ -1638,6 +1676,8 @@ class Binner(BaseEstimator, TransformerMixin):
                 "missing_detected": bool(missing_detected),
                 "n_missing_fit": n_missing,
                 "event_rate_missing_fit": missing_event_rate if np.isfinite(missing_event_rate) else None,
+                "woe_missing_fit": missing_woe if np.isfinite(missing_woe) else None,
+                "missing_woe": missing_woe if np.isfinite(missing_woe) else None,
                 "training_only": True,
                 "backend": backend,
                 "fallback": self.missing_merge_fallback,
@@ -1645,10 +1685,13 @@ class Binner(BaseEstimator, TransformerMixin):
                 "selected_bin_label": None,
                 "selected_bin_order": None,
                 "selected_bin_event_rate": None,
-                "distance_metric": "abs_event_rate_diff",
+                "selected_bin_woe": None,
+                "distance_metric": distance_metric,
                 "distance_value": None,
                 "distance": None,
-                "tie_break_rule": "distance_event_rate asc, candidate_n desc, bin_order asc, bin_label asc",
+                "distance_event_rate": None,
+                "distance_woe": None,
+                "tie_break_rule": f"{distance_field} asc, candidate_n desc, bin_order asc, bin_label asc",
                 "tie_break_applied": False,
                 "tie_detected": False,
                 "candidate_count": 0,
@@ -1692,6 +1735,29 @@ class Binner(BaseEstimator, TransformerMixin):
                 )
                 continue
 
+            if criterion == _NEAREST_WOE_MISSING_MERGE_CRITERION and not np.isfinite(missing_woe):
+                reason = "missing_woe_not_finite"
+                if self.missing_merge_fallback == _RAISE_MISSING_MERGE_FALLBACK:
+                    raise ValueError(
+                        f"missing_policy='merge' could not compute nearest_woe for variable "
+                        f"'{variable}' because the missing WoE is not finite."
+                    )
+                if profile_record_index is not None:
+                    profile_records[profile_record_index]["merge_status"] = "kept_separate"
+                decision_records.append(
+                    {
+                        **base_decision,
+                        "action": "missing_kept_separate",
+                        "status": "kept_separate",
+                        "fallback_used": True,
+                        "reason": reason,
+                        "notes": (
+                            "Missing values were kept as a separate bin because the missing WoE was unavailable."
+                        ),
+                    }
+                )
+                continue
+
             regular = variable_profile.loc[
                 variable_profile.get("is_regular_bin", pd.Series(False, index=variable_profile.index))
                 .fillna(False)
@@ -1702,7 +1768,7 @@ class Binner(BaseEstimator, TransformerMixin):
                 if self.missing_merge_fallback == _RAISE_MISSING_MERGE_FALLBACK:
                     raise ValueError(
                         f"missing_policy='merge' found missing values for variable '{variable}', "
-                        "but no regular candidate bin is available for nearest_event_rate merge."
+                        f"but no regular candidate bin is available for {criterion} merge."
                     )
                 if profile_record_index is not None:
                     profile_records[profile_record_index]["merge_status"] = "kept_separate"
@@ -1733,13 +1799,17 @@ class Binner(BaseEstimator, TransformerMixin):
             candidate_rows = [
                 (record, candidate)
                 for record, candidate in candidate_rows
-                if np.isfinite(float(record["distance_event_rate"]))
+                if np.isfinite(float(record[distance_field]))
             ]
             if not candidate_rows:
-                reason = "criterion_not_available"
+                reason = (
+                    "no_finite_candidate_woe"
+                    if criterion == _NEAREST_WOE_MISSING_MERGE_CRITERION
+                    else "criterion_not_available"
+                )
                 if self.missing_merge_fallback == _RAISE_MISSING_MERGE_FALLBACK:
                     raise ValueError(
-                        f"missing_policy='merge' could not compute nearest_event_rate candidates "
+                        f"missing_policy='merge' could not compute {criterion} candidates "
                         f"for variable '{variable}'."
                     )
                 if profile_record_index is not None:
@@ -1761,17 +1831,17 @@ class Binner(BaseEstimator, TransformerMixin):
             sorted_candidates = sorted(
                 candidate_rows,
                 key=lambda item: (
-                    float(item[0]["distance_event_rate"]),
+                    float(item[0][distance_field]),
                     -float(item[0]["candidate_n"]),
                     self._row_number(item[1], "bin_order", default=float("inf")),
                     self._bin_label_key(item[1].get("bin_label")),
                 ),
             )
-            best_distance = float(sorted_candidates[0][0]["distance_event_rate"])
+            best_distance = float(sorted_candidates[0][0][distance_field])
             tied = [
                 item
                 for item in sorted_candidates
-                if np.isclose(float(item[0]["distance_event_rate"]), best_distance)
+                if np.isclose(float(item[0][distance_field]), best_distance)
             ]
             selected_record, selected_candidate = sorted_candidates[0]
             selected_label = selected_candidate.get("bin_label")
@@ -1793,7 +1863,11 @@ class Binner(BaseEstimator, TransformerMixin):
                         "n": ranked_record["candidate_n"],
                         "events": ranked_record["candidate_events"],
                         "event_rate": ranked_record["candidate_event_rate"],
-                        "distance": ranked_record["distance_event_rate"],
+                        "woe": ranked_record["candidate_woe"],
+                        "distance": ranked_record[distance_field],
+                        "distance_event_rate": ranked_record["distance_event_rate"],
+                        "distance_woe": ranked_record["distance_woe"],
+                        "distance_metric": ranked_record["distance_metric"],
                         "selected": rank == 1,
                     }
                 )
@@ -1802,6 +1876,7 @@ class Binner(BaseEstimator, TransformerMixin):
             candidate_events = self._row_number(selected_candidate, "events", default=0.0)
             candidate_non_events = self._row_number(selected_candidate, "non_events", default=0.0)
             selected_event_rate = self._row_number(selected_candidate, "event_rate")
+            selected_woe = self._row_number(selected_candidate, "woe")
             post_n = missing_n + candidate_n
             post_events = missing_events + candidate_events
             post_non_events = missing_non_events + candidate_non_events
@@ -1813,6 +1888,7 @@ class Binner(BaseEstimator, TransformerMixin):
                     "events": missing_events,
                     "non_events": missing_non_events,
                     "event_rate": missing_event_rate,
+                    "woe": missing_woe if np.isfinite(missing_woe) else None,
                     "share": missing_share,
                 },
                 "selected_bin": {
@@ -1820,6 +1896,7 @@ class Binner(BaseEstimator, TransformerMixin):
                     "events": candidate_events,
                     "non_events": candidate_non_events,
                     "event_rate": self._row_number(selected_candidate, "event_rate"),
+                    "woe": selected_woe if np.isfinite(selected_woe) else None,
                     "share": self._row_number(selected_candidate, "share"),
                 },
             }
@@ -1840,6 +1917,11 @@ class Binner(BaseEstimator, TransformerMixin):
                 "post_events": post_events,
                 "post_non_events": post_non_events,
                 "post_event_rate": post_event_rate,
+                "missing_woe": missing_woe if np.isfinite(missing_woe) else None,
+                "selected_bin_woe": selected_woe if np.isfinite(selected_woe) else None,
+                "distance_woe": selected_record.get("distance_woe"),
+                "distance_event_rate": selected_record.get("distance_event_rate"),
+                "distance_metric": distance_metric,
             }
             if profile_record_index is not None:
                 profile_records[profile_record_index]["merged_into_bin_label"] = selected_label
@@ -1854,15 +1936,21 @@ class Binner(BaseEstimator, TransformerMixin):
                     "selected_bin_label": selected_label,
                     "selected_bin_order": selected_order,
                     "selected_bin_event_rate": selected_event_rate,
+                    "selected_bin_woe": selected_woe if np.isfinite(selected_woe) else None,
                     "distance_value": best_distance,
                     "distance": best_distance,
+                    "distance_event_rate": selected_record.get("distance_event_rate"),
+                    "distance_woe": selected_record.get("distance_woe"),
                     "tie_break_applied": len(tied) > 1,
                     "tie_detected": len(tied) > 1,
                     "candidate_count": len(sorted_candidates),
                     "candidate_bins": candidate_bins_payload,
                     "metrics_before": metrics_before,
                     "metrics_after": metrics_after,
-                    "notes": "Missing values were merged into the nearest event-rate regular bin using training data.",
+                    "notes": (
+                        f"Missing values were merged into the nearest {criterion} regular bin "
+                        "using training data."
+                    ),
                 }
             )
 

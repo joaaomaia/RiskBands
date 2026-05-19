@@ -9,6 +9,7 @@ from tests.test_missing_merge_nearest_event_rate_pandas import (
     fit_numeric_merge,
     make_categorical_event_rate_frame,
 )
+from tests.test_missing_merge_nearest_woe_pandas import fit_numeric_woe_merge
 
 
 def test_bundle_roundtrip_persists_merge_numeric_decision(tmp_path):
@@ -31,6 +32,27 @@ def test_bundle_roundtrip_persists_merge_numeric_decision(tmp_path):
     assert (bundle_dir / "missing_profile.csv").exists()
     assert (bundle_dir / "missing_decision_log.csv").exists()
     assert (bundle_dir / "missing_merge_candidates.csv").exists()
+
+
+def test_bundle_roundtrip_persists_nearest_woe_decision(tmp_path):
+    binner, _ = fit_numeric_woe_merge()
+    bundle_dir = tmp_path / "bundle"
+
+    binner.export_bundle(bundle_dir)
+    loaded = load_bundle(bundle_dir)
+
+    assert loaded["missing_policy"] == "merge"
+    assert loaded["effective_missing_policy"] == "merge"
+    assert loaded["missing_merge_criterion"] == "nearest_woe"
+    assert loaded["missing_decision_log"][0]["distance_metric"] == "abs_woe_diff"
+    assert loaded["missing_decision_log"][0]["distance_woe"] == binner.missing_decision_log_.iloc[0][
+        "distance_woe"
+    ]
+    assert loaded["missing_decision_log"][0]["selected_bin_woe"] == binner.missing_decision_log_.iloc[0][
+        "selected_bin_woe"
+    ]
+    assert loaded["missing_merge_candidates"][0]["candidate_woe"] is not None
+    assert loaded["missing_merge_map"] == binner.missing_merge_map_
 
 
 def test_bundle_roundtrip_persists_merge_categorical_decision(tmp_path):

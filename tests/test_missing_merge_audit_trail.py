@@ -5,6 +5,7 @@ import pandas as pd
 
 from riskbands import RiskBands
 from tests.test_missing_merge_nearest_event_rate_pandas import fit_numeric_merge, selected_candidate
+from tests.test_missing_merge_nearest_woe_pandas import fit_numeric_woe_merge, selected_woe_candidate
 
 
 def test_missing_merge_decision_log_contains_complete_decision():
@@ -47,6 +48,33 @@ def test_missing_merge_candidates_are_registered_and_mark_selected_bin():
         ]
     ).issubset(candidates.columns)
     assert bool(candidates.sort_values("candidate_rank").iloc[0]["selected"]) is True
+
+
+def test_nearest_woe_decision_log_contains_woe_distance_fields():
+    binner, _ = fit_numeric_woe_merge()
+    row = binner.missing_decision_log_.iloc[0]
+    candidate = selected_woe_candidate(binner)
+
+    assert row["missing_merge_criterion"] == "nearest_woe"
+    assert row["distance_metric"] == "abs_woe_diff"
+    assert row["missing_woe"] == candidate["missing_woe"]
+    assert row["selected_bin_woe"] == candidate["candidate_woe"]
+    assert row["distance_woe"] == candidate["distance_woe"]
+    assert row["distance"] == candidate["distance_woe"]
+    assert row["candidate_bins"][0]["woe"] == candidate["candidate_woe"]
+    assert row["candidate_bins"][0]["distance_metric"] == "abs_woe_diff"
+
+
+def test_nearest_woe_candidates_are_json_serializable():
+    binner, _ = fit_numeric_woe_merge()
+    records = binner.missing_decision_log_.to_dict("records")
+
+    payload = json.dumps(records)
+    decoded = json.loads(payload)
+
+    assert decoded[0]["candidate_bins"]
+    assert "woe" in decoded[0]["candidate_bins"][0]
+    assert "distance_woe" in decoded[0]["candidate_bins"][0]
 
 
 def test_missing_profile_preserves_original_missing_after_merge():

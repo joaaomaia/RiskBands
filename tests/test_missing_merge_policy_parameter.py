@@ -31,6 +31,20 @@ def test_missing_merge_nearest_event_rate_is_accepted():
     assert binner.missing_merge_fallback == "separate_bin"
 
 
+def test_missing_merge_nearest_woe_is_accepted():
+    binner = RiskBands(
+        missing_policy="merge",
+        missing_merge_criterion="nearest_woe",
+    )
+
+    assert binner.missing_policy == "merge"
+    assert binner.missing_policy_ == "merge"
+    assert binner.effective_missing_policy_ == "merge"
+    assert binner.missing_merge_criterion == "nearest_woe"
+    assert binner.missing_merge_criterion_ == "nearest_woe"
+    assert binner.missing_merge_fallback == "separate_bin"
+
+
 def test_missing_merge_accepts_raise_fallback():
     binner = Binner(
         missing_policy="merge",
@@ -51,7 +65,7 @@ def test_missing_merge_rejects_invalid_criterion():
     with pytest.raises(ValueError, match="Unsupported missing_merge_criterion"):
         RiskBands(
             missing_policy="merge",
-            missing_merge_criterion="nearest_woe",
+            missing_merge_criterion="temporal_stable",
         )
 
 
@@ -70,6 +84,14 @@ def test_missing_merge_criterion_is_rejected_without_merge_policy(policy):
         RiskBands(
             missing_policy=policy,
             missing_merge_criterion="nearest_event_rate",
+        )
+
+
+def test_missing_merge_nearest_woe_is_rejected_without_merge_policy():
+    with pytest.raises(ValueError, match="missing_merge_criterion.*missing_policy='merge'"):
+        RiskBands(
+            missing_policy="standard",
+            missing_merge_criterion="nearest_woe",
         )
 
 

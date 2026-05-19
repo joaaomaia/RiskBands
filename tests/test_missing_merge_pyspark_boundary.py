@@ -32,10 +32,32 @@ def test_merge_spark_fit_fails_explicitly(spark_session):
         ).fit(sdf, y="target", column="score")
 
 
+def test_merge_nearest_woe_spark_fit_fails_explicitly(spark_session):
+    sdf = _numeric_spark_frame(spark_session, [(1.0, 0), (None, 1), (3.0, 0), (4.0, 1)])
+
+    with pytest.raises(NotImplementedError, match=SPARK_MERGE_MESSAGE):
+        RiskBands(
+            missing_policy="merge",
+            missing_merge_criterion="nearest_woe",
+        ).fit(sdf, y="target", column="score")
+
+
 def test_merge_pandas_fit_spark_transform_fails_explicitly(spark_session):
     binner = RiskBands(
         missing_policy="merge",
         missing_merge_criterion="nearest_event_rate",
+        min_event_rate_diff=0.0,
+    ).fit(make_numeric_missing_frame(), y="target", column="score")
+    sdf = _numeric_spark_frame(spark_session, [(1.0, 0), (None, 1)])
+
+    with pytest.raises(NotImplementedError, match=SPARK_MERGE_MESSAGE):
+        binner.transform(sdf, column="score")
+
+
+def test_merge_nearest_woe_pandas_fit_spark_transform_fails_explicitly(spark_session):
+    binner = RiskBands(
+        missing_policy="merge",
+        missing_merge_criterion="nearest_woe",
         min_event_rate_diff=0.0,
     ).fit(make_numeric_missing_frame(), y="target", column="score")
     sdf = _numeric_spark_frame(spark_session, [(1.0, 0), (None, 1)])

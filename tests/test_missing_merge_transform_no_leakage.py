@@ -3,7 +3,8 @@ import pandas as pd
 import pytest
 
 from riskbands import RiskBands
-from tests.test_missing_merge_nearest_event_rate_pandas import fit_numeric_merge
+from tests.test_missing_merge_nearest_event_rate_pandas import fit_numeric_merge, row_for_label
+from tests.test_missing_merge_nearest_woe_pandas import fit_numeric_woe_merge
 
 
 def make_no_missing_numeric_frame():
@@ -41,6 +42,26 @@ def test_transform_without_target_uses_learned_missing_destination():
     transformed = binner.transform(pd.DataFrame({"score": [np.nan, -5.0, 5.0]}))
 
     assert transformed.loc[0, "score"] == learned_destination
+
+
+def test_nearest_woe_transform_without_target_uses_learned_missing_destination():
+    binner, _ = fit_numeric_woe_merge()
+    learned_destination = binner.missing_decision_log_.iloc[0]["selected_bin_label"]
+
+    transformed = binner.transform(pd.DataFrame({"score": [np.nan, -5.0, 5.0]}))
+
+    assert transformed.loc[0, "score"] == learned_destination
+
+
+def test_nearest_woe_return_woe_uses_final_selected_bin_value():
+    binner, _ = fit_numeric_woe_merge()
+    learned_destination = binner.missing_decision_log_.iloc[0]["selected_bin_label"]
+    profile_row = row_for_label(binner.fit_profile_, "bin_label", learned_destination)
+
+    transformed = binner.transform(pd.DataFrame({"score": [np.nan, -5.0]}), return_woe=True)
+
+    assert pd.api.types.is_numeric_dtype(transformed["score"])
+    assert transformed.loc[0, "score"] == pytest.approx(profile_row["woe"])
 
 
 def test_repeated_transform_is_deterministic():
@@ -123,3 +144,20 @@ def test_transform_application_distribution_cannot_retarget_missing_merge():
 
     assert set(transformed.loc[adversarial_app["score"].isna(), "score"]) == {learned_destination}
     assert binner.missing_decision_log_.iloc[0]["selected_bin_label"] == learned_destination
+
+
+def test_nearest_woe_application_distribution_cannot_retarget_missing_merge():
+    binner, _ = fit_numeric_woe_merge()
+    learned_destination = binner.missing_decision_log_.iloc[0]["selected_bin_label"]
+    decision_before = binner.missing_decision_log_.copy(deep=True)
+    adversarial_app = pd.DataFrame(
+        {
+            "score": [np.nan] * 20 + [-5.0] * 20 + [5.0] * 20,
+            "target": [1] * 20 + [0] * 20 + [1] * 20,
+        }
+    )
+
+    transformed = binner.transform(adversarial_app, column="score", validate=True)
+
+    assert set(transformed.loc[adversarial_app["score"].isna(), "score"]) == {learned_destination}
+    assert binner.missing_decision_log_.equals(decision_before)

@@ -6,7 +6,7 @@ version.
 
 ## Implemented API
 
-The E1 API adds a narrow merge mode:
+The E1 API added the first narrow merge mode:
 
 ```python
 RiskBands(
@@ -16,10 +16,20 @@ RiskBands(
 )
 ```
 
-Supported values in this sprint:
+Sprint E2 adds the second supported criterion:
+
+```python
+RiskBands(
+    missing_policy="merge",
+    missing_merge_criterion="nearest_woe",
+    missing_merge_fallback="separate_bin",
+)
+```
+
+Supported values after E2:
 
 - `missing_policy`: `standard`, `separate_bin`, `forbid`, `merge`.
-- `missing_merge_criterion`: `nearest_event_rate` only.
+- `missing_merge_criterion`: `nearest_event_rate` or `nearest_woe`.
 - `missing_merge_fallback`: `separate_bin` or `raise`.
 
 `legacy` remains a compatibility alias for `standard`. The default
@@ -93,9 +103,19 @@ missing_policy="merge" with PySpark is not implemented in this release. Use pand
 Existing Spark behavior for `standard`, `separate_bin`, and `forbid` remains in
 scope and is covered by Spark regression tests.
 
+## Relationship To Nearest WOE
+
+`nearest_event_rate` selects the regular candidate bin with the smallest
+absolute event-rate difference from the missing group. `nearest_woe` uses the
+same pre-merge fit profile, but selects by absolute WOE difference. Both
+criteria preserve the same fit-only decision, transform routing, fallback,
+bundle, and reporting contract.
+
+The detailed E2 design is documented in
+[`docs/missing_merge_nearest_woe_design.md`](missing_merge_nearest_woe_design.md).
+
 ## Limitations
 
-- No `nearest_woe` criterion.
 - No `temporal_stable` criterion.
 - No `monotonic_neighbor` criterion.
 - No custom criterion.
@@ -104,9 +124,6 @@ scope and is covered by Spark regression tests.
 - No use of transform/OOT target data to choose a merge destination.
 
 ## Future Work
-
-Sprint E2 can add `nearest_woe` if the WOE definition and smoothing rules are
-made explicit for low-count or zero-event bins.
 
 Later sprints can consider:
 
