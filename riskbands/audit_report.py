@@ -283,7 +283,7 @@ def _validation_context(binner: Any) -> dict[str, Any]:
     }
 
 
-def _inventory_specs() -> list[dict[str, str]]:
+def _inventory_specs(report_filename: str = REPORT_FILENAME) -> list[dict[str, str]]:
     return [
         {
             "file": "metadata.json",
@@ -337,7 +337,7 @@ def _inventory_specs() -> list[dict[str, str]]:
             "file": "missing_decision_log.csv",
             "purpose": "Trilha de decisão da política de missing por variável.",
             "audience": "auditoria, model risk",
-            "when": "confirmar acao tomada para missing values",
+            "when": "confirmar ação tomada para missing values",
         },
         {
             "file": "missing_merge_candidates.csv",
@@ -358,7 +358,7 @@ def _inventory_specs() -> list[dict[str, str]]:
             "when": "revisar cortes e métricas de uma variável específica",
         },
         {
-            "file": REPORT_FILENAME,
+            "file": report_filename,
             "purpose": "Relatório HTML narrativo e autocontido para auditoria do bundle.",
             "audience": "auditoria, model risk, governança, negócio técnico",
             "when": "ler a explicação executiva, imprimir ou exportar para PDF pelo navegador",
@@ -369,9 +369,15 @@ def _inventory_specs() -> list[dict[str, str]]:
 def _bundle_inventory(
     path: str | Path | None = None,
     *,
+    current_report_path: str | Path | None = None,
     current_report_name: str | None = None,
 ) -> list[dict[str, Any]]:
     bundle_path = Path(path) if path is not None else None
+    if current_report_path is not None:
+        active_report_name = Path(current_report_path).name
+    else:
+        active_report_name = current_report_name
+    report_filename = active_report_name or REPORT_FILENAME
     manifest_artifacts: dict[str, Any] = {}
     if bundle_path is not None and (bundle_path / "metadata.json").exists():
         try:
@@ -382,14 +388,14 @@ def _bundle_inventory(
             manifest_artifacts = {}
 
     inventory = []
-    for spec in _inventory_specs():
+    for spec in _inventory_specs(report_filename=report_filename):
         filename = spec["file"]
         file_path = bundle_path / filename if bundle_path is not None else None
         is_directory_spec = filename.endswith("/")
         exists = False
         if file_path is not None:
             exists = file_path.exists() if not is_directory_spec else file_path.is_dir()
-        if current_report_name and filename == current_report_name:
+        if active_report_name and filename == active_report_name:
             exists = True
 
         manifest_key_present = any(value == filename.rstrip("/") for value in manifest_artifacts.values())
@@ -398,7 +404,7 @@ def _bundle_inventory(
             manifest_key_present = True
 
         status = "presente" if exists else "quando disponível"
-        if bundle_path is None and filename != REPORT_FILENAME:
+        if bundle_path is None and filename != report_filename:
             status = "esperado no bundle"
         if not exists and not manifest_key_present and bundle_path is not None:
             status = "não encontrado"
@@ -423,6 +429,7 @@ def build_audit_report_context(
     title: str | None = None,
     dataset_name: str | None = None,
     bundle_path: str | Path | None = None,
+    current_report_path: str | Path | None = None,
 ) -> dict[str, Any]:
     """Build a JSON-safe context for the standalone audit narrative report."""
     warnings: list[str] = []
@@ -502,7 +509,7 @@ def build_audit_report_context(
         "validation": _validation_context(binner),
         "bundle_inventory": _bundle_inventory(
             bundle_path,
-            current_report_name=REPORT_FILENAME if bundle_path is not None else None,
+            current_report_path=current_report_path,
         ),
         "limitations": _limitations(),
         "warnings": warnings,
@@ -1147,6 +1154,7 @@ def export_audit_report_html(
         title=title,
         dataset_name=dataset_name,
         bundle_path=resolved_bundle_path,
+        current_report_path=target,
     )
     target.write_text(render_audit_report_html(context), encoding="utf-8")
     return target

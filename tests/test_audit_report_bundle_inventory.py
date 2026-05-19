@@ -1,4 +1,9 @@
-from riskbands.audit_report import _bundle_inventory, build_audit_report_context, render_audit_report_html
+from riskbands.audit_report import (
+    _bundle_inventory,
+    build_audit_report_context,
+    export_audit_report_html,
+    render_audit_report_html,
+)
 from tests.test_audit_report_context import fit_merge_binner
 
 
@@ -18,6 +23,29 @@ def test_bundle_inventory_does_not_break_before_bundle_is_exported():
 
     assert any(row["file"] == "audit_report.html" for row in inventory)
     assert {row["status"] for row in inventory} <= {"esperado no bundle", "quando disponível"}
+
+
+def test_export_audit_report_inventory_uses_custom_output_filename(tmp_path):
+    path = tmp_path / "custom_report.html"
+
+    export_audit_report_html(fit_merge_binner(), path)
+    html = path.read_text(encoding="utf-8")
+
+    assert "<td>custom_report.html</td><td>presente</td>" in html
+    assert "audit_report.html" not in html
+    assert str(tmp_path) not in html
+    assert "http://" not in html
+    assert "https://" not in html
+
+
+def test_export_audit_report_inventory_keeps_default_output_filename(tmp_path):
+    path = tmp_path / "audit_report.html"
+
+    export_audit_report_html(fit_merge_binner(), path)
+    html = path.read_text(encoding="utf-8")
+
+    assert "<td>audit_report.html</td><td>presente</td>" in html
+    assert str(tmp_path) not in html
 
 
 def test_bundle_inventory_marks_present_files_when_report_is_inside_bundle(tmp_path):

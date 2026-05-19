@@ -27,6 +27,18 @@ def test_public_export_audit_report_generates_html(tmp_path):
     assert "Decisões de merge de missing" in text
 
 
+def test_public_export_audit_report_uses_custom_inventory_filename(tmp_path):
+    binner = fit_merge_binner()
+    path = tmp_path / "custom_report.html"
+
+    binner.export_audit_report(path)
+
+    text = path.read_text(encoding="utf-8")
+    assert "<td>custom_report.html</td><td>presente</td>" in text
+    assert "audit_report.html" not in text
+    assert str(tmp_path) not in text
+
+
 def test_export_bundle_old_call_includes_audit_report_and_existing_files(tmp_path):
     binner = fit_merge_binner()
     bundle_dir = tmp_path / "bundle"
@@ -34,6 +46,8 @@ def test_export_bundle_old_call_includes_audit_report_and_existing_files(tmp_pat
     binner.export_bundle(bundle_dir)
 
     assert (bundle_dir / "audit_report.html").exists()
+    html = (bundle_dir / "audit_report.html").read_text(encoding="utf-8")
+    assert "<td>audit_report.html</td><td>presente</td>" in html
     for name in [
         "metadata.json",
         "binnings.json",
