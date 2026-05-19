@@ -1011,6 +1011,8 @@ def build_binner_metadata(
         if isinstance(sampling_metadata, dict):
             for key in (
                 "merge_decision_learned_on_sample",
+                "merge_decision_count",
+                "merge_decision_variables",
                 "merge_decision_fit_mode",
                 "merge_decision_n_rows_source",
                 "merge_decision_n_rows_fit",

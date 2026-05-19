@@ -130,6 +130,8 @@ def _model_config_from_metadata(metadata: dict[str, Any]) -> dict[str, Any]:
         "missing_merge_criterion",
         "missing_merge_fallback",
         "merge_decision_learned_on_sample",
+        "merge_decision_count",
+        "merge_decision_variables",
         "merge_decision_fit_mode",
         "merge_decision_n_rows_source",
         "merge_decision_n_rows_fit",
@@ -203,7 +205,8 @@ def _missing_decision_narrative(row: Mapping[str, Any]) -> str:
     if action == "no_missing_detected":
         return (
             f"Não foram encontrados valores ausentes em {variable} no conjunto de fit. "
-            "Nenhum merge de missing foi necessário."
+            "Nenhum destino de merge foi aprendido; se valores ausentes aparecerem no transform, "
+            f"será usado o fallback '{fallback or 'configurado'}'."
         )
     if action in {"separate_bin_created", "separate_bin_requested"}:
         return (
@@ -257,9 +260,13 @@ def _summarize_missing(binner: Any, decisions: list[dict[str, Any]]) -> dict[str
     sampling_metadata = getattr(binner, "sampling_metadata_", None)
     sampling_caveat = None
     merge_decision_learned_on_sample = None
+    merge_decision_count = None
+    merge_decision_variables = None
     if isinstance(sampling_metadata, Mapping):
         sampling_caveat = sampling_metadata.get("sampling_caveat")
         merge_decision_learned_on_sample = sampling_metadata.get("merge_decision_learned_on_sample")
+        merge_decision_count = sampling_metadata.get("merge_decision_count")
+        merge_decision_variables = sampling_metadata.get("merge_decision_variables")
     actions = [str(row.get("action") or "") for row in decisions]
     summary = {
         "missing_policy": getattr(binner, "missing_policy_", getattr(binner, "missing_policy", None)),
@@ -275,6 +282,10 @@ def _summarize_missing(binner: Any, decisions: list[dict[str, Any]]) -> dict[str
     }
     if merge_decision_learned_on_sample is not None:
         summary["merge_decision_learned_on_sample"] = merge_decision_learned_on_sample
+    if merge_decision_count is not None:
+        summary["merge_decision_count"] = merge_decision_count
+    if merge_decision_variables is not None:
+        summary["merge_decision_variables"] = merge_decision_variables
     if sampling_caveat:
         summary["sampling_caveat"] = sampling_caveat
     return summary

@@ -41,13 +41,31 @@ def _assert_sampled_merge_metadata(binner, *, source_rows, sample_size):
     assert binner.sampling_metadata_["n_rows_fit"] <= sample_size
     assert binner.sampling_metadata_["sample_size_requested"] == sample_size
     assert binner.sampling_metadata_["merge_decision_learned_on_sample"] is True
+    assert binner.sampling_metadata_["merge_decision_count"] == 1
+    assert binner.sampling_metadata_["merge_decision_variables"] == ["score"]
     assert binner.sampling_metadata_["merge_decision_fit_mode"] == "sampled_to_pandas"
     assert binner.sampling_metadata_["merge_decision_n_rows_source"] == source_rows
     assert binner.sampling_metadata_["merge_decision_n_rows_fit"] == binner.sampling_metadata_["n_rows_fit"]
     assert binner.sampling_metadata_["merge_decision_sample_size_requested"] == sample_size
     assert "sampled-to-pandas" in binner.sampling_metadata_["sampling_caveat"]
     assert binner.metadata_["merge_decision_learned_on_sample"] is True
+    assert binner.metadata_["merge_decision_count"] == 1
+    assert binner.metadata_["merge_decision_variables"] == ["score"]
     assert binner.metadata_["sampling_caveat"] == binner.sampling_metadata_["sampling_caveat"]
+
+
+def _assert_sampled_no_merge_decision_metadata(binner, *, source_rows):
+    assert binner.backend_metadata_["fit_mode"] == "sampled_to_pandas"
+    assert binner.sampling_metadata_["fit_mode"] == "sampled_to_pandas"
+    assert binner.sampling_metadata_["sampling_applied"] is True
+    assert binner.sampling_metadata_["n_rows_source"] == source_rows
+    assert binner.sampling_metadata_["merge_decision_learned_on_sample"] is False
+    assert binner.sampling_metadata_["merge_decision_count"] == 0
+    assert binner.sampling_metadata_["merge_decision_variables"] == []
+    assert binner.metadata_["merge_decision_learned_on_sample"] is False
+    assert binner.metadata_["merge_decision_count"] == 0
+    assert binner.metadata_["merge_decision_variables"] == []
+    assert binner.backend_metadata_["merge_decision_learned_on_sample"] is False
 
 
 @pytest.mark.parametrize("criterion", ["nearest_event_rate", "nearest_woe"])
@@ -70,6 +88,7 @@ def test_fit_spark_merge_uses_sampled_pandas_core_and_respects_sample_size(monke
     assert spark_df.ops["to_pandas_columns"] == [["score", "target"]]
     assert binner.missing_merge_map_["score"]
     assert binner.missing_decision_log_["merge_decision_learned_on_sample"].eq(True).all()
+    assert binner.missing_decision_log_["merge_decision_count"].eq(1).all()
     assert binner.missing_decision_log_["sampling_caveat"].eq(binner.sampling_metadata_["sampling_caveat"]).all()
 
 
@@ -125,7 +144,10 @@ def test_sample_misses_missing_separate_bin_fallback_routes_spark_missing(spark_
     observed = [row["score"] for row in binner.transform(transform_sdf, column="score").select("score").collect()]
 
     assert binner.missing_merge_map_ == {}
+    _assert_sampled_no_merge_decision_metadata(binner, source_rows=len(pdf))
     assert binner.missing_decision_log_.iloc[0]["action"] == "no_missing_detected"
+    assert bool(binner.missing_decision_log_.iloc[0]["merge_decision_learned_on_sample"]) is False
+    assert binner.missing_decision_log_.iloc[0]["merge_decision_count"] == 0
     assert Counter(observed)["Missing"] == 2
 
 
@@ -160,6 +182,10 @@ def test_sample_misses_missing_raise_fallback_fails_only_when_transform_has_miss
     no_missing_sdf = spark_session.createDataFrame([(-4.0, 0), (1.0, 1)], schema=schema)
     missing_sdf = spark_session.createDataFrame([(None, 1), (-4.0, 0)], schema=schema)
 
+    assert binner.missing_merge_map_ == {}
+    _assert_sampled_no_merge_decision_metadata(binner, source_rows=len(pdf))
+    assert binner.missing_decision_log_.iloc[0]["action"] == "no_missing_detected"
+    assert bool(binner.missing_decision_log_.iloc[0]["merge_decision_learned_on_sample"]) is False
     assert binner.transform(no_missing_sdf, column="score").__class__.__module__.startswith("pyspark")
     with pytest.raises(ValueError, match="no merge decision was learned during fit"):
         binner.transform(missing_sdf, column="score")

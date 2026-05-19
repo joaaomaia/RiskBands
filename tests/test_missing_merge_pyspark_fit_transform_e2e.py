@@ -1,8 +1,11 @@
 import math
 
+import pandas as pd
 import pytest
 
 from riskbands import RiskBands
+from riskbands.utils import dataframe_backend
+from tests.test_fit_validate_true import ValidatingFakeSparkDataFrame
 
 pytestmark = pytest.mark.spark
 pytest_plugins = ["tests.test_missing_values_pyspark_current_behavior"]
@@ -171,3 +174,59 @@ def test_fit_spark_transform_spark_multiple_features(spark_session):
     assert score_values[1] == str(binner.missing_merge_map_["score"])
     assert rating_values[0] == str(binner.missing_merge_map_["rating"])
     assert "Missing" not in rating_values
+
+
+def test_sampled_fit_without_missing_decision_keeps_metadata_and_fallbacks(
+    spark_session, monkeypatch
+):
+    pdf = pd.DataFrame(
+        {
+            "score": [-4.0, -3.0, -2.0, -1.0, 1.0, 2.0, None, float("nan")],
+            "target": [0, 0, 0, 0, 1, 1, 1, 0],
+        }
+    )
+
+    def fit_with_fallback(fallback):
+        monkeypatch.setattr(dataframe_backend, "_pyspark_dataframe_class", lambda: ValidatingFakeSparkDataFrame)
+        fake_spark = ValidatingFakeSparkDataFrame(pdf, sample_mode="head")
+        return RiskBands(
+            max_bins=3,
+            min_event_rate_diff=0.0,
+            sample_size=0.75,
+            missing_policy="merge",
+            missing_merge_criterion="nearest_event_rate",
+            missing_merge_fallback=fallback,
+        ).fit(fake_spark, y="target", column="score")
+
+    from pyspark.sql import DataFrame as SparkDataFrame
+    from pyspark.sql import types as T
+
+    schema = T.StructType(
+        [
+            T.StructField("score", T.DoubleType(), True),
+            T.StructField("target", T.IntegerType(), True),
+        ]
+    )
+    monkeypatch.setattr(dataframe_backend, "_pyspark_dataframe_class", lambda: SparkDataFrame)
+    transform_sdf = spark_session.createDataFrame([(None, 1), (float("nan"), 0), (-4.0, 0)], schema=schema)
+    no_missing_sdf = spark_session.createDataFrame([(-4.0, 0), (1.0, 1)], schema=schema)
+
+    separate_binner = fit_with_fallback("separate_bin")
+    monkeypatch.setattr(dataframe_backend, "_pyspark_dataframe_class", lambda: SparkDataFrame)
+    observed = _values(separate_binner.transform(transform_sdf, column="score"), "score")
+
+    assert separate_binner.missing_merge_map_ == {}
+    assert separate_binner.sampling_metadata_["fit_mode"] == "sampled_to_pandas"
+    assert separate_binner.sampling_metadata_["sampling_applied"] is True
+    assert separate_binner.sampling_metadata_["merge_decision_learned_on_sample"] is False
+    assert separate_binner.sampling_metadata_["merge_decision_count"] == 0
+    assert observed.count("Missing") == 2
+
+    raise_binner = fit_with_fallback("raise")
+    monkeypatch.setattr(dataframe_backend, "_pyspark_dataframe_class", lambda: SparkDataFrame)
+
+    assert raise_binner.missing_merge_map_ == {}
+    assert raise_binner.sampling_metadata_["merge_decision_learned_on_sample"] is False
+    assert raise_binner.transform(no_missing_sdf, column="score").__class__.__module__.startswith("pyspark")
+    with pytest.raises(ValueError, match="no merge decision was learned during fit"):
+        raise_binner.transform(transform_sdf, column="score")

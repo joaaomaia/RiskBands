@@ -46,7 +46,7 @@ _VALID_MISSING_MERGE_FALLBACKS = {
 }
 _PYSPARK_MISSING_MERGE_SAMPLED_FIT_CAVEAT = (
     "missing_policy='merge' Spark fit uses a controlled sampled-to-pandas path; "
-    "the missing merge decision is learned on the sampled fit rows, not on the full Spark DataFrame."
+    "any missing merge destination is learned only from the sampled fit rows, not from the full Spark DataFrame."
 )
 
 
@@ -594,8 +594,13 @@ class Binner(BaseEstimator, TransformerMixin):
         fit_rows: int,
         sampling_plan: dict[str, Any],
     ) -> dict[str, Any]:
+        merge_map = getattr(self, "missing_merge_map_", {}) or {}
+        merge_decision_variables = sorted(str(variable) for variable in merge_map)
+        merge_decision_count = len(merge_decision_variables)
         return {
-            "merge_decision_learned_on_sample": True,
+            "merge_decision_learned_on_sample": merge_decision_count > 0,
+            "merge_decision_count": merge_decision_count,
+            "merge_decision_variables": merge_decision_variables,
             "merge_decision_fit_mode": "sampled_to_pandas",
             "merge_decision_n_rows_source": int(source_rows),
             "merge_decision_n_rows_fit": int(fit_rows),
@@ -626,6 +631,14 @@ class Binner(BaseEstimator, TransformerMixin):
             annotated = table.copy()
             for key, value in scalar_metadata.items():
                 annotated[key] = value
+            if "variable" in annotated.columns and "merge_decision_learned_on_sample" in annotated.columns:
+                learned_variables = {
+                    str(variable)
+                    for variable in merge_metadata.get("merge_decision_variables", [])
+                }
+                annotated["merge_decision_learned_on_sample"] = (
+                    annotated["variable"].astype(str).isin(learned_variables)
+                )
             if "notes" in annotated.columns and caveat:
                 annotated["notes"] = annotated["notes"].map(
                     lambda value: (

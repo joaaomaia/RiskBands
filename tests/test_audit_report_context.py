@@ -81,9 +81,32 @@ def test_audit_report_context_summarizes_missing_merge_nearest_woe():
 
 def test_audit_report_context_handles_no_missing_and_empty_decision_log():
     binner = fit_merge_binner(with_missing=False)
+    binner.sampling_metadata_ = {
+        "fit_mode": "sampled_to_pandas",
+        "sampling_applied": True,
+        "merge_decision_learned_on_sample": False,
+        "merge_decision_count": 0,
+        "merge_decision_variables": [],
+        "sampling_caveat": (
+            "missing_policy='merge' Spark fit uses a controlled sampled-to-pandas path; "
+            "any missing merge destination is learned only from the sampled fit rows, "
+            "not from the full Spark DataFrame."
+        ),
+    }
+    binner.missing_decision_log_ = binner.missing_decision_log_.assign(
+        merge_decision_learned_on_sample=False,
+        merge_decision_count=0,
+    )
     context = build_audit_report_context(binner)
 
     assert context["missing_decisions"][0]["action"] == "no_missing_detected"
+    assert context["missing_decisions"][0]["merge_decision_learned_on_sample"] is False
+    assert context["missing_summary"]["merge_decision_learned_on_sample"] is False
+    assert context["missing_summary"]["merge_decision_count"] == 0
+    assert context["missing_summary"]["merge_decision_variables"] == []
+    assert context["model_config"]["merge_decision_learned_on_sample"] is False
+    assert context["model_config"]["merge_decision_count"] == 0
+    assert "Nenhum destino de merge foi aprendido" in context["missing_decisions"][0]["narrative"]
 
     binner.missing_decision_log_ = pd.DataFrame()
     context = build_audit_report_context(binner)
