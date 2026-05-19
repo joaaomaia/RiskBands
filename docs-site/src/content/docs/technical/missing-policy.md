@@ -59,6 +59,15 @@ candidatos ficam em `missing_merge_candidates_`, e o mapa aprendido fica em
 `missing_merge_map_`. O `transform(...)` usa apenas essa decisao aprendida no
 fit; ele nao aprende regra nova com a base de aplicacao.
 
+Compare merge contra `separate_bin` antes de aceitar a decisao. O script
+[`missing_policy_comparison_demo.py`](https://github.com/joaaomaia/RiskBands/blob/main/examples/missing_policy/missing_policy_comparison_demo.py)
+gera uma tabela com IV, numero de bins, evento do missing, acao tomada, bin
+selecionado, distancia, candidatos, fallback e uma metrica simples por periodo.
+O script
+[`credit_risk_missing_merge_demo.py`](https://github.com/joaaomaia/RiskBands/blob/main/examples/missing_policy/credit_risk_missing_merge_demo.py)
+mostra o mesmo fluxo em dados sinteticos de credito com `bureau_score`,
+`income`, `internal_rating`, `channel`, `product`, `vintage` e `target`.
+
 ## Exemplo pandas
 
 O script completo esta em
@@ -118,6 +127,7 @@ Ele usa:
 - `missing_policy="separate_bin"`;
 - `transform(validate=True)`;
 - `missing_policy="forbid"` gerando erro claro;
+- boundary explicito para `missing_policy="merge"` em PySpark;
 - nenhum UDF.
 
 ```bash

@@ -60,6 +60,14 @@ and the learned routing map is stored in `missing_merge_map_`. `transform(...)`
 uses only the fit-time decision; it does not learn a new rule from application
 data.
 
+Compare merge against `separate_bin` before accepting the decision. The
+[`missing_policy_comparison_demo.py`](https://github.com/joaaomaia/RiskBands/blob/main/examples/missing_policy/missing_policy_comparison_demo.py)
+script builds a table with IV, number of bins, missing event rate, action,
+selected bin, distance, candidates, fallback, and a simple period metric. The
+[`credit_risk_missing_merge_demo.py`](https://github.com/joaaomaia/RiskBands/blob/main/examples/missing_policy/credit_risk_missing_merge_demo.py)
+script shows the same flow on synthetic credit data with `bureau_score`,
+`income`, `internal_rating`, `channel`, `product`, `vintage`, and `target`.
+
 ## pandas example
 
 The complete script is available at
@@ -119,6 +127,7 @@ It uses:
 - `missing_policy="separate_bin"`;
 - `transform(validate=True)`;
 - `missing_policy="forbid"` producing a clear error;
+- an explicit boundary for `missing_policy="merge"` in PySpark;
 - no UDF.
 
 ```bash

@@ -1,4 +1,4 @@
-﻿import sys
+import sys
 from importlib.util import module_from_spec, spec_from_file_location
 from pathlib import Path
 
@@ -186,6 +186,69 @@ def test_missing_policy_pandas_example_flow_smoke():
         assert pd.api.types.is_numeric_dtype(merge["transformed_woe"]["score"])
         assert merge["bundle_summary"]["missing_policy"] == "merge"
         assert merge["bundle_summary"]["missing_merge_criterion"] == criterion
+
+
+def test_missing_policy_comparison_example_flow_smoke():
+    module = _load_example_module(
+        "examples/missing_policy/missing_policy_comparison_demo.py"
+    )
+
+    results = module.run_missing_policy_comparison_demo()
+    comparison = results["comparison"]
+
+    assert {"dataset", "comparison", "details"} <= set(results)
+    assert {
+        "standard",
+        "separate_bin",
+        "merge_nearest_event_rate",
+        "merge_nearest_woe",
+        "forbid",
+    } == set(comparison["policy"])
+    assert comparison.loc[
+        comparison["policy"].eq("merge_nearest_event_rate"),
+        "merge_criterion",
+    ].iloc[0] == "nearest_event_rate"
+    assert comparison.loc[
+        comparison["policy"].eq("merge_nearest_woe"),
+        "merge_criterion",
+    ].iloc[0] == "nearest_woe"
+    assert comparison["bundle_export_possible"].fillna(False).sum() >= 4
+    assert "missing_policy='forbid'" in results["details"]["forbid"]["error"]
+
+
+def test_credit_risk_missing_merge_example_flow_smoke():
+    module = _load_example_module(
+        "examples/missing_policy/credit_risk_missing_merge_demo.py"
+    )
+
+    results = module.run_credit_risk_missing_merge_demo()
+    comparison = results["comparison"]
+
+    assert {"dataset", "missing_rates", "policy_results", "comparison", "method_notes"} <= set(results)
+    assert {"bureau_score", "income", "internal_rating"} <= set(
+        results["missing_rates"].loc[
+            results["missing_rates"]["missing_count"].gt(0),
+            "variable",
+        ]
+    )
+    assert {
+        "separate_bin",
+        "merge_nearest_event_rate",
+        "merge_nearest_woe",
+    } == set(comparison["policy"])
+    for key, criterion in [
+        ("merge_nearest_event_rate", "nearest_event_rate"),
+        ("merge_nearest_woe", "nearest_woe"),
+    ]:
+        policy_result = results["policy_results"][key]
+        assert policy_result["criterion"] == criterion
+        assert not policy_result["missing_profile"].empty
+        assert not policy_result["missing_merge_candidates"].empty
+        assert set(policy_result["missing_decision_log"]["action"]) >= {
+            "missing_merged",
+            "no_missing_detected",
+        }
+    assert len(results["method_notes"]) >= 3
 
 
 def test_missing_policy_pyspark_example_optional_guard(monkeypatch):
