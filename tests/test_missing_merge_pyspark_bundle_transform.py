@@ -52,7 +52,13 @@ def test_bundle_load_preserves_merge_decision_and_model_transforms_spark(
     observed = _values(transformed)
 
     assert loaded["missing_policy"] == "merge"
+    assert loaded["missing_merge_criterion"] == binner.missing_merge_criterion
+    assert loaded["missing_merge_fallback"] == binner.missing_merge_fallback
     assert loaded["missing_merge_map"]["score"] == learned_label
+    assert loaded["missing_profile"]
+    assert loaded["missing_decision_log"]
+    assert loaded["missing_merge_candidates"]
+    assert loaded["missing_decision_log"][0]["selected_bin_label"] == learned_label
     assert transformed.__class__.__module__.startswith("pyspark")
     assert Counter(observed)[learned_label] >= 2
     assert "Missing" not in observed
@@ -77,8 +83,42 @@ def test_bundle_load_preserves_merge_fallback_and_model_transforms_spark(spark_s
 
     assert loaded["missing_merge_fallback"] == "separate_bin"
     assert loaded["missing_merge_map"] == {}
+    assert loaded["missing_decision_log"]
+    assert loaded["missing_decision_log"][0]["action"] == "no_missing_detected"
     assert transformed.__class__.__module__.startswith("pyspark")
     assert Counter(_values(transformed))["Missing"] == 2
+
+
+def test_bundle_load_then_spark_raise_fallback_records_transform_log(spark_session, tmp_path):
+    fit_df = pd.DataFrame({"score": [-5.0, -4.0, 0.0, 3.0, 5.0] * 8, "target": [0, 0, 1, 1, 1] * 8})
+    binner = RiskBands(
+        max_bins=3,
+        min_event_rate_diff=0.0,
+        missing_policy="merge",
+        missing_merge_criterion="nearest_event_rate",
+        missing_merge_fallback="raise",
+    ).fit(fit_df, y="target", column="score")
+    binner.export_bundle(tmp_path / "before_transform")
+    loaded_before = load_bundle(tmp_path / "before_transform")
+
+    assert loaded_before["missing_merge_fallback"] == "raise"
+    assert loaded_before["missing_merge_map"] == {}
+
+    with pytest.raises(ValueError, match="no merge decision was learned"):
+        binner.transform(
+            _numeric_spark_frame(spark_session, [(None, 0), (-5.0, 0)]),
+            column="score",
+        )
+
+    assert binner.missing_transform_fallback_log_ is not None
+    assert not binner.missing_transform_fallback_log_.empty
+    assert binner.missing_transform_fallback_log_.iloc[0]["backend"] == "pyspark"
+
+    binner.export_bundle(tmp_path / "after_transform")
+    loaded_after = load_bundle(tmp_path / "after_transform")
+
+    assert loaded_after["missing_transform_fallback_log"]
+    assert loaded_after["missing_transform_fallback_log"][0]["backend"] == "pyspark"
 
 
 def test_bundle_model_still_blocks_spark_return_woe(spark_session, tmp_path):
