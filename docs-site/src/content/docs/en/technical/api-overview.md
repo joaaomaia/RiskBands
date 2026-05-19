@@ -25,34 +25,8 @@ from riskbands.temporal_stability import (
 )
 ```
 
-## What became friendlier
-
-Without aggressive changes to the core, the public `Binner` API became closer
-to familiar sklearn and pandas patterns:
-
-- `fit(df, y="target", column="score")`
-- `fit(df["score"], y=df["target"])`
-- `transform(df)` or `transform(df["score"])`
-- `fit_transform(...)`
-- `summary()`
-- `score_details()`
-- `score_table()`
-- `report()`
-- `audit_table()`
-- `diagnostics()`
-- `binning_table()`
-- `feature_binning_table()`
-- `plot_bad_rate_over_time()`
-- `plot_bad_rate_heatmap()`
-- `plot_bin_share_over_time()`
-- `plot_score_components()`
-- `export_binnings_json()`
-- `export_bundle()`
-
-Friendlier configuration aliases were also added:
-
-- `max_n_bins` as an alias for `max_bins`
-- `monotonic_trend` as an alias for `monotonic`
+`RiskBands` is the preferred name. `Binner` remains available for
+compatibility, and `RiskBands is Binner` remains true.
 
 ## Core blocks
 
@@ -65,7 +39,7 @@ Friendlier configuration aliases were also added:
 | `diagnostics()` | Detailed temporal reading | Opens stability by bin or by variable |
 | `export_binnings_json()` | Single JSON artifact | Makes versioning and governance easier |
 | `export_bundle()` | Complete audit package | Generates JSON, CSV, and feature-level tables |
-| `BinComparator` | Champion/challenger comparison | Remains central when the problem is choosing between multiple candidates |
+| `BinComparator` | Champion/challenger comparison | Helps choose between multiple candidates |
 
 ## Recommended single-candidate flow
 
@@ -91,13 +65,11 @@ binner.export_bundle("artifacts/run_2026_04_14")
 
 ## Score strategies
 
-Today the API exposes two explicit strategies:
+The API exposes two explicit strategies:
 
-- `standard`
-  Keeps the historical maximization-oriented score. `legacy` remains accepted
-  only as a compatibility alias.
-- `stable`
-  Introduces the temporal-robustness-oriented minimization objective.
+- `standard`: the historical maximization-oriented score. `legacy` remains
+  accepted only as a compatibility alias.
+- `stable`: the temporal-robustness-oriented minimization objective.
 
 ## Missing values
 
@@ -106,15 +78,21 @@ Today the API exposes two explicit strategies:
 - `standard`: compatible default with the current behavior
 - `separate_bin`: opt-in explicit `Missing` bin
 - `forbid`: error during `fit` or `transform` if selected features contain missing values
+- `merge`: opt-in pandas routing from the missing group to the closest regular bin learned during `fit`
 
-`separate_bin` does not perform opaque imputation; it makes missing values
-explicit and auditable. Merge policies are not part of the public contract yet.
+`merge` requires `missing_merge_criterion="nearest_event_rate"` or
+`missing_merge_criterion="nearest_woe"`. The first uses absolute event-rate
+distance; the second uses absolute WoE distance. `missing_merge_fallback`
+accepts `separate_bin` or `raise` for missing values that appear during
+`transform` without a fit-time decision.
 
-Dedicated guide: [Missing policy](../missing-policy/).
+These policies do not perform opaque imputation. In merge mode, `transform(...)`
+uses only the decision learned during `fit` and does not learn a new rule from
+application data.
 
-After `fit`, inspect `missing_profile_` and `missing_decision_log_` to see
-volume, share, event rate, and the decision taken per variable. These fields
-are also persisted by `export_bundle(...)`.
+After `fit`, inspect `missing_profile_`, `missing_decision_log_`,
+`missing_merge_candidates_`, and `missing_merge_map_` to review volume, share,
+event rate, criterion, candidates, distances, and learned destination.
 
 Example:
 
@@ -123,20 +101,14 @@ binner = RiskBands(
     strategy="supervised",
     check_stability=True,
     time_col="month",
-    missing_policy="separate_bin",
+    missing_policy="merge",
+    missing_merge_criterion="nearest_woe",
+    missing_merge_fallback="separate_bin",
     score_strategy="stable",
-    score_weights={
-        "temporal_variance_weight": 0.22,
-        "window_drift_weight": 0.18,
-        "rank_inversion_weight": 0.20,
-        "separation_weight": 0.20,
-        "entropy_weight": 0.08,
-        "psi_weight": 0.12,
-    },
-    normalization_strategy="absolute",
-    woe_shrinkage_strength=40.0,
 )
 ```
+
+Dedicated guide: [Missing policy](../missing-policy/).
 
 ## What to inspect next
 

@@ -2,6 +2,8 @@
 from importlib.util import module_from_spec, spec_from_file_location
 from pathlib import Path
 
+import pandas as pd
+
 
 def _load_example_module(relative_path: str):
     root = Path(__file__).resolve().parents[1]
@@ -157,6 +159,9 @@ def test_missing_policy_pandas_example_flow_smoke():
         "dataset",
         "standard",
         "separate_bin",
+        "merge_dataset",
+        "merge_nearest_event_rate",
+        "merge_nearest_woe",
         "forbid_fit_error",
         "forbid_transform_error",
         "bundle_summary",
@@ -166,6 +171,21 @@ def test_missing_policy_pandas_example_flow_smoke():
     assert set(results["separate_bin"]["transformed_head"]["rating"].astype(str)) >= {"Missing"}
     assert "missing_policy='forbid'" in results["forbid_fit_error"]
     assert results["bundle_summary"]["missing_policy"] == "separate_bin"
+
+    for key, criterion in [
+        ("merge_nearest_event_rate", "nearest_event_rate"),
+        ("merge_nearest_woe", "nearest_woe"),
+    ]:
+        merge = results[key]
+        assert merge["missing_decision_log"].iloc[0]["action"] == "missing_merged"
+        assert merge["missing_decision_log"].iloc[0]["missing_merge_criterion"] == criterion
+        assert not merge["missing_merge_candidates"].empty
+        assert merge["missing_merge_map"]["score"] == merge["missing_decision_log"].iloc[0]["selected_bin_label"]
+        assert merge["transformed"].loc[0, "score"] == merge["missing_decision_log"].iloc[0]["selected_bin_label"]
+        assert merge["transformed"].loc[0, "score"] != "Missing"
+        assert pd.api.types.is_numeric_dtype(merge["transformed_woe"]["score"])
+        assert merge["bundle_summary"]["missing_policy"] == "merge"
+        assert merge["bundle_summary"]["missing_merge_criterion"] == criterion
 
 
 def test_missing_policy_pyspark_example_optional_guard(monkeypatch):
@@ -177,5 +197,3 @@ def test_missing_policy_pyspark_example_optional_guard(monkeypatch):
     results = module.run_pyspark_missing_policy_demo()
 
     assert results == {"skipped": True, "reason": "pyspark is not installed"}
-
-

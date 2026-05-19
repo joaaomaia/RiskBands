@@ -1,11 +1,11 @@
 ---
-title: "Outputs e diagnóstico"
+title: "Outputs e diagnostico"
 description: "Como interpretar os principais outputs do Binner depois do fit, com foco em auditoria, score e leitura temporal."
 ---
 
 ## O que aparece depois do `fit`
 
-Depois de ajustar um `Binner`, a API pública expõe artefatos mais amigáveis para inspeção:
+Depois de ajustar um `Binner`, a API publica expoe artefatos amigaveis:
 
 - `binning_table()`
 - `feature_binning_table()` e `get_binning_table()`
@@ -23,7 +23,7 @@ Depois de ajustar um `Binner`, a API pública expõe artefatos mais amigáveis p
 - `export_binnings_json()`
 - `export_bundle()`
 
-Também ficam disponíveis atributos pós-fit úteis, como:
+Tambem ficam disponiveis atributos pos-fit como:
 
 - `binning_table_`
 - `summary_`
@@ -35,119 +35,64 @@ Também ficam disponíveis atributos pós-fit úteis, como:
 - `score_`
 - `comparison_score_`
 
-## `binning_table()`
+## Tabelas principais
 
-Use quando quiser ver os cortes ou bins finais de forma direta.
+`binning_table()` mostra cortes ou bins finais. `score_table()` e a tabela curta
+para explicar objective, pesos, componentes normalizados e componentes raw.
+`audit_table()` combina cortes, IV, score temporal, penalidades, cobertura,
+bins raros, reversoes e rationale resumido.
 
-Perguntas que ela ajuda a responder:
+## Diagnostico temporal
 
-- quantos bins ficaram?
-- quais intervalos ou grupos foram formados?
-- qual é a ordem dos bins?
+Use `diagnostics(kind="bin")` para abrir detalhe por bin e periodo. Use
+`diagnostics(kind="variable")` para resumo temporal agregado por variavel.
 
-## `score_table()`
-
-É a tabela mais curta para notebook quando a pergunta central é:
-
-- por que esse score saiu assim?
-- quais pesos entraram?
-- quais componentes pesaram mais?
-- qual normalização está ativa?
-
-Ela expõe:
-
-- `objective_score`
-- `objective_preference_score`
-- `weight_profile`
-- `normalized_component_profile`
-- `raw_component_profile`
-- colunas detalhadas `objective_weight_*`, `objective_norm_*` e `objective_raw_*`
-
-## `audit_table()`
-
-É a tabela mais útil para revisão auditável e model risk.
-
-Ela combina em uma única visão:
-
-- cortes
-- IV e score temporal
-- score e penalidades
-- cobertura, bins raros e reversões
-- rationale resumido
-
-## `diagnostics()`
-
-Use `diagnostics(kind="bin")` quando quiser abrir o detalhe por bin e período.
-
-Use `diagnostics(kind="variable")` quando quiser o resumo temporal agregado por variável.
-
-É a melhor porta para investigar:
+Essa e a melhor porta para investigar:
 
 - cobertura
 - volatilidade de event rate
 - volatilidade de WoE
 - share dos bins
-- reversões de ranking
+- reversoes de ranking
 - quebras de monotonicidade
 
-## `metadata_`
+## Metadata
 
-O metadata pós-fit agora é mais auditável.
+`metadata_` inclui versao do `riskbands`, estrategia, `score_strategy`,
+`normalization_strategy`, `woe_shrinkage_strength`, pesos, `target_name`,
+`time_col` e features ajustadas.
 
-Ele inclui:
+## Export auditavel
 
-- versão do `riskbands`
-- `strategy`
-- `score_strategy`
-- `normalization_strategy`
-- `woe_shrinkage_strength`
-- pesos informados e pesos efetivos
-- `target_name`
-- `time_col`
-- features ajustadas
+`export_binnings_json(path)` gera um JSON unico com metadata, pesos do score,
+bins por feature, resumo, score details e auditoria por feature.
 
-## Export auditável
+`export_bundle(path)` gera JSON legivel, CSVs, tabelas por feature e Parquet
+opcional quando houver engine disponivel.
 
-### `export_binnings_json(path)`
-
-Gera um JSON único com:
-
-- metadata geral do fit
-- pesos do score
-- bins por feature
-- resumo, score details e auditoria por feature
-
-### `export_bundle(path)`
-
-Gera um pacote de auditoria com:
-
-- JSON legível
-- CSVs prontos para notebook ou governança
-- tabelas por feature
-- Parquet opcional quando houver engine disponível
-
-## Leitura rápida do score
-
-Uma regra simples:
-
-- `standard`: score bruto maior é melhor
-- `stable`: score bruto menor é melhor
-
-Se quiser uma régua consolidada para comparação entre estratégias, olhe também `objective_preference_score`.
-
-Bundles também persistem a trilha de missing values quando disponível:
-`missing_policy`, `effective_missing_policy`, `missing_profile` e
-`missing_decision_log`.
+Bundles tambem persistem a trilha de missing values quando disponivel:
+`missing_policy`, `effective_missing_policy`, `missing_profile`,
+`missing_decision_log`, `missing_merge_criterion`, `missing_merge_fallback`,
+`missing_merge_candidates` e `missing_merge_map`.
 
 Esses campos registram a decisao de tratamento de missing values. Eles nao
-representam imputacao opaca nem merge policies.
+representam imputacao opaca.
 
 Use `missing_profile_` para revisar volume, share e event rate dos missing por
-variavel. Use `missing_decision_log_` para ver se a acao foi preservar o
-comportamento `standard`, criar bin `Missing` com `separate_bin` ou bloquear o
-fluxo com `forbid`.
+variavel. Use `missing_decision_log_` para ver se a acao foi preservar
+`standard`, criar bin `Missing` com `separate_bin`, bloquear com `forbid` ou
+rotear missing com `merge`. Para merge, use `missing_merge_candidates_` para
+revisar candidatos e distancias e `missing_merge_map_` para ver o destino
+aprendido.
 
 Guia dedicado: [Missing policy](../missing-policy/).
+
+## Leitura rapida do score
+
+- `standard`: score bruto maior e melhor
+- `stable`: score bruto menor e melhor
+
+Para uma regua consolidada entre estrategias, veja `objective_preference_score`.
 
 ## Exemplo
 

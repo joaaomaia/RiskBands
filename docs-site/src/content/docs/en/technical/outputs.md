@@ -5,8 +5,7 @@ description: "How to interpret the main Binner outputs after fit, with a focus o
 
 ## What appears after `fit`
 
-After fitting a `Binner`, the public API exposes friendlier artifacts for
-inspection:
+After fitting a `Binner`, the public API exposes friendly artifacts:
 
 - `binning_table()`
 - `feature_binning_table()` and `get_binning_table()`
@@ -36,54 +35,19 @@ Useful post-fit attributes are also available, such as:
 - `score_`
 - `comparison_score_`
 
-## `binning_table()`
+## Main tables
 
-Use it when you want to see final cuts or bins directly.
+`binning_table()` shows final cuts or bins. `score_table()` is the short table
+for explaining the objective, weights, normalized components, and raw
+components. `audit_table()` combines cuts, IV, temporal score, penalties,
+coverage, rare bins, reversals, and summarized rationale.
 
-Questions it helps answer:
+## Temporal diagnostics
 
-- how many bins were kept?
-- which intervals or groups were formed?
-- what is the bin order?
+Use `diagnostics(kind="bin")` to open detail by bin and period. Use
+`diagnostics(kind="variable")` for the aggregated temporal summary by variable.
 
-## `score_table()`
-
-This is the shortest notebook table when the central question is:
-
-- why did this score come out this way?
-- which weights entered?
-- which components mattered most?
-- which normalization is active?
-
-It exposes:
-
-- `objective_score`
-- `objective_preference_score`
-- `weight_profile`
-- `normalized_component_profile`
-- `raw_component_profile`
-- detailed `objective_weight_*`, `objective_norm_*`, and `objective_raw_*` columns
-
-## `audit_table()`
-
-This is the most useful table for auditable review and model risk.
-
-It combines in a single view:
-
-- cuts
-- IV and temporal score
-- score and penalties
-- coverage, rare bins, and reversals
-- summarized rationale
-
-## `diagnostics()`
-
-Use `diagnostics(kind="bin")` when you want to open detail by bin and period.
-
-Use `diagnostics(kind="variable")` when you want the aggregated temporal
-summary by variable.
-
-It is the best entry point to investigate:
+This is the best entry point to investigate:
 
 - coverage
 - event-rate volatility
@@ -92,65 +56,44 @@ It is the best entry point to investigate:
 - ranking reversals
 - monotonicity breaks
 
-## `metadata_`
+## Metadata
 
-Post-fit metadata is now more auditable.
-
-It includes:
-
-- `riskbands` version
-- `strategy`
-- `score_strategy`
-- `normalization_strategy`
-- `woe_shrinkage_strength`
-- provided weights and effective weights
-- `target_name`
-- `time_col`
-- fitted features
+`metadata_` includes the `riskbands` version, strategy, `score_strategy`,
+`normalization_strategy`, `woe_shrinkage_strength`, weights, `target_name`,
+`time_col`, and fitted features.
 
 ## Auditable export
 
-### `export_binnings_json(path)`
+`export_binnings_json(path)` generates a single JSON with metadata, score
+weights, bins by feature, summary, score details, and feature-level audit.
 
-Generates a single JSON with:
+`export_bundle(path)` generates readable JSON, CSVs, feature-level tables, and
+optional Parquet when an engine is available.
 
-- general fit metadata
-- score weights
-- bins by feature
-- summary, score details, and audit by feature
+Bundles also persist the missing-values trail when available:
+`missing_policy`, `effective_missing_policy`, `missing_profile`,
+`missing_decision_log`, `missing_merge_criterion`, `missing_merge_fallback`,
+`missing_merge_candidates`, and `missing_merge_map`.
 
-### `export_bundle(path)`
+These fields record the missing-values treatment decision. They do not
+represent opaque imputation.
 
-Generates an audit package with:
+Use `missing_profile_` to review missing volume, share, and event rate by
+variable. Use `missing_decision_log_` to see whether the action was to preserve
+`standard`, create a `Missing` bin with `separate_bin`, block with `forbid`, or
+route missing values with `merge`. For merge, use `missing_merge_candidates_`
+to review candidates and distances and `missing_merge_map_` to see the learned
+destination.
 
-- readable JSON
-- CSVs ready for notebooks or governance
-- feature-level tables
-- optional Parquet when an engine is available
+Dedicated guide: [Missing policy](../missing-policy/).
 
 ## Fast score reading
-
-A simple rule:
 
 - `standard`: higher raw score is better
 - `stable`: lower raw score is better
 
-If you want a consolidated scale for comparison across strategies, also look
-at `objective_preference_score`.
-
-Bundles also persist the missing-values trail when available:
-`missing_policy`, `effective_missing_policy`, `missing_profile`, and
-`missing_decision_log`.
-
-These fields record the missing-values treatment decision. They do not
-represent opaque imputation or merge policies.
-
-Use `missing_profile_` to review missing volume, share, and event rate by
-variable. Use `missing_decision_log_` to see whether the action was to preserve
-`standard` behavior, create a `Missing` bin with `separate_bin`, or block the
-flow with `forbid`.
-
-Dedicated guide: [Missing policy](../missing-policy/).
+For a consolidated scale across strategies, also look at
+`objective_preference_score`.
 
 ## Example
 

@@ -27,7 +27,7 @@ features:
     description: Veja como interpretar `summary()`, `report()`, `score_details()`, `diagnostics()` e `binning_table()`.
     link: ./technical/outputs/
   - title: Missing values auditaveis
-    description: Use `standard`, `separate_bin` ou `forbid` sem imputacao opaca e com trilha persistida nos bundles.
+    description: Use `standard`, `separate_bin`, `forbid` ou `merge` sem imputacao opaca e com trilha persistida nos bundles.
     link: ./technical/missing-policy/
   - title: Optuna sem acoplamento
     description: Descubra quando vale ligar a busca externa e como ela se encaixa no mesmo objective do fluxo sem Optuna.

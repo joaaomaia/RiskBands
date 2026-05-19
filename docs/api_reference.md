@@ -15,7 +15,7 @@ from riskbands import (
 
 Current version:
 
-- `2.2.0`
+- `2.3.0`
 
 ## `RiskBands` / `Binner`
 
@@ -34,7 +34,9 @@ Common parameters:
 - `check_stability`: enables temporal checks in the flow
 - `use_optuna`: enables hyperparameter search for `strategy="supervised"`
 - `time_col`: period column used by temporal diagnostics
-- `missing_policy`: `"standard"` (default), `"separate_bin"`, or `"forbid"`
+- `missing_policy`: `"standard"` (default), `"separate_bin"`, `"forbid"`, or `"merge"`
+- `missing_merge_criterion`: required for `missing_policy="merge"`; `"nearest_event_rate"` or `"nearest_woe"`
+- `missing_merge_fallback`: `"separate_bin"` (default) or `"raise"` for transform-time missing values when no fit-time merge decision exists
 - `score_strategy`: `"standard"` or `"stable"`; `"legacy"` remains a compatibility alias for `"standard"`
 - `score_weights`: optional weights for `stable`
 - `normalization_strategy`: currently `absolute` for standalone-safe normalization
@@ -89,9 +91,16 @@ Missing policy semantics:
 - `standard`: preserves the current missing-value behavior and is the default.
 - `separate_bin`: creates an explicit, auditable `Missing` bin.
 - `forbid`: raises a clear error in `fit` or `transform` when selected features contain missing values.
+- `merge`: learns a fit-time destination for the missing group and routes missing values to the selected regular bin during pandas transform.
 
-No opaque missing-value imputation is added. Merge policies such as
-`merge_nearest_woe` and `merge_nearest_event_rate` are not part of v2.2.0.
+For `merge`, use one supported criterion:
+
+- `nearest_event_rate`: selects the candidate bin with the smallest absolute event-rate distance from the fit-time missing group.
+- `nearest_woe`: selects the candidate bin with the smallest absolute WoE distance from the fit-time missing group.
+
+The decision is learned only during `fit(...)`; `transform(...)` does not use application target values, application event rates, application WoE, or out-of-time distributions to retarget missing values.
+
+No opaque missing-value imputation is added. The v2.3.0 merge contract does not include `temporal_stable`, `monotonic_neighbor`, custom criteria, or full PySpark merge routing.
 
 For user guidance and runnable examples, see
 [`docs/missing_policy_user_guide.md`](missing_policy_user_guide.md) and:
@@ -105,6 +114,10 @@ The main audit attributes are:
 - `effective_missing_policy_`
 - `missing_profile_`
 - `missing_decision_log_`
+- `missing_merge_criterion_`
+- `missing_merge_fallback_`
+- `missing_merge_candidates_`
+- `missing_merge_map_`
 
 These fields are also persisted by `export_bundle(...)` when available.
 
@@ -129,6 +142,7 @@ Main attributes after `fit`:
 - `validation_report_` as the latest validation report compatibility alias
 - `fit_profile_`, `source_profile_`, and `reference_profile_` when available
 - `missing_policy_`, `effective_missing_policy_`, `missing_profile_`, and `missing_decision_log_`
+- `missing_merge_criterion_`, `missing_merge_fallback_`, `missing_merge_candidates_`, and `missing_merge_map_` when merge is enabled
 - `iv_`
 - `iv_by_variable_`
 - `objective_config_`
@@ -180,6 +194,7 @@ Main attributes after `fit`:
 - fit metadata and RiskBands version
 - strategy, score strategy, normalization mode, shrinkage configuration
 - missing policy and effective missing policy
+- missing merge criterion and fallback when merge is enabled
 - target, time column, fitted features and generation timestamp
 - auditable score weights and effective score-weight profile
 - per-feature binning tables, score details and audit-friendly summaries
@@ -190,6 +205,7 @@ Main attributes after `fit`:
 - `binnings.json`
 - friendly CSV outputs such as `summary.csv`, `score_table.csv`, `audit_table.csv`, and `report.csv`
 - missing audit outputs such as `missing_profile.csv` and `missing_decision_log.csv` when available
+- merge audit outputs such as `missing_merge_candidates.csv` when available
 - per-feature tables under `feature_tables/`
 - parquet artifacts when the environment has parquet support available
 

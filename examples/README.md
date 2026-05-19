@@ -12,7 +12,7 @@
   Demo minima comparando o score `legacy` com `stable` sobre a mesma cesta de candidatos, mostrando como a decisao muda quando a funcao objetivo passa a priorizar robustez temporal.
 
 - `examples/missing_policy/missing_policy_pandas_demo.py`
-  Demo pequena em pandas para `standard`, `separate_bin`, `forbid`, `missing_profile_`, `missing_decision_log_` e bundle.
+  Demo pequena em pandas para `standard`, `separate_bin`, `forbid`, `missing_policy="merge"` com `nearest_event_rate` e `nearest_woe`, `missing_profile_`, `missing_decision_log_`, `missing_merge_candidates_` e bundle.
 
 - `examples/missing_policy/missing_policy_pyspark_demo.py`
   Demo pequena e opcional em PySpark para `separate_bin`, `forbid` e `transform(validate=True)`, com guarda quando PySpark nao esta instalado.
@@ -51,7 +51,7 @@
 - Comece por `riskbands_synthetic_plotly_comparative_demo.ipynb` se a sua pergunta principal for:
   "Qual e o jeito mais curto e familiar de usar o RiskBands hoje?"
 - Comece por `missing_policy/` se a sua pergunta principal for:
-  "Como tornar missing values visiveis, bloqueados ou auditaveis no binning?"
+  "Como tornar missing values visiveis, bloqueados, auditaveis ou roteados por merge no binning?"
 - Start with `temporal_stability/` if you want to understand the mechanics of the API before going into credit-specific trade-offs.
 - Go to `pd_vintage_champion_challenger/` if your main question is:
   "How can a binning that looks stronger in train lose to a more robust alternative over time?"
@@ -81,5 +81,4 @@ The anchor PD example also reuses the synthetic credit helpers under `research/r
 
 - `credit_data_synthesizer.py` for the vintage panel
 - `credit_data_sampler.py` for an optional sampling preview
-
 

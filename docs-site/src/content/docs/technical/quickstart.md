@@ -5,14 +5,14 @@ description: "Ajuste seu primeiro RiskBands com a API mais amigavel do projeto e
 
 ## O fluxo recomendado hoje
 
-Para um usuário novo, o caminho mais simples e completo é:
+Para um usuario novo, o caminho mais simples e completo e:
 
 1. criar um `RiskBands`
 2. ajustar com `fit(df, y="target", column="score", time_col="month")`
 3. olhar `summary()`
 4. abrir `score_table()` e `audit_table()`
-5. exportar os artefatos auditáveis
-6. usar os plots públicos para leitura temporal
+5. exportar os artefatos auditaveis
+6. usar os plots publicos para leitura temporal
 
 ```python
 import numpy as np
@@ -63,74 +63,46 @@ voce precisa auditar missing values explicitamente, use
 `missing_policy="separate_bin"`. Quando missing values devem ser bloqueados
 antes do binning, use `missing_policy="forbid"`.
 
-Essas politicas nao fazem imputacao opaca e nao incluem merge policies.
+Quando missing deve continuar auditavel, mas ser roteado para um bin regular,
+use `missing_policy="merge"` com `missing_merge_criterion="nearest_event_rate"`
+ou `missing_merge_criterion="nearest_woe"`.
+
+Essas politicas nao fazem imputacao opaca. Em merge, a regra e aprendida no
+`fit` e reutilizada no `transform`, sem recalcular destino com a base de
+aplicacao.
 
 Para exemplos pandas e PySpark completos, veja [Missing policy](../missing-policy/).
-
-## Por que esse fluxo é mais amigável
-
-Ele segue convenções familiares:
-
-- `fit(...)`
-- `transform(...)`
-- `fit_transform(...)`
-- `DataFrame` e `Series` do pandas como primeira opção
-- tabelas curtas para notebook antes de abrir o detalhe completo
-
-Também evita exigir que você monte pivots, bundles ou dicionários internos logo no começo.
 
 ## O que olhar primeiro
 
 ### `summary()`
 
-É a melhor primeira parada depois do ajuste.
-
-Use quando quiser responder rapidamente:
-
-- quantos bins ficaram?
-- qual foi o IV?
-- qual estratégia de score está ativa?
-- existem alertas temporais relevantes?
+Melhor primeira parada depois do ajuste: bins, IV, estrategia de score e alertas
+temporais.
 
 ### `score_table()`
 
-É a leitura mais curta para explicar o objective.
-
-Ela ajuda a enxergar:
-
-- score final
-- score de comparação
-- direção do objective
-- pesos usados
-- componentes e penalidades mais relevantes
+Leitura curta para explicar score final, score de comparacao, direcao do
+objective, pesos e componentes mais relevantes.
 
 ### `audit_table()`
 
-É a visão consolidada para revisão auditável.
-
-Ela junta:
-
-- cortes finais
-- score
-- cobertura
-- bins raros
-- reversões
-- rationale resumido
+Visao consolidada para revisao auditavel: cortes finais, score, cobertura, bins
+raros, reversoes e rationale resumido.
 
 ## Quando usar `stable`
 
-Para um novo usuário, `stable` costuma ser a melhor estratégia pública para começar quando:
+Para um novo usuario, `stable` costuma ser a melhor estrategia publica para
+comecar quando existe coluna temporal, estabilidade importa e voce quer
+equilibrar separacao e robustez.
 
-- existe coluna temporal
-- estabilidade importa de verdade
-- você quer equilibrar separação e robustez
+Se voce precisa reproduzir comportamento historico ou comparar com a abordagem
+anterior, use `standard`.
 
-Se você precisa reproduzir um comportamento mais histórico ou comparar com a abordagem anterior, use `standard`.
-
-## Próximos passos
+## Proximos passos
 
 - [Auditoria e plots](../audit-and-plots/)
 - [Missing policy](../missing-policy/)
-- [Outputs e diagnóstico](../outputs/)
-- [Score e estratégias](../score-strategy/)
+- [Outputs e diagnostico](../outputs/)
+- [Score e estrategias](../score-strategy/)
 - [Exemplos](../examples/)

@@ -1,20 +1,20 @@
 ---
-title: "Visão geral da API"
-description: "Mapa da superfície pública do RiskBands, com foco em onboarding, auditoria e leitura temporal amigável."
+title: "Visao geral da API"
+description: "Mapa da superficie publica do RiskBands, com foco em onboarding, auditoria e leitura temporal amigavel."
 ---
 
 ## Porta de entrada recomendada
 
-Na maior parte dos casos, o fluxo ideal para um usuário novo é:
+Na maior parte dos casos, o fluxo ideal para um usuario novo e:
 
 1. instanciar `RiskBands`
 2. rodar `fit(...)`
 3. inspecionar `summary()`, `score_table()` e `audit_table()`
 4. aplicar `transform(...)`
-5. exportar os artefatos auditáveis
-6. usar os plots públicos para leitura temporal
+5. exportar os artefatos auditaveis
+6. usar os plots publicos para leitura temporal
 
-## Superfície pública principal
+## Superficie publica principal
 
 ```python
 from riskbands import RiskBands, Binner, BinComparator
@@ -25,48 +25,23 @@ from riskbands.temporal_stability import (
 )
 ```
 
-## O que ficou mais amigável
-
-Sem mexer agressivamente no core, a API pública do `Binner` ficou mais próxima de padrões familiares de sklearn e pandas:
-
-- `fit(df, y="target", column="score")`
-- `fit(df["score"], y=df["target"])`
-- `transform(df)` ou `transform(df["score"])`
-- `fit_transform(...)`
-- `summary()`
-- `score_details()`
-- `score_table()`
-- `report()`
-- `audit_table()`
-- `diagnostics()`
-- `binning_table()`
-- `feature_binning_table()`
-- `plot_bad_rate_over_time()`
-- `plot_bad_rate_heatmap()`
-- `plot_bin_share_over_time()`
-- `plot_score_components()`
-- `export_binnings_json()`
-- `export_bundle()`
-
-Também foram adicionados aliases mais amigáveis para configuração:
-
-- `max_n_bins` como alias de `max_bins`
-- `monotonic_trend` como alias de `monotonic`
+`RiskBands` e o nome preferido. `Binner` segue disponivel para compatibilidade,
+e `RiskBands is Binner` continua verdadeiro.
 
 ## Blocos centrais
 
 | Componente | Papel no fluxo | Por que importa |
 | --- | --- | --- |
 | `RiskBands` / `Binner` | Porta de entrada principal | Ajusta, transforma, resume, exporta e plota sem exigir estruturas internas |
-| `summary()` | Resumo curto pós-fit | Ajuda a entender rapidamente bins, IV e score |
-| `score_table()` | Explicação curta do objective | Expõe score final, pesos e componentes mais relevantes |
-| `audit_table()` | Revisão auditável consolidada | Junta cuts, score, penalidades, cobertura e rationale |
-| `diagnostics()` | Leitura temporal detalhada | Abre estabilidade por bin ou por variável |
-| `export_binnings_json()` | Artefato único em JSON | Facilita versionamento e governança |
+| `summary()` | Resumo curto pos-fit | Ajuda a entender bins, IV e score |
+| `score_table()` | Explicacao curta do objective | Expoe score final, pesos e componentes mais relevantes |
+| `audit_table()` | Revisao auditavel consolidada | Junta cuts, score, penalidades, cobertura e rationale |
+| `diagnostics()` | Leitura temporal detalhada | Abre estabilidade por bin ou por variavel |
+| `export_binnings_json()` | Artefato unico em JSON | Facilita versionamento e governanca |
 | `export_bundle()` | Pacote completo de auditoria | Gera JSON, CSV e tabelas por feature |
-| `BinComparator` | Comparação champion/challenger | Continua sendo a peça central quando o problema é escolher entre múltiplos candidatos |
+| `BinComparator` | Comparacao champion/challenger | Ajuda a escolher entre multiplos candidatos |
 
-## Fluxo recomendado para candidato único
+## Fluxo recomendado para candidato unico
 
 ```python
 binner = RiskBands(
@@ -88,31 +63,36 @@ binner.export_binnings_json("artifacts/riskbands_binnings.json")
 binner.export_bundle("artifacts/run_2026_04_14")
 ```
 
-## Estratégias de score
+## Estrategias de score
 
-Hoje a API expõe duas estratégias explícitas:
+A API expoe duas estrategias explicitas:
 
-- `standard`
-  Mantém o score histórico orientado a maximização. `legacy` segue aceito apenas como alias compatível.
-- `stable`
-  Introduz o objective orientado a robustez temporal e minimização.
+- `standard`: score historico orientado a maximizacao. `legacy` segue aceito
+  apenas como alias compativel.
+- `stable`: objective orientado a robustez temporal e minimizacao.
 
 ## Missing values
 
 `missing_policy` aceita:
 
-- `standard`: default compatível com o comportamento atual
-- `separate_bin`: opt-in para bin explícito `Missing`
-- `forbid`: erro em `fit` ou `transform` se houver missing nas features selecionadas
+- `standard`: default compativel com o comportamento atual
+- `separate_bin`: opt-in para bin explicito `Missing`
+- `forbid`: erro em `fit` ou `transform` quando ha missing nas features selecionadas
+- `merge`: opt-in pandas para rotear missing ao bin regular mais proximo aprendido no `fit`
 
-`separate_bin` nao faz imputacao opaca; ele torna o missing explicito e
-auditavel. Merge policies ainda nao fazem parte do contrato publico.
+`merge` exige `missing_merge_criterion="nearest_event_rate"` ou
+`missing_merge_criterion="nearest_woe"`. O primeiro usa distancia absoluta de
+taxa de evento; o segundo usa distancia absoluta de WoE. `missing_merge_fallback`
+aceita `separate_bin` ou `raise` para missing que aparece no `transform` sem
+decisao aprendida no `fit`.
 
-Guia dedicado: [Missing policy](../missing-policy/).
+Essas politicas nao fazem imputacao opaca. Em merge, `transform(...)` usa
+somente a decisao aprendida no `fit` e nao aprende regra nova com a base de
+aplicacao.
 
-Depois do `fit`, inspecione `missing_profile_` e `missing_decision_log_` para
-ver volume, share, event rate e decisao tomada por variavel. Esses campos tambem
-sao persistidos em `export_bundle(...)`.
+Depois do `fit`, inspecione `missing_profile_`, `missing_decision_log_`,
+`missing_merge_candidates_` e `missing_merge_map_` para revisar volume, share,
+event rate, criterio, candidatos, distancias e destino aprendido.
 
 Exemplo:
 
@@ -121,33 +101,27 @@ binner = RiskBands(
     strategy="supervised",
     check_stability=True,
     time_col="month",
-    missing_policy="separate_bin",
+    missing_policy="merge",
+    missing_merge_criterion="nearest_woe",
+    missing_merge_fallback="separate_bin",
     score_strategy="stable",
-    score_weights={
-        "temporal_variance_weight": 0.22,
-        "window_drift_weight": 0.18,
-        "rank_inversion_weight": 0.20,
-        "separation_weight": 0.20,
-        "entropy_weight": 0.08,
-        "psi_weight": 0.12,
-    },
-    normalization_strategy="absolute",
-    woe_shrinkage_strength=40.0,
 )
 ```
 
+Guia dedicado: [Missing policy](../missing-policy/).
+
 ## O que olhar em seguida
 
-Depois do primeiro `fit`, o trio mais útil costuma ser:
+Depois do primeiro `fit`, o trio mais util costuma ser:
 
 - `summary()` para uma leitura curta
 - `score_table()` para entender o score e os pesos
-- `audit_table()` para abrir a revisão auditável
+- `audit_table()` para abrir a revisao auditavel
 
-## Próximos passos
+## Proximos passos
 
 - [Quickstart](../quickstart/)
 - [Auditoria e plots](../audit-and-plots/)
-- [Outputs e diagnóstico](../outputs/)
+- [Outputs e diagnostico](../outputs/)
 - [Missing policy](../missing-policy/)
 - [Exemplos](../examples/)

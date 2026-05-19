@@ -3,6 +3,28 @@ title: "Release Notes"
 description: "High-level release milestones for the public package and the official documentation."
 ---
 
+## v2.3.0
+
+Type: compatible minor release.
+
+Main points:
+
+- `missing_policy="merge"` adds auditable missing-value merge for pandas workflows
+- `missing_merge_criterion="nearest_event_rate"` selects the closest regular bin by fit-time event-rate distance
+- `missing_merge_criterion="nearest_woe"` selects the closest regular bin by fit-time WoE distance
+- `missing_merge_fallback` supports `separate_bin` and `raise`
+- `missing_profile_`, `missing_decision_log_`, `missing_merge_candidates_`, and `missing_merge_map_` preserve the audit trail
+- `return_woe=True` routes merged missing values to the learned destination bin before mapping WoE
+- bundle and reporting exports persist merge criterion, fallback, candidates, decision log, and merge map
+- `standard`, `separate_bin`, `forbid`, `legacy` alias compatibility, and `RiskBands is Binner` are preserved
+- pt-BR/en docs and examples describe both merge criteria
+
+Notes:
+
+- `missing_policy="standard"` remains the default
+- PySpark merge is not implemented; PySpark raises an explicit boundary for `missing_policy="merge"`
+- no `temporal_stable`, `monotonic_neighbor`, custom merge criteria, opaque imputation, or PySpark 4.x support is added
+
 ## Documentation update after v2.2.0
 
 Type: docs-only preparation.
@@ -17,9 +39,9 @@ Main points:
 - keeps PySpark documented as optional through `riskbands[spark]`
 - does not change core behavior, package version, publish status, tag, or release artifacts
 
-Notes:
+Historical notes:
 
-- merge policies remain future work
+- at that documentation point, merge policies remained future work
 - no opaque intelligent imputation is added
 - i18n is handled as a later docs-site sprint, without changing package release status
 
