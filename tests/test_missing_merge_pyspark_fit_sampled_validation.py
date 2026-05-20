@@ -49,9 +49,22 @@ def test_fit_spark_merge_validate_true_builds_minimal_reports(spark_session, mon
 
     assert binner.fit_validation_report_ is binner.validation_report_
     assert binner.fit_validation_report_["validation_type"] == "fit"
+    assert binner.fit_validation_report_["backend"] == "pyspark"
+    assert binner.fit_validation_report_["fit_mode"] == "sampled_to_pandas"
+    assert binner.fit_validation_report_["sampling_applied"] is True
+    assert binner.fit_validation_report_["sample_size_requested"] == len(rows)
+    assert binner.fit_validation_report_["sample_fraction_effective"] == 1.0
     assert binner.fit_validation_report_["summary"]["n_rows_source"] == len(rows)
     assert binner.fit_validation_report_["summary"]["n_rows_fit"] == len(rows)
     assert binner.fit_validation_report_["summary"]["source_profile_status"] == "computed"
+    assert binner.fit_validation_report_["summary"]["sample_representativeness_status"] in {
+        "ok",
+        "warning",
+        "critical",
+    }
+    assert binner.fit_validation_report_["missing_sampling_diagnostics"]
+    assert binner.fit_validation_report_["merge_decision_summary"]["merge_decision_count"] >= 1
+    assert binner.fit_validation_report_["merge_decision_summary"]["fit_mode"] == "sampled_to_pandas"
     assert binner.source_profile_ is not None
     assert not binner.source_profile_.empty
     assert binner.reference_profile_ is not None

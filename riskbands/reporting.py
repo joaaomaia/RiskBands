@@ -95,6 +95,7 @@ OPTIONAL_BUNDLE_PROFILE_FIELDS = (
     "fit_validation_report",
     "transform_validation_report",
     "validation_report",
+    "missing_sampling_diagnostics",
     "sampling_metadata",
     "backend_metadata",
     "min_n_bins_metadata",
@@ -1026,6 +1027,12 @@ def build_binner_metadata(
     backend_metadata = getattr(binner, "backend_metadata_", None)
     if backend_metadata is not None:
         metadata["backend_metadata"] = _json_safe(backend_metadata)
+    source_missing_counts = getattr(binner, "source_missing_counts_", None)
+    if source_missing_counts is not None:
+        metadata["source_missing_counts"] = _json_safe(source_missing_counts)
+    missing_sampling_diagnostics = getattr(binner, "missing_sampling_diagnostics_", None)
+    if missing_sampling_diagnostics is not None:
+        metadata["missing_sampling_diagnostics"] = _json_safe(missing_sampling_diagnostics)
     reference_profile_source = getattr(binner, "reference_profile_source_", None)
     if reference_profile_source is not None:
         metadata["reference_profile_source"] = reference_profile_source
@@ -1146,6 +1153,7 @@ def load_bundle(path: PathLike) -> dict[str, Any]:
         "fit_validation_report": manifest.get("fit_validation_report"),
         "transform_validation_report": manifest.get("transform_validation_report"),
         "validation_report": manifest.get("validation_report"),
+        "missing_sampling_diagnostics": manifest.get("missing_sampling_diagnostics"),
         "missing_policy": manifest.get("missing_policy"),
         "effective_missing_policy": manifest.get("effective_missing_policy"),
         "missing_merge_criterion": manifest.get("missing_merge_criterion"),
