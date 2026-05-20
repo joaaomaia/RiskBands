@@ -298,6 +298,9 @@ def _validation_context(binner: Any) -> dict[str, Any]:
         "validation_report": getattr(binner, "validation_report_", None),
     }
     safe_reports = {key: _json_safe(value) for key, value in reports.items() if value is not None}
+    missing_sampling_diagnostics = _json_safe(
+        getattr(binner, "missing_sampling_diagnostics_", None) or []
+    )
     alerts: list[dict[str, Any]] = []
     for report_name, report in safe_reports.items():
         if isinstance(report, Mapping):
@@ -305,9 +308,19 @@ def _validation_context(binner: Any) -> dict[str, Any]:
                 key_text = str(key).lower()
                 if "warning" in key_text or "alert" in key_text or "error" in key_text:
                     alerts.append({"source": report_name, "field": key, "value": value})
+    for row in missing_sampling_diagnostics:
+        if isinstance(row, Mapping) and row.get("alert_flags"):
+            alerts.append(
+                {
+                    "source": "missing_sampling_diagnostics",
+                    "field": row.get("variable"),
+                    "value": row.get("alert_flags"),
+                }
+            )
     return {
         "reports": safe_reports,
         "alerts": alerts,
+        "missing_sampling_diagnostics": missing_sampling_diagnostics,
         "has_validation": bool(safe_reports),
     }
 
@@ -461,8 +474,61 @@ def _sampling_caveats_from_metadata(metadata: Mapping[str, Any]) -> list[str]:
     if isinstance(sampling_metadata, Mapping):
         nested_caveat = sampling_metadata.get("sampling_caveat")
         if nested_caveat and str(nested_caveat) not in caveats:
-            caveats.append(str(nested_caveat))
+                caveats.append(str(nested_caveat))
     return caveats
+
+
+def _sampling_notes_from_metadata(
+    metadata: Mapping[str, Any],
+    missing_sampling_diagnostics: list[dict[str, Any]],
+) -> list[str]:
+    notes = []
+    sampling_metadata = metadata.get("sampling_metadata")
+    if not isinstance(sampling_metadata, Mapping):
+        sampling_metadata = {}
+    fit_mode = metadata.get("fit_mode") or sampling_metadata.get("fit_mode")
+    if fit_mode == "sampled_to_pandas":
+        notes.append(
+            "Fit sampled-to-pandas: Spark fit used a controlled sample for pandas-core fitting; "
+            "source diagnostics are aggregate checks, not a Spark-native full fit."
+        )
+    learned = metadata.get(
+        "merge_decision_learned_on_sample",
+        sampling_metadata.get("merge_decision_learned_on_sample"),
+    )
+    if learned is True:
+        notes.append(
+            "Merge decision learned on sample: missing merge destinations were learned from sampled fit rows."
+        )
+    elif learned is False:
+        notes.append(
+            "No merge decision learned on sample: if source or transform data has missing values, "
+            "review fallback behavior."
+        )
+    source_missing_not_seen = [
+        str(row.get("variable"))
+        for row in missing_sampling_diagnostics
+        if isinstance(row, Mapping)
+        and "source_missing_not_seen_in_sample" in row.get("alert_flags", [])
+    ]
+    if source_missing_not_seen:
+        notes.append(
+            "Source missing not seen in sample: "
+            + ", ".join(source_missing_not_seen)
+            + " had missing values in the Spark source that were absent from the sampled fit."
+        )
+    return notes
+
+
+def _missing_sampling_diagnostics_from_context(
+    binner: Any,
+    metadata: Mapping[str, Any],
+) -> list[dict[str, Any]]:
+    diagnostics = getattr(binner, "missing_sampling_diagnostics_", None)
+    if diagnostics is None:
+        diagnostics = metadata.get("missing_sampling_diagnostics")
+    safe = _json_safe(diagnostics or [])
+    return safe if isinstance(safe, list) else []
 
 
 def build_audit_report_context(
@@ -510,10 +576,14 @@ def build_audit_report_context(
         table_name="missing_merge_candidates",
         warnings=warnings,
     )
+    missing_sampling_diagnostics = _missing_sampling_diagnostics_from_context(binner, metadata)
     limitations = _limitations()
     for caveat in _sampling_caveats_from_metadata(metadata):
         if caveat not in limitations:
             limitations.append(caveat)
+    for note in _sampling_notes_from_metadata(metadata, missing_sampling_diagnostics):
+        if note not in limitations:
+            limitations.append(note)
 
     context = {
         "generated_at": datetime.now(timezone.utc).isoformat(),
@@ -550,6 +620,7 @@ def build_audit_report_context(
         ),
         "missing_decisions": _json_safe(missing_decisions),
         "merge_candidates": _json_safe(merge_candidates),
+        "missing_sampling_diagnostics": _json_safe(missing_sampling_diagnostics),
         "missing_merge_map": _json_safe(getattr(binner, "missing_merge_map_", {})),
         "binning_tables": _json_safe(binning_tables),
         "validation": _validation_context(binner),
@@ -567,6 +638,7 @@ def build_audit_report_context(
                 "missing_summary",
                 "missing_decisions",
                 "merge_candidates",
+                "missing_sampling_diagnostics",
                 "binning_tables",
                 "validation",
                 "bundle_inventory",
@@ -771,8 +843,29 @@ def _render_validation(validation: Mapping[str, Any]) -> str:
         )
     alerts = validation.get("alerts") or []
     reports = validation.get("reports") or {}
+    missing_sampling_diagnostics = validation.get("missing_sampling_diagnostics") or []
+    missing_sampling_html = ""
+    if missing_sampling_diagnostics:
+        missing_sampling_html = (
+            "<h3>Missing sampling diagnostics</h3>"
+            + _render_table(
+                missing_sampling_diagnostics,
+                preferred=[
+                    "variable",
+                    "status",
+                    "missing_count_sample_fit",
+                    "missing_count_source_spark",
+                    "missing_share_abs_diff",
+                    "merge_decision_learned_on_sample",
+                    "fallback_risk",
+                    "alert_flags",
+                ],
+                max_columns=8,
+            )
+        )
     return (
         _render_table(alerts, preferred=["source", "field", "value"], empty_message="Sem alertas registrados.")
+        + missing_sampling_html
         + '<details class="technical-details"><summary>Payloads de validação</summary>'
         + f"<pre>{_e(json.dumps(reports, ensure_ascii=False, indent=2))}</pre>"
         + "</details>"

@@ -734,8 +734,12 @@ class Binner(BaseEstimator, TransformerMixin):
         self.backend_metadata_ = backend_metadata
         self.sampling_metadata_ = sampling_metadata
         self.source_profile_ = None
+        self.source_missing_counts_ = None
+        self.missing_sampling_diagnostics_ = None
         source_profile_status = None
         if validate:
+            if self.missing_policy == _MERGE_MISSING_POLICY:
+                self.source_missing_counts_ = self._pyspark_missing_counts(X, feature_columns)
             self.source_profile_, source_profile_status = self._try_build_pyspark_source_profile(
                 X,
                 target_name=target_name,
@@ -2764,6 +2768,189 @@ class Binner(BaseEstimator, TransformerMixin):
         return merged
 
     # ------------------------------------------------------------------
+    @staticmethod
+    def _json_number_or_none(value: Any) -> float | None:
+        number = pd.to_numeric(pd.Series([value]), errors="coerce").iloc[0]
+        if pd.isna(number) or not np.isfinite(float(number)):
+            return None
+        return float(number)
+
+    # ------------------------------------------------------------------
+    @staticmethod
+    def _json_int_or_none(value: Any) -> int | None:
+        number = Binner._json_number_or_none(value)
+        return int(number) if number is not None else None
+
+    # ------------------------------------------------------------------
+    @staticmethod
+    def _json_label_or_none(value: Any) -> Any:
+        try:
+            if pd.isna(value):
+                return None
+        except (TypeError, ValueError):
+            return value
+        return value
+
+    # ------------------------------------------------------------------
+    def _profile_comparison_records(
+        self,
+        comparison: pd.DataFrame,
+        *,
+        left_name: str,
+        right_name: str,
+    ) -> list[dict[str, Any]]:
+        if comparison is None or comparison.empty:
+            return []
+
+        records = []
+        for _, row in comparison.iterrows():
+            left_label = row.get(f"bin_label_{left_name}")
+            right_label = row.get(f"bin_label_{right_name}")
+            bin_label = left_label
+            if self._json_label_or_none(bin_label) is None:
+                bin_label = right_label
+            n_left = self._json_int_or_none(row.get(f"n_{left_name}"))
+            n_right = self._json_int_or_none(row.get(f"n_{right_name}"))
+            records.append(
+                {
+                    "variable": row.get("variable"),
+                    "bin_label": self._json_label_or_none(bin_label),
+                    f"present_in_{left_name}": n_left is not None,
+                    f"present_in_{right_name}": n_right is not None,
+                    f"n_{left_name}": n_left,
+                    f"n_{right_name}": n_right,
+                    f"event_rate_{left_name}": self._json_number_or_none(row.get(f"event_rate_{left_name}")),
+                    f"event_rate_{right_name}": self._json_number_or_none(row.get(f"event_rate_{right_name}")),
+                    f"share_{left_name}": self._json_number_or_none(row.get(f"share_{left_name}")),
+                    f"share_{right_name}": self._json_number_or_none(row.get(f"share_{right_name}")),
+                    "event_rate_abs_diff": self._json_number_or_none(row.get("event_rate_abs_diff")),
+                    "share_abs_diff": self._json_number_or_none(row.get("share_abs_diff")),
+                }
+            )
+        return records
+
+    # ------------------------------------------------------------------
+    @staticmethod
+    def _rows_by_variable(table: pd.DataFrame | None) -> dict[str, pd.Series]:
+        if table is None or table.empty or "variable" not in table.columns:
+            return {}
+        rows = {}
+        for _, row in table.iterrows():
+            rows.setdefault(str(row.get("variable")), row)
+        return rows
+
+    # ------------------------------------------------------------------
+    def _build_missing_sampling_diagnostics(
+        self,
+        *,
+        fit_rows: int | None,
+        source_rows: int | None,
+    ) -> list[dict[str, Any]]:
+        if self.missing_policy != _MERGE_MISSING_POLICY:
+            return []
+
+        source_counts = getattr(self, "source_missing_counts_", None)
+        if not isinstance(source_counts, dict):
+            return []
+
+        decision_rows = self._rows_by_variable(getattr(self, "missing_decision_log_", None))
+        profile_rows = self._rows_by_variable(getattr(self, "missing_profile_", None))
+        merge_map = getattr(self, "missing_merge_map_", {}) or {}
+        learned_variables = {str(variable) for variable in merge_map}
+        variables = list(getattr(self, "feature_names_in_", []) or [])
+        for variable in [*source_counts, *decision_rows, *profile_rows, *merge_map]:
+            if str(variable) not in {str(existing) for existing in variables}:
+                variables.append(str(variable))
+
+        settings = self._default_validation_settings()
+        diagnostics = []
+        for variable in variables:
+            variable_key = str(variable)
+            decision = decision_rows.get(variable_key, pd.Series(dtype=object))
+            profile = profile_rows.get(variable_key, pd.Series(dtype=object))
+            sample_count = self._json_int_or_none(decision.get("n_missing_fit"))
+            if sample_count is None:
+                sample_count = self._json_int_or_none(profile.get("n_missing_fit")) or 0
+            source_count = int(source_counts.get(variable_key, 0) or 0)
+            sample_share = self._json_number_or_none(profile.get("share_missing_fit"))
+            if sample_share is None and fit_rows:
+                sample_share = sample_count / int(fit_rows)
+            source_share = source_count / int(source_rows) if source_rows else None
+            share_diff = (
+                abs(sample_share - source_share)
+                if sample_share is not None and source_share is not None
+                else None
+            )
+
+            destination = self._json_label_or_none(decision.get("selected_bin_label"))
+            if destination is None:
+                destination = self._json_label_or_none(profile.get("merged_into_bin_label"))
+            learned = variable_key in learned_variables
+            if "merge_decision_learned_on_sample" in decision.index:
+                learned = bool(decision.get("merge_decision_learned_on_sample"))
+
+            alert_flags = []
+            if source_count > 0 and sample_count == 0:
+                alert_flags.append("source_missing_not_seen_in_sample")
+            if source_count > 0 and not learned:
+                alert_flags.append("merge_decision_not_learned_but_source_has_missing")
+            if share_diff is not None and share_diff >= settings["max_sample_share_abs_diff"]:
+                alert_flags.append("sample_share_shift")
+
+            diagnostics.append(
+                {
+                    "variable": variable_key,
+                    "missing_share_sample_fit": sample_share,
+                    "missing_share_source_spark": source_share,
+                    "missing_share_abs_diff": share_diff,
+                    "missing_count_sample_fit": int(sample_count),
+                    "missing_count_source_spark": int(source_count),
+                    "missing_merge_destination_learned": destination,
+                    "merge_decision_learned_on_sample": learned,
+                    "fallback_risk": bool(source_count > 0 and not learned),
+                    "status": "warning" if alert_flags else "ok",
+                    "alert_flags": alert_flags,
+                }
+            )
+        return diagnostics
+
+    # ------------------------------------------------------------------
+    @staticmethod
+    def _missing_sampling_summary(diagnostics: list[dict[str, Any]]) -> dict[str, Any]:
+        if not diagnostics:
+            return {
+                "status": "not_available",
+                "n_variables": 0,
+                "n_warnings": 0,
+                "max_missing_share_abs_diff": None,
+            }
+        max_diff = max(
+            (
+                float(row["missing_share_abs_diff"])
+                for row in diagnostics
+                if row.get("missing_share_abs_diff") is not None
+            ),
+            default=None,
+        )
+        warning_rows = [row for row in diagnostics if row.get("status") != "ok"]
+        return {
+            "status": "warning" if warning_rows else "ok",
+            "n_variables": int(len(diagnostics)),
+            "n_warnings": int(len(warning_rows)),
+            "variables_with_source_missing_not_seen_in_sample": [
+                row["variable"]
+                for row in diagnostics
+                if "source_missing_not_seen_in_sample" in row.get("alert_flags", [])
+            ],
+            "variables_with_unlearned_source_missing": [
+                row["variable"]
+                for row in diagnostics
+                if "merge_decision_not_learned_but_source_has_missing" in row.get("alert_flags", [])
+            ],
+            "max_missing_share_abs_diff": max_diff,
+        }
+
+    # ------------------------------------------------------------------
     def _event_rate_profile_alerts(
         self,
         application_profile: pd.DataFrame,
@@ -2927,6 +3114,31 @@ class Binner(BaseEstimator, TransformerMixin):
         sample_size_issue = bool(fit_rows and fit_rows < settings["min_fit_rows"])
         sample_comparison = None
         sample_alerts = []
+        fit_alerts = []
+        missing_sampling_diagnostics = self._build_missing_sampling_diagnostics(
+            fit_rows=fit_rows,
+            source_rows=source_rows,
+        )
+        self.missing_sampling_diagnostics_ = missing_sampling_diagnostics or None
+        missing_sampling_summary = self._missing_sampling_summary(missing_sampling_diagnostics)
+        missing_sampling_alerts = [
+            {
+                "variable": row["variable"],
+                "status": row["status"],
+                "alert_flags": row["alert_flags"],
+                "message": "Source Spark missing behavior differs from the sampled fit.",
+            }
+            for row in missing_sampling_diagnostics
+            if row.get("status") != "ok"
+        ]
+        if source_profile_status == "skipped_profile_too_large":
+            fit_alerts.append(
+                {
+                    "status": "warning",
+                    "alert_flags": ["profile_too_large"],
+                    "message": "Spark source profile aggregation exceeded the configured row guard.",
+                }
+            )
         if source_profile is not None and not source_profile.empty:
             comparison = self._compare_profiles(
                 profile,
@@ -2942,30 +3154,97 @@ class Binner(BaseEstimator, TransformerMixin):
                     reference_name="fit",
                 )
                 sample_alerts = [alert for alert in event_rate_alerts if alert["status"] != "ok"]
+                comparison_records = self._profile_comparison_records(
+                    comparison,
+                    left_name="fit",
+                    right_name="source",
+                )
+                bins_missing_in_sample = [
+                    {"variable": record["variable"], "bin_label": record["bin_label"]}
+                    for record in comparison_records
+                    if not record["present_in_fit"] and record["present_in_source"]
+                ]
+                bins_missing_in_source = [
+                    {"variable": record["variable"], "bin_label": record["bin_label"]}
+                    for record in comparison_records
+                    if record["present_in_fit"] and not record["present_in_source"]
+                ]
+                max_share_abs_diff = (
+                    float(comparison["share_abs_diff"].max())
+                    if comparison["share_abs_diff"].notna().any()
+                    else None
+                )
+                if max_share_abs_diff is not None and max_share_abs_diff >= settings["max_sample_share_abs_diff"]:
+                    fit_alerts.append(
+                        {
+                            "status": "warning",
+                            "alert_flags": ["sample_share_shift"],
+                            "message": (
+                                "At least one sampled fit bin has a large share difference versus "
+                                "the Spark source profile."
+                            ),
+                            "max_share_abs_diff": max_share_abs_diff,
+                        }
+                    )
                 sample_comparison = {
                     "status": (
                         "critical"
                         if any(alert["status"] == "critical" for alert in sample_alerts)
-                        else ("warning" if sample_alerts else "ok")
+                        else (
+                            "warning"
+                            if sample_alerts
+                            or missing_sampling_alerts
+                            or bins_missing_in_sample
+                            or bins_missing_in_source
+                            or any("sample_share_shift" in alert.get("alert_flags", []) for alert in fit_alerts)
+                            else "ok"
+                        )
                     ),
                     "max_event_rate_abs_diff": (
                         float(comparison["event_rate_abs_diff"].max())
                         if comparison["event_rate_abs_diff"].notna().any()
                         else None
                     ),
-                    "max_share_abs_diff": (
-                        float(comparison["share_abs_diff"].max())
-                        if comparison["share_abs_diff"].notna().any()
-                        else None
-                    ),
+                    "max_share_abs_diff": max_share_abs_diff,
+                    "max_missing_share_abs_diff": missing_sampling_summary["max_missing_share_abs_diff"],
+                    "bins_missing_in_sample": bins_missing_in_sample,
+                    "bins_missing_in_source": bins_missing_in_source,
+                    "bin_diagnostics": comparison_records,
+                    "missing_sampling_summary": missing_sampling_summary,
                     "alerts": sample_alerts,
                 }
                 sample_size_issue = sample_size_issue or bool(sample_alerts)
 
-        warning_count = len(bin_alerts) + min_n_bins_warning_count + len(sample_alerts) + int(sample_size_issue)
+        for alert in sample_alerts:
+            normalized_flags = list(alert.get("alert_flags", []))
+            if alert.get("status") in {"warning", "critical"} and "sample_event_rate_shift" not in normalized_flags:
+                normalized_flags.append("sample_event_rate_shift")
+            fit_alerts.append({**alert, "alert_flags": normalized_flags})
+        fit_alerts.extend(missing_sampling_alerts)
+        warning_count = (
+            len(bin_alerts)
+            + min_n_bins_warning_count
+            + len(sample_alerts)
+            + len(missing_sampling_alerts)
+            + len(fit_alerts)
+            + int(sample_size_issue)
+        )
+        status = (
+            "critical"
+            if any(alert.get("status") == "critical" for alert in fit_alerts)
+            else ("warning" if warning_count else "ok")
+        )
+        sampling_payload = sampling_metadata if isinstance(sampling_metadata, dict) else {}
+        backend_payload = backend_metadata if isinstance(backend_metadata, dict) else {}
+        merge_map = getattr(self, "missing_merge_map_", {}) or {}
         return {
             "validation_type": "fit",
-            "status": "warning" if warning_count else "ok",
+            "status": status,
+            "backend": backend_payload.get("input_backend", getattr(self, "input_backend_", None)),
+            "fit_mode": backend_payload.get("fit_mode", sampling_payload.get("fit_mode")),
+            "sampling_applied": sampling_payload.get("sampling_applied"),
+            "sample_size_requested": sampling_payload.get("sample_size_requested"),
+            "sample_fraction_effective": sampling_payload.get("sample_fraction_effective"),
             "missing_policy": self.missing_policy,
             "settings": settings,
             "summary": {
@@ -2987,12 +3266,25 @@ class Binner(BaseEstimator, TransformerMixin):
                 ),
                 "possible_sample_size_issue": sample_size_issue,
                 "source_profile_status": source_profile_status,
+                "sample_representativeness_status": (
+                    sample_comparison.get("status") if sample_comparison else None
+                ),
+                "missing_sampling_status": missing_sampling_summary["status"],
+                "merge_decision_count": int(len(merge_map)),
                 **missing_summary,
             },
             "variable_status": variable_status,
             "bin_alerts": bin_alerts,
+            "alerts": fit_alerts,
             "min_n_bins_metadata": min_n_bins_metadata,
             "sample_representativeness": sample_comparison,
+            "missing_sampling_diagnostics": missing_sampling_diagnostics,
+            "merge_decision_summary": {
+                "merge_decision_learned_on_sample": bool(merge_map),
+                "merge_decision_count": int(len(merge_map)),
+                "merge_decision_variables": sorted(str(variable) for variable in merge_map),
+                "fit_mode": sampling_payload.get("fit_mode") or backend_payload.get("fit_mode"),
+            },
         }
 
     # ------------------------------------------------------------------
@@ -3030,6 +3322,12 @@ class Binner(BaseEstimator, TransformerMixin):
                 "settings": settings,
                 "reason": "target_not_available",
                 "reference_profile_source": getattr(self, "reference_profile_source_", "missing"),
+                "summary": {
+                    "target_available": False,
+                    "n_application_rows": n_application_rows,
+                    "n_application_profile_rows": 0,
+                    "n_alerts": 0,
+                },
             }
         if reference_profile is None or reference_profile.empty:
             return {
@@ -3040,6 +3338,14 @@ class Binner(BaseEstimator, TransformerMixin):
                 "settings": settings,
                 "reason": "reference_profile_missing",
                 "reference_profile_source": getattr(self, "reference_profile_source_", "missing"),
+                "summary": {
+                    "target_available": True,
+                    "n_application_rows": n_application_rows,
+                    "n_application_profile_rows": (
+                        int(len(application_profile)) if application_profile is not None else 0
+                    ),
+                    "n_alerts": 1,
+                },
             }
 
         comparison = self._compare_profiles(
@@ -3054,7 +3360,54 @@ class Binner(BaseEstimator, TransformerMixin):
             application_name="application",
             reference_name="reference",
         )
+        comparison_records = self._profile_comparison_records(
+            comparison,
+            left_name="application",
+            right_name="reference",
+        )
+        bins_missing_in_application = [
+            {"variable": record["variable"], "bin_label": record["bin_label"]}
+            for record in comparison_records
+            if not record["present_in_application"] and record["present_in_reference"]
+        ]
+        bins_missing_in_reference = [
+            {"variable": record["variable"], "bin_label": record["bin_label"]}
+            for record in comparison_records
+            if record["present_in_application"] and not record["present_in_reference"]
+        ]
         alerts = [alert for alert in event_rate_alerts if alert["status"] != "ok"]
+        max_share_abs_diff = (
+            float(comparison["share_abs_diff"].max())
+            if not comparison.empty and comparison["share_abs_diff"].notna().any()
+            else None
+        )
+        if max_share_abs_diff is not None and max_share_abs_diff >= settings["max_sample_share_abs_diff"]:
+            alerts.append(
+                {
+                    "status": "warning",
+                    "alert_flags": ["application_share_shift"],
+                    "max_share_abs_diff": max_share_abs_diff,
+                    "message": "Application bin share differs materially from the reference profile.",
+                }
+            )
+        if bins_missing_in_application:
+            alerts.append(
+                {
+                    "status": "warning",
+                    "alert_flags": ["reference_bins_missing_in_application"],
+                    "bins": bins_missing_in_application,
+                    "message": "Reference bins are absent from the application profile.",
+                }
+            )
+        if bins_missing_in_reference:
+            alerts.append(
+                {
+                    "status": "warning",
+                    "alert_flags": ["application_bins_missing_in_reference"],
+                    "bins": bins_missing_in_reference,
+                    "message": "Application bins are absent from the reference profile.",
+                }
+            )
         status = (
             "critical"
             if any(alert["status"] == "critical" for alert in alerts)
@@ -3086,13 +3439,14 @@ class Binner(BaseEstimator, TransformerMixin):
                     else None
                 ),
                 "max_share_abs_diff": (
-                    float(comparison["share_abs_diff"].max())
-                    if not comparison.empty and comparison["share_abs_diff"].notna().any()
-                    else None
+                    max_share_abs_diff
                 ),
                 **application_missing_summary,
             },
             "event_rate_status": event_rate_alerts,
+            "profile_comparison": comparison_records,
+            "bins_missing_in_application": bins_missing_in_application,
+            "bins_missing_in_reference": bins_missing_in_reference,
             "alerts": alerts,
         }
 
@@ -3373,6 +3727,8 @@ class Binner(BaseEstimator, TransformerMixin):
         self.validation_report_ = None
         self.application_profile_ = None
         self.source_profile_ = None
+        self.source_missing_counts_ = None
+        self.missing_sampling_diagnostics_ = None
         self.missing_profile_ = pd.DataFrame()
         self.missing_decision_log_ = pd.DataFrame()
         self.missing_merge_candidates_ = pd.DataFrame()
