@@ -1,0 +1,648 @@
+---
+import "reveal.js/reveal.css";
+import "reveal.js/theme/black.css";
+import "reveal.js/plugin/highlight/monokai.css";
+import "../../styles/riskbands-reveal.css";
+
+const title = "RiskBands Overview - Binning auditavel para risco de credito";
+const description =
+  "Apresentacao interativa do RiskBands sobre binning auditavel para modelos de PD, scorecards e model risk.";
+const basePath = import.meta.env.BASE_URL;
+const withBase = (path: string) => `${basePath}${path.replace(/^\/+/, "")}`;
+const logoSrc = withBase("/brand/riskbands_horizontal_monochrome.svg");
+const docsHref = basePath;
+const repoHref = "https://github.com/joaaomaia/RiskBands";
+---
+
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+  </head>
+  <body class="rb-deck-page">
+    <nav class="rb-deck-actions" aria-label="Acoes da apresentacao">
+      <a class="rb-docs-link" href={docsHref}>Docs</a>
+      <a class="rb-docs-link" href={repoHref}>GitHub</a>
+      <button class="rb-fullscreen" type="button" data-fullscreen>Fullscreen</button>
+    </nav>
+
+    <div class="reveal rb-reveal">
+      <div class="slides">
+        <section
+          class="rb-slide rb-title-slide"
+          data-background-gradient="linear-gradient(135deg, #06101d, #0d2238)"
+        >
+          <div class="rb-brand-row">
+            <img src={logoSrc} alt="RiskBands" class="rb-logo" />
+          </div>
+          <p class="rb-eyebrow">Credit Risk / PD Models / Scorecards</p>
+          <h1>RiskBands</h1>
+          <p class="rb-subtitle">Binning auditável para risco de crédito</p>
+          <div class="rb-pipeline" aria-label="Dados para binning para evidência">
+            <span class="rb-pipeline-pill">
+              <span class="rb-icon rb-icon-data" aria-hidden="true"></span>
+              Dados
+            </span>
+            <span class="rb-pipeline-pill">
+              <span class="rb-icon rb-icon-bins" aria-hidden="true"></span>
+              Binning
+            </span>
+            <span class="rb-pipeline-pill">
+              <span class="rb-icon rb-icon-evidence" aria-hidden="true"></span>
+              Evidência
+            </span>
+          </div>
+          <p class="rb-callout fragment">
+            Do binning manual à decisão comparável, rastreável e defensável.
+          </p>
+          <aside class="notes">
+            Em risco de crédito, binning raramente é só uma transformação de variável. Ele vira
+            parte da lógica do modelo, influencia WoE, scorecard, explicabilidade, validação e
+            governança. O RiskBands nasce para tratar essa etapa com o mesmo rigor esperado do
+            restante do ciclo de modelagem.
+          </aside>
+        </section>
+
+        <section class="rb-slide rb-pain-slide">
+          <p class="rb-eyebrow">A dor operacional</p>
+          <h2>Binning em risco de crédito costuma ser mais manual do que deveria</h2>
+          <div class="rb-pain-layout">
+            <div class="rb-pain-stack" role="list" aria-label="Dores operacionais">
+              <article class="rb-pain-card fragment" role="listitem">
+                <span class="rb-icon rb-icon-table" aria-hidden="true"></span>
+                <strong>Planilhas</strong>
+                <span>Cortes discutidos fora do fluxo auditável.</span>
+              </article>
+              <article class="rb-pain-card fragment" role="listitem">
+                <span class="rb-icon rb-icon-chart" aria-hidden="true"></span>
+                <strong>IV instável</strong>
+                <span>Ótimo no treino, frágil fora da amostra.</span>
+              </article>
+              <article class="rb-pain-card fragment" role="listitem">
+                <span class="rb-icon rb-icon-clock" aria-hidden="true"></span>
+                <strong>Safras invertendo</strong>
+                <span>Event rate muda a leitura dos cortes.</span>
+              </article>
+              <article class="rb-pain-card fragment" role="listitem">
+                <span class="rb-icon rb-icon-missing" aria-hidden="true"></span>
+                <strong>Missing improvisado</strong>
+                <span>Ausentes tratados como detalhe operacional.</span>
+              </article>
+              <article class="rb-pain-card fragment" role="listitem">
+                <span class="rb-icon rb-icon-evidence" aria-hidden="true"></span>
+                <strong>Pouca evidência</strong>
+                <span>Rastro insuficiente para auditoria.</span>
+              </article>
+            </div>
+            <div class="rb-mini-table rb-pain-table" aria-hidden="true">
+              <div class="rb-table-caption">
+                <span class="rb-icon rb-icon-spreadsheet" aria-hidden="true"></span>
+                Mock de comparação por bin
+              </div>
+              <table>
+                <thead>
+                  <tr><th>Bin</th><th>Cut</th><th>Train ER</th><th>OOT ER</th><th>WoE</th></tr>
+                </thead>
+                <tbody>
+                  <tr><td>1</td><td>&lt; 420</td><td>18.4%</td><td>22.1%</td><td>-0.62</td></tr>
+                  <tr><td>2</td><td>420-560</td><td>11.2%</td><td>14.9%</td><td>-0.18</td></tr>
+                  <tr><td>3</td><td>560-690</td><td>7.1%</td><td>9.8%</td><td>0.32</td></tr>
+                  <tr><td>4</td><td>&gt; 690</td><td>4.9%</td><td>12.6%</td><td>0.71</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <aside class="notes">
+            Quem já trabalhou com scorecard conhece essa cena: uma variável parece ótima no
+            treino, o IV é alto, mas quando olhamos safras futuras a história muda. O corte que
+            parecia bom deixa de ser intuitivo, o event rate se comporta mal, e a decisão acaba
+            virando uma mistura de planilha, memória e discussão.
+          </aside>
+        </section>
+
+        <section class="rb-slide">
+          <p class="rb-eyebrow">Separação não basta</p>
+          <h2>IV alto não garante robustez temporal</h2>
+          <div class="rb-signal-chip fragment">
+            <span class="rb-icon rb-icon-chart" aria-hidden="true"></span>
+            IV alto != robustez temporal
+          </div>
+          <div class="rb-grid-2">
+            <article class="rb-card rb-chart-card">
+              <div class="rb-card-heading">
+                <span class="rb-icon rb-icon-target" aria-hidden="true"></span>
+                <h3>Treino</h3>
+                <span class="rb-badge">Train</span>
+              </div>
+              <svg class="rb-line-chart" viewBox="0 0 320 180" role="img" aria-label="Event rate monotônico no treino">
+                <path class="rb-gridline" d="M28 30H300 M28 75H300 M28 120H300 M28 165H300" />
+                <path class="rb-chart-line rb-chart-line-good" d="M42 142 L100 118 L158 92 L216 62 L276 36" />
+                <circle cx="42" cy="142" r="5" /><circle cx="100" cy="118" r="5" />
+                <circle cx="158" cy="92" r="5" /><circle cx="216" cy="62" r="5" />
+                <circle cx="276" cy="36" r="5" />
+              </svg>
+              <p>Event rate aparentemente ordenado.</p>
+            </article>
+            <article class="rb-card rb-chart-card fragment">
+              <div class="rb-card-heading">
+                <span class="rb-icon rb-icon-clock" aria-hidden="true"></span>
+                <h3>Out-of-time</h3>
+                <span class="rb-badge rb-badge-warning">OOT</span>
+              </div>
+              <svg class="rb-line-chart" viewBox="0 0 320 180" role="img" aria-label="Event rate oscilando no OOT">
+                <path class="rb-gridline" d="M28 30H300 M28 75H300 M28 120H300 M28 165H300" />
+                <path class="rb-chart-line rb-chart-line-warn" d="M42 96 L100 128 L158 74 L216 138 L276 58" />
+                <circle cx="42" cy="96" r="5" /><circle cx="100" cy="128" r="5" />
+                <circle cx="158" cy="74" r="5" /><circle cx="216" cy="138" r="5" />
+                <circle cx="276" cy="58" r="5" />
+              </svg>
+              <p>Oscilação entre safras muda a interpretação.</p>
+            </article>
+          </div>
+          <p class="rb-callout fragment">
+            Separação no treino é útil, mas não é evidência suficiente para confiar nos cortes.
+          </p>
+          <aside class="notes">
+            IV é útil, mas não conta a história inteira. Em crédito, a pergunta não é apenas se a
+            variável separou bem agora. A pergunta é se essa decisão continua razoável quando
+            olhamos safras, períodos, out-of-time e validação.
+          </aside>
+        </section>
+
+        <section class="rb-slide">
+          <p class="rb-eyebrow">Proposta</p>
+          <h2>Do corte “bom” para a decisão de binning auditável</h2>
+          <div class="rb-flow">
+            <div class="rb-flow-step fragment">
+              <span class="rb-icon rb-icon-bins" aria-hidden="true"></span>
+              <strong>Candidate bins</strong>
+            </div>
+            <div class="rb-flow-step fragment">
+              <span class="rb-icon rb-icon-metrics" aria-hidden="true"></span>
+              <strong>Metrics</strong>
+            </div>
+            <div class="rb-flow-step fragment">
+              <span class="rb-icon rb-icon-clock" aria-hidden="true"></span>
+              <strong>Temporal checks</strong>
+            </div>
+            <div class="rb-flow-step fragment">
+              <span class="rb-icon rb-icon-missing" aria-hidden="true"></span>
+              <strong>Missing policy</strong>
+            </div>
+            <div class="rb-flow-step fragment">
+              <span class="rb-icon rb-icon-package" aria-hidden="true"></span>
+              <strong>Audit bundle</strong>
+            </div>
+          </div>
+          <p class="rb-callout fragment">
+            Comparar alternativas com critérios explícitos, não substituir julgamento técnico.
+          </p>
+          <aside class="notes">
+            O ponto do RiskBands não é tirar o julgamento técnico da mesa. É melhorar a qualidade
+            da conversa. Em vez de discutir cortes apenas por intuição ou por uma métrica isolada,
+            a ideia é comparar alternativas com métricas, logs, evidências e limitações explícitas.
+          </aside>
+        </section>
+
+        <section class="rb-slide rb-tradeoff-slide">
+          <p class="rb-eyebrow">Stable scoring</p>
+          <h2>Stable scoring: separação versus estabilidade</h2>
+          <div class="rb-grid-2 rb-tradeoff-grid">
+            <article class="rb-card rb-large-card fragment">
+              <div class="rb-card-heading">
+                <span class="rb-icon rb-icon-target" aria-hidden="true"></span>
+                <h3>Maximizar IV isoladamente</h3>
+              </div>
+              <p>Pode selecionar cortes fortes no treino, mas frágeis no tempo.</p>
+            </article>
+            <article class="rb-card rb-large-card fragment">
+              <div class="rb-card-heading">
+                <span class="rb-icon rb-icon-shield" aria-hidden="true"></span>
+                <h3>Maximizar estabilidade isoladamente</h3>
+              </div>
+              <p>Pode selecionar cortes estáveis, mas pouco úteis para discriminação.</p>
+            </article>
+          </div>
+          <div class="rb-ribbon fragment">
+            <span class="rb-icon rb-icon-evidence" aria-hidden="true"></span>
+            Auditabilidade como critério transversal
+          </div>
+          <div class="rb-axis fragment">
+            <span>Separação</span>
+            <span class="rb-axis-line"></span>
+            <span>Estabilidade</span>
+          </div>
+          <p class="rb-callout fragment">
+            O objetivo é equilibrar separação, estabilidade e auditabilidade.
+          </p>
+          <aside class="notes">
+            Em scorecards e modelos de PD, a decisão prática geralmente mora no equilíbrio. Um
+            binning pode separar bem, mas ser instável. Outro pode ser estável, mas pouco
+            informativo. O RiskBands busca explicitar esse trade-off para que a escolha seja
+            técnica e documentável.
+          </aside>
+        </section>
+
+        <section class="rb-slide rb-missing-slide">
+          <p class="rb-eyebrow">Missing policy</p>
+          <h2>Missing values como decisão metodológica</h2>
+          <div class="rb-missing-map">
+            <div class="rb-missing-node fragment">
+              <span class="rb-icon rb-icon-missing" aria-hidden="true"></span>
+              Missing / NULL
+            </div>
+            <div class="rb-impact-card fragment">
+              <span class="rb-icon rb-icon-target" aria-hidden="true"></span>
+              <strong>Sinal de risco</strong>
+            </div>
+            <div class="rb-impact-card fragment">
+              <span class="rb-icon rb-icon-metrics" aria-hidden="true"></span>
+              <strong>WoE / event rate</strong>
+            </div>
+            <div class="rb-impact-card fragment">
+              <span class="rb-icon rb-icon-clock" aria-hidden="true"></span>
+              <strong>Estabilidade temporal</strong>
+            </div>
+          </div>
+          <p class="rb-callout fragment">
+            Ausência de informação pode ser parte do comportamento observado.
+          </p>
+          <aside class="notes">
+            Em crédito, missing value não é automaticamente ruído. Às vezes a ausência de uma
+            informação é parte do comportamento do cliente, do canal, da originação ou da política
+            operacional. Tratar missing como detalhe técnico pode mascarar risco ou criar
+            inconsistência entre treino e produção.
+          </aside>
+        </section>
+
+        <section class="rb-slide">
+          <p class="rb-eyebrow">Auditabilidade do missing</p>
+          <h2>Merge auditável de missing</h2>
+          <div class="rb-method-chips" aria-label="Métodos de merge">
+            <span><code>nearest_event_rate</code></span>
+            <span><code>nearest_woe</code></span>
+          </div>
+          <div class="rb-grid-2">
+            <article class="rb-card rb-decision-tree fragment">
+              <div class="rb-card-heading">
+                <span class="rb-icon rb-icon-merge" aria-hidden="true"></span>
+                <h3>Missing bin</h3>
+              </div>
+              <ul>
+                <li>Candidate A <span>event rate próximo</span></li>
+                <li>Candidate B <span>WoE próximo</span></li>
+                <li>Decision log <span>critério e limitações</span></li>
+              </ul>
+            </article>
+            <article class="rb-card rb-mini-table fragment">
+              <div class="rb-card-heading">
+                <span class="rb-icon rb-icon-log" aria-hidden="true"></span>
+                <h3>Candidatos avaliados</h3>
+              </div>
+              <table>
+                <thead>
+                  <tr><th>Candidate</th><th>Event rate Δ</th><th>WoE Δ</th><th>Decision</th></tr>
+                </thead>
+                <tbody>
+                  <tr><td>Bin 2</td><td>0.004</td><td>0.08</td><td><code>nearest_event_rate</code></td></tr>
+                  <tr><td>Bin 3</td><td>0.011</td><td>0.03</td><td><code>nearest_woe</code></td></tr>
+                </tbody>
+              </table>
+            </article>
+          </div>
+          <p class="rb-callout fragment">
+            A decisão final deixa rastro: critério, candidatos, escolha e limitações.
+          </p>
+          <aside class="notes">
+            Uma das perguntas mais difíceis é: o que fazemos com missing? Mantém separado? Junta?
+            Junta com quem? O valor aqui não está só no algoritmo de proximidade, mas no fato de
+            que a decisão fica explícita, comparável e registrada.
+          </aside>
+        </section>
+
+        <section class="rb-slide">
+          <p class="rb-eyebrow">Escala operacional</p>
+          <h2>Da análise local à escala de bases reais</h2>
+          <div class="rb-flow rb-flow-wide">
+            <div class="rb-flow-step fragment">
+              <span class="rb-icon rb-icon-spark" aria-hidden="true"></span>
+              <strong>PySpark dataset</strong>
+            </div>
+            <div class="rb-flow-step fragment">
+              <span class="rb-icon rb-icon-analysis" aria-hidden="true"></span>
+              <strong>sampled fit / candidate analysis</strong>
+            </div>
+            <div class="rb-flow-step fragment">
+              <span class="rb-icon rb-icon-package" aria-hidden="true"></span>
+              <strong>binning artifact</strong>
+            </div>
+            <div class="rb-flow-step fragment">
+              <span class="rb-icon rb-icon-report" aria-hidden="true"></span>
+              <strong>transform / report</strong>
+            </div>
+          </div>
+          <p class="rb-warning fragment">
+            Sampling caveat: documentar representatividade antes de confiar no resultado.
+          </p>
+          <aside class="notes">
+            Na prática, o cientista de dados muitas vezes explora em pandas, mas a base real está
+            em Spark. O RiskBands precisa respeitar esse mundo híbrido: permitir análise produtiva,
+            mas sem esconder limitações como amostragem, representatividade e validação posterior.
+          </aside>
+        </section>
+
+        <section class="rb-slide">
+          <p class="rb-eyebrow">Validação</p>
+          <h2><code>validate=True</code>: confiança exige checagem</h2>
+          <div class="rb-check-grid" role="list" aria-label="Checks de validação">
+            <article class="rb-check-card fragment" role="listitem">
+              <span class="rb-step-number">01</span>
+              <span class="rb-icon rb-icon-shield" aria-hidden="true"></span>
+              <strong>Estrutura dos cortes</strong>
+            </article>
+            <article class="rb-check-card fragment" role="listitem">
+              <span class="rb-step-number">02</span>
+              <span class="rb-icon rb-icon-bins" aria-hidden="true"></span>
+              <strong>Consistência de bins</strong>
+            </article>
+            <article class="rb-check-card fragment" role="listitem">
+              <span class="rb-step-number">03</span>
+              <span class="rb-icon rb-icon-missing" aria-hidden="true"></span>
+              <strong>Tratamento de missing</strong>
+            </article>
+            <article class="rb-check-card fragment" role="listitem">
+              <span class="rb-step-number">04</span>
+              <span class="rb-icon rb-icon-log" aria-hidden="true"></span>
+              <strong>Métricas e logs</strong>
+            </article>
+            <article class="rb-check-card fragment" role="listitem">
+              <span class="rb-step-number">05</span>
+              <span class="rb-icon rb-icon-report" aria-hidden="true"></span>
+              <strong>Limitações documentadas</strong>
+            </article>
+          </div>
+          <p class="rb-callout fragment">
+            Validação não é garantia absoluta; é redução disciplinada de risco operacional.
+          </p>
+          <aside class="notes">
+            Um binning pode parecer correto visualmente e ainda assim ter problemas: cortes
+            inconsistentes, missing sem política clara, bins vazios, comportamento inesperado fora
+            do treino. A validação explícita reduz o risco de carregar decisões frágeis para frente.
+          </aside>
+        </section>
+
+        <section class="rb-slide rb-bundle-slide">
+          <p class="rb-eyebrow">Audit bundle</p>
+          <h2>Bundle auditável: evidências para revisão técnica</h2>
+          <div class="rb-file-grid">
+            <article class="rb-file-card fragment">
+              <span class="rb-icon rb-icon-report" aria-hidden="true"></span>
+              <code>metadata.json</code>
+              <span>contexto e configuração</span>
+            </article>
+            <article class="rb-file-card fragment">
+              <span class="rb-icon rb-icon-bins" aria-hidden="true"></span>
+              <code>binnings.json</code>
+              <span>cortes e regras</span>
+            </article>
+            <article class="rb-file-card fragment">
+              <span class="rb-icon rb-icon-log" aria-hidden="true"></span>
+              <code>missing_decision_log.csv</code>
+              <span>decisões sobre ausentes</span>
+            </article>
+            <article class="rb-file-card fragment">
+              <span class="rb-icon rb-icon-merge" aria-hidden="true"></span>
+              <code>missing_merge_candidates.csv</code>
+              <span>candidatos avaliados</span>
+            </article>
+            <article class="rb-file-card fragment">
+              <span class="rb-icon rb-icon-browser" aria-hidden="true"></span>
+              <code>audit_report.html</code>
+              <span>narrativa para revisão</span>
+            </article>
+          </div>
+          <aside class="notes">
+            O que muitas vezes falta no processo manual não é apenas o corte final. É o rastro.
+            Quem decidiu? Com qual critério? Quais alternativas foram consideradas? O bundle
+            auditável ajuda a transformar uma decisão técnica em material revisável.
+          </aside>
+        </section>
+
+        <section class="rb-slide">
+          <p class="rb-eyebrow">Model risk review</p>
+          <h2>Relatório narrativo para auditoria e model risk</h2>
+          <div class="rb-browser-frame fragment">
+            <div class="rb-browser-bar"><span></span><span></span><span></span></div>
+            <div class="rb-report-mock">
+              <div class="rb-report-title">
+                <span class="rb-icon rb-icon-browser" aria-hidden="true"></span>
+                <h3>Relatório de Auditoria do Binning</h3>
+              </div>
+              <ul>
+                <li><span>Configuração</span><strong>dataset, alvo, vintages</strong></li>
+                <li><span>Decisões sobre ausentes</span><strong>critério usado</strong></li>
+                <li><span>Candidatos avaliados</span><strong>event rate, WoE, IV</strong></li>
+                <li><span>Inventário do bundle</span><strong>arquivos gerados</strong></li>
+                <li><span>Limitações</span><strong>escopo e caveats</strong></li>
+              </ul>
+            </div>
+          </div>
+          <p class="rb-callout fragment">Revisão técnica precisa de evidência e narrativa.</p>
+          <aside class="notes">
+            Model risk não revisa apenas número. Revisa racionalidade, evidência e limitação. Um
+            relatório narrativo ajuda a explicar o que foi feito sem obrigar todo revisor a
+            reconstruir a análise a partir de notebook, planilha ou memória do modelador.
+          </aside>
+        </section>
+
+        <section class="rb-slide rb-workflow-slide">
+          <p class="rb-eyebrow">Workflow PD</p>
+          <h2>Onde o RiskBands encaixa no ciclo de modelagem PD</h2>
+          <div class="rb-workflow rb-workflow-3x3">
+            <div class="rb-workflow-step fragment">
+              <span class="rb-step-number">01</span>
+              <span class="rb-icon rb-icon-analysis" aria-hidden="true"></span>
+              <strong>EDA</strong>
+            </div>
+            <div class="rb-workflow-step fragment">
+              <span class="rb-step-number">02</span>
+              <span class="rb-icon rb-icon-feature" aria-hidden="true"></span>
+              <strong>Feature engineering</strong>
+            </div>
+            <div class="rb-workflow-step fragment">
+              <span class="rb-step-number">03</span>
+              <span class="rb-icon rb-icon-selection" aria-hidden="true"></span>
+              <strong>Feature selection</strong>
+            </div>
+            <div class="rb-workflow-step fragment rb-highlight-step">
+              <span class="rb-step-number">04</span>
+              <span class="rb-icon rb-icon-bins" aria-hidden="true"></span>
+              <strong>Candidate binnings</strong>
+            </div>
+            <div class="rb-workflow-step fragment">
+              <span class="rb-step-number">05</span>
+              <span class="rb-icon rb-icon-metrics" aria-hidden="true"></span>
+              <strong>WoE / IV / event rate</strong>
+            </div>
+            <div class="rb-workflow-step fragment">
+              <span class="rb-step-number">06</span>
+              <span class="rb-icon rb-icon-clock" aria-hidden="true"></span>
+              <strong>Temporal validation / OOT</strong>
+            </div>
+            <div class="rb-workflow-step fragment">
+              <span class="rb-step-number">07</span>
+              <span class="rb-icon rb-icon-missing" aria-hidden="true"></span>
+              <strong>Missing policy</strong>
+            </div>
+            <div class="rb-workflow-step fragment">
+              <span class="rb-step-number">08</span>
+              <span class="rb-icon rb-icon-scorecard" aria-hidden="true"></span>
+              <strong>Scorecard / model pipeline</strong>
+            </div>
+            <div class="rb-workflow-step fragment rb-highlight-step">
+              <span class="rb-step-number">09</span>
+              <span class="rb-icon rb-icon-evidence" aria-hidden="true"></span>
+              <strong>Audit evidence</strong>
+            </div>
+          </div>
+          <aside class="notes">
+            O RiskBands não substitui a modelagem de PD, nem a validação independente, nem a
+            decisão de negócio. Ele entra em uma etapa específica, mas crítica: transformar
+            binnings candidatos em decisões mais comparáveis, documentáveis e defensáveis.
+          </aside>
+        </section>
+
+        <section class="rb-slide rb-roadmap-slide">
+          <p class="rb-eyebrow">Evolução metodológica</p>
+          <h2>Roadmap controlado: estabilidade temporal mais consciente</h2>
+          <div class="rb-grid-2">
+            <article class="rb-card rb-roadmap-card fragment">
+              <div class="rb-card-heading">
+                <span class="rb-icon rb-icon-shield" aria-hidden="true"></span>
+                <h3>Disponível agora</h3>
+              </div>
+              <ul>
+                <li>binning auditável</li>
+                <li>políticas explícitas de missing</li>
+                <li>bundle e relatório</li>
+                <li>suporte pandas/PySpark conforme escopo atual</li>
+                <li>validação e reporting</li>
+              </ul>
+            </article>
+            <article class="rb-card rb-roadmap-card rb-roadmap-card-study fragment">
+              <div class="rb-card-heading">
+                <span class="rb-icon rb-icon-clock" aria-hidden="true"></span>
+                <h3>Em estudo: estabilidade ponderada por recência</h3>
+              </div>
+              <div class="rb-vintage-weights" aria-label="Pesos por safra aumentando com a recência">
+                <span><strong>2022</strong><i style="--rb-bar: 38%"></i><em>0.6</em></span>
+                <span><strong>2023</strong><i style="--rb-bar: 52%"></i><em>0.8</em></span>
+                <span><strong>2024</strong><i style="--rb-bar: 68%"></i><em>1.0</em></span>
+                <span><strong>2025</strong><i style="--rb-bar: 88%"></i><em>1.2</em></span>
+              </div>
+              <ul>
+                <li>pesos por safra na função objetivo</li>
+                <li>métricas reais por vintage preservadas</li>
+                <li>score ponderado e não ponderado lado a lado</li>
+                <li>alerta quando a recência muda o candidato vencedor</li>
+                <li>pesos registrados no bundle/reporting</li>
+              </ul>
+            </article>
+          </div>
+          <p class="rb-callout fragment">
+            Recência pode orientar a escolha, mas não deve apagar a evidência histórica.
+          </p>
+          <aside class="notes">
+            Este slide separa o que já está disponível de uma evolução metodológica em estudo. A
+            ideia de estabilidade ponderada por recência não deve reescrever as métricas
+            históricas: as métricas reais por safra continuam preservadas. Os pesos entram apenas
+            na função objetivo ou no score de escolha, permitindo comparar score ponderado e não
+            ponderado e alertar quando a ponderação por recência muda o candidato vencedor.
+          </aside>
+        </section>
+
+        <section class="rb-slide rb-final-slide">
+          <div class="rb-brand-row rb-brand-row-final">
+            <img src={logoSrc} alt="RiskBands" class="rb-logo" />
+          </div>
+          <p class="rb-eyebrow">Próximo passo</p>
+          <h2>Teste, critique, contribua</h2>
+          <div class="rb-chip-row fragment">
+            <span><span class="rb-icon rb-icon-workflow" aria-hidden="true"></span>PD Models</span>
+            <span><span class="rb-icon rb-icon-scorecard" aria-hidden="true"></span>Scorecards</span>
+            <span><span class="rb-icon rb-icon-shield" aria-hidden="true"></span>Model Risk</span>
+          </div>
+          <ul class="rb-cta-list">
+            <li class="fragment">
+              <span class="rb-icon rb-icon-bins" aria-hidden="true"></span>
+              Compare cortes
+            </li>
+            <li class="fragment">
+              <span class="rb-icon rb-icon-missing" aria-hidden="true"></span>
+              Explicite políticas
+            </li>
+            <li class="fragment">
+              <span class="rb-icon rb-icon-clock" aria-hidden="true"></span>
+              Valide comportamento temporal
+            </li>
+            <li class="fragment">
+              <span class="rb-icon rb-icon-log" aria-hidden="true"></span>
+              Registre decisões
+            </li>
+            <li class="fragment">
+              <span class="rb-icon rb-icon-evidence" aria-hidden="true"></span>
+              Leve evidência para revisão
+            </li>
+          </ul>
+          <p class="rb-callout fragment">
+            Binning defensável é menos sobre automatizar cortes e mais sobre melhorar a qualidade
+            da decisão.
+          </p>
+          <aside class="notes">
+            Se você já perdeu tempo defendendo cortes em reuniões, reconstruindo decisões antigas
+            ou explicando missing values sem evidência suficiente, esse projeto é para você testar
+            e criticar. O objetivo é melhorar a qualidade da decisão técnica.
+          </aside>
+        </section>
+      </div>
+    </div>
+
+    <script>
+      import Reveal from "reveal.js";
+      import Notes from "reveal.js/plugin/notes";
+      import Highlight from "reveal.js/plugin/highlight";
+
+      Reveal.initialize({
+        hash: true,
+        controls: true,
+        progress: true,
+        center: false,
+        keyboard: true,
+        transition: "fade",
+        backgroundTransition: "fade",
+        width: 1280,
+        height: 720,
+        margin: 0.035,
+        plugins: [Notes, Highlight],
+      });
+
+      const fullscreenButton = document.querySelector("[data-fullscreen]");
+      fullscreenButton?.addEventListener("click", () => {
+        const target = document.documentElement;
+        if (!document.fullscreenElement && target.requestFullscreen) {
+          target.requestFullscreen();
+        } else if (document.fullscreenElement && document.exitFullscreen) {
+          document.exitFullscreen();
+        }
+      });
+
+      document.addEventListener("fullscreenchange", () => {
+        if (fullscreenButton instanceof HTMLButtonElement) {
+          fullscreenButton.textContent = document.fullscreenElement ? "Exit fullscreen" : "Fullscreen";
+        }
+      });
+    </script>
+  </body>
+</html>
