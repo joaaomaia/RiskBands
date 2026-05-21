@@ -80,7 +80,7 @@ The API exposes two explicit strategies:
 - `standard`: compatible default with the current behavior
 - `separate_bin`: opt-in explicit `Missing` bin
 - `forbid`: error during `fit` or `transform` if selected features contain missing values
-- `merge`: opt-in pandas routing from the missing group to the closest regular bin learned during `fit`
+- `merge`: opt-in routing from the missing group to the closest regular bin learned during `fit`
 
 `merge` requires `missing_merge_criterion="nearest_event_rate"` or
 `missing_merge_criterion="nearest_woe"`. The first uses absolute event-rate
@@ -91,6 +91,11 @@ accepts `separate_bin` or `raise` for missing values that appear during
 These policies do not perform opaque imputation. In merge mode, `transform(...)`
 uses only the decision learned during `fit` and does not learn a new rule from
 application data.
+
+In Spark, `merge` uses the controlled sampled-to-pandas path for `fit` and
+applies the learned decision during `transform` with native Spark expressions
+and `return_woe=False`. Review sampling metadata, `source_profile_`, and
+`missing_sampling_diagnostics_` when `fit(validate=True)` is used.
 
 After `fit`, inspect `missing_profile_`, `missing_decision_log_`,
 `missing_merge_candidates_`, and `missing_merge_map_` to review volume, share,

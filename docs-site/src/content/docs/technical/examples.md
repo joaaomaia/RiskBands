@@ -52,6 +52,8 @@ Eles mostram:
 - `missing_merge_candidates_`
 - bundle com campos de missing policy e missing merge
 - guarda opcional para PySpark
+- Spark sampled-to-pandas para missing merge quando o extra Spark esta disponivel
+- caveats de amostragem em validacao, bundle e audit report
 - comparação entre `standard`, `separate_bin`, `forbid`, `merge + nearest_event_rate` e `merge + nearest_woe`
 - exemplo sintético de risco de crédito sem dados reais
 

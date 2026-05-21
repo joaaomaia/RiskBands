@@ -2,7 +2,7 @@
 
 Este guia explica como usar `missing_policy` no RiskBands em fluxos pandas e
 PySpark, com foco em risco de credito, auditabilidade e revisao defensavel do
-binning. Ele reflete a preparacao da v2.3.0 para merge auditavel de missing
+binning. Ele reflete a preparacao da v2.4.0 para merge auditavel de missing
 values, sem afirmar publicacao.
 
 ## Por que missing values importam
@@ -90,9 +90,11 @@ Essa politica nao faz imputacao opaca. Ela separa missing como bin observavel.
 
 ## `merge`
 
-`merge` e uma politica opt-in para pandas. Ela primeiro trata missing como grupo
+`merge` e uma politica opt-in. Em pandas, ela primeiro trata missing como grupo
 observavel no `fit`, depois escolhe um bin regular de destino com criterio
-explicito e auditavel.
+explicito e auditavel. Em Spark, a v2.4.0 suporta o caminho controlado
+sampled-to-pandas para `fit` e aplica a decisao aprendida no `transform` com
+expressoes Spark nativas e `return_woe=False`.
 
 ```python
 binner = RiskBands(
@@ -222,7 +224,9 @@ spark_binned = binner.transform(
 ```
 
 O exemplo usa `SparkSession` local pequena, `spark.sql.shuffle.partitions=2`,
-nao usa UDF e coleta apenas uma amostra pequena para demonstracao.
+nao usa UDF e coleta apenas uma amostra pequena para demonstracao. Quando
+`missing_policy="merge"` e usado em Spark, a decisao de merge e aprendida na
+amostra pandas controlada, nao em um fit Spark-native completo.
 
 ## Como inspecionar a trilha
 
@@ -235,6 +239,8 @@ Apos `fit(...)`, os principais campos sao:
 - `missing_decision_log_`: decisao por variavel, acao tomada e observacoes.
 - `fit_profile_`, `source_profile_`, `reference_profile_` e
   `application_profile_`: perfis usados em validacao e monitoramento.
+- `missing_sampling_diagnostics_`: diagnosticos de amostragem quando Spark fit
+  usa sampled-to-pandas para missing merge.
 
 Exemplo:
 
@@ -255,6 +261,8 @@ decisions = binner.missing_decision_log_
 - `missing_merge_fallback`
 - `missing_merge_candidates`
 - `missing_merge_map`
+- `missing_sampling_diagnostics` quando o fit Spark sampled-to-pandas gera
+  diagnosticos de amostragem
 
 ```python
 from riskbands.reporting import load_bundle
@@ -271,12 +279,14 @@ compatibilidade.
 
 ## O que ainda nao existe
 
-Na preparacao v2.3.0, o escopo e propositalmente estreito. Ainda nao existem:
+Na preparacao v2.4.0, o escopo segue propositalmente estreito. Ainda nao
+existem:
 
 - `temporal_stable` como criterio de merge;
 - `monotonic_neighbor` como criterio de merge;
 - criterios de merge alem de `nearest_event_rate` e `nearest_woe`;
-- PySpark merge completo;
+- Spark-native full fit para missing merge;
+- Spark `return_woe=True`;
 - imputacao inteligente dentro do RiskBands;
 - backend Spark distribuido completo para o fitting estatistico.
 

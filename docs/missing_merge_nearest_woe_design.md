@@ -98,10 +98,13 @@ distance metric, event-rate distance, and WOE distance.
 
 ## PySpark Boundary
 
-PySpark merge remains intentionally unsupported in v2.3.0. Fit or transform with
-`missing_policy="merge"` raises a clear `NotImplementedError` for both
-`nearest_event_rate` and `nearest_woe`. Existing PySpark behavior for
-`separate_bin` and `forbid` remains covered by regression tests.
+v2.4.0 supports Spark missing merge through the narrow sampled-to-pandas fit and
+native Spark transform path documented in the PySpark design notes. This applies
+to both `nearest_event_rate` and `nearest_woe`, with sampling caveats captured in
+metadata, bundle, validation reports, and `audit_report.html`.
+
+Spark-native full-data merge learning and Spark `return_woe=True` remain outside
+the current public contract.
 
 ## Out Of Scope
 
@@ -111,5 +114,6 @@ E2 does not implement:
 - `monotonic_neighbor`
 - custom criteria
 - advanced thresholds
-- full PySpark merge routing
+- Spark-native full-data merge learning
+- Spark `return_woe=True`
 - publication, tags, or automatic pushes

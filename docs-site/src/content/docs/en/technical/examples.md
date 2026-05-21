@@ -52,6 +52,8 @@ They show:
 - `missing_merge_candidates_`
 - bundle fields for missing policy and missing merge
 - optional guard for PySpark
+- Spark sampled-to-pandas for missing merge when the Spark extra is available
+- sampling caveats in validation, bundle, and audit report
 - comparison across `standard`, `separate_bin`, `forbid`, `merge + nearest_event_rate`, and `merge + nearest_woe`
 - synthetic credit-risk data without real or sensitive records
 

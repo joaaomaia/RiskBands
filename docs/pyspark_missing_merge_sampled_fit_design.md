@@ -95,9 +95,9 @@ allowed only for:
 - the one-row empty-sample fallback;
 - aggregate missing-count/profile helpers with row guards.
 
-## G3 candidates
+## Release boundary
 
-- Decide whether Spark-native missing merge fit is needed.
-- Decide whether bundle loading should reconstruct a callable estimator.
-- Consider stratified or representativeness-aware sampling controls without
-  changing the G2 merge criteria.
+The v2.4.0 release-prep documents this sampled-to-pandas path as the supported
+Spark fit boundary for missing merge. Spark-native full fit, callable estimator
+reconstruction from `load_bundle(...)`, and additional sampling controls remain
+future work unless explicitly scoped in a later release.

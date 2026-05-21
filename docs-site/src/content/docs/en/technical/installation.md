@@ -24,7 +24,7 @@ pip install "riskbands[spark]"
 ```
 
 The base package does not install PySpark. The `spark` extra uses
-`pyspark>=3.5,<4`.
+`pyspark>=3.5.2,<4`.
 
 ## Development environment
 

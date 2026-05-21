@@ -93,15 +93,13 @@ Bundle export and JSON/Excel report paths persist the merge audit fields.
 
 ## PySpark Boundary
 
-v2.3.0 does not implement PySpark merge routing. PySpark fit or transform with
-`missing_policy="merge"` raises:
+v2.4.0 supports Spark missing merge through the narrow sampled-to-pandas fit and
+native Spark transform path documented in the PySpark design notes. It does not
+implement Spark-native full-data merge learning or Spark `return_woe=True`.
 
-```text
-missing_policy="merge" with PySpark is not implemented in this release. Use pandas fit/transform or missing_policy="separate_bin"/"forbid".
-```
-
-Existing Spark behavior for `standard`, `separate_bin`, and `forbid` remains in
-scope and is covered by Spark regression tests.
+Existing Spark behavior for `standard`, `separate_bin`, `forbid`, sampled
+missing merge fit, native missing merge transform, and validation/reporting
+diagnostics is covered by Spark regression tests.
 
 ## Relationship To Nearest WOE
 
@@ -120,7 +118,7 @@ The detailed E2 design is documented in
 - No `monotonic_neighbor` criterion.
 - No custom criterion.
 - No threshold tuning beyond exact nearest event-rate distance.
-- No full PySpark implementation.
+- No Spark-native full-data fit or Spark `return_woe=True`.
 - No use of transform/OOT target data to choose a merge destination.
 
 ## Future Work

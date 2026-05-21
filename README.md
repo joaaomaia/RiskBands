@@ -257,33 +257,36 @@ Exemplos executaveis:
 - `python examples/missing_policy/missing_policy_pandas_demo.py`
 - `python examples/missing_policy/missing_policy_pyspark_demo.py`
 
-## Destaques da versao 2.3.0
+## Destaques da versao 2.4.0
 
-A versao 2.3.0 prepara a release de merge auditavel de missing values:
+A versao 2.4.0 prepara a release de Spark missing merge, audit bundle narrativo,
+docs publicas e exemplos:
 
 - `missing_policy="standard"` permanece como default compativel.
-- `missing_policy="separate_bin"` cria bin explicito `Missing` quando essa escolha
-  for intencional.
-- `missing_policy="forbid"` falha quando missing values devem ser tratados antes
-  do binning.
-- `missing_policy="merge"` permite unir o grupo missing a um bin regular usando
-  `nearest_event_rate` ou `nearest_woe`.
-- `missing_merge_fallback` controla o comportamento quando missing aparece no
-  transform sem uma decisao aprendida no fit.
-- `missing_profile_`, `missing_decision_log_`, `missing_merge_candidates_` e
-  `missing_merge_map_` preservam a auditoria do merge.
-- `return_woe=True` em pandas usa o WoE do bin de destino aprendido.
-- bundles e reporting persistem criterio, fallback, candidatos e mapa de merge.
+- `missing_policy="merge"` continua auditavel em pandas com
+  `nearest_event_rate` e `nearest_woe`.
+- Spark transform aplica decisoes de missing merge aprendidas usando expressoes
+  Spark nativas e `return_woe=False`.
+- Spark fit com missing merge usa caminho controlado sampled-to-pandas, registra
+  a caveat de amostragem e nao afirma aprendizado Spark-native no dataset
+  completo.
+- `fit(validate=True)` em Spark pode gerar `source_profile_`,
+  diagnosticos sample-vs-source e `missing_sampling_diagnostics`.
+- `audit_report.html` gera um relatorio narrativo standalone e print-friendly
+  com configuracao, missing policies, merge, validacao, inventario do bundle e
+  limitacoes.
+- `export_bundle(...)` inclui `audit_report.html` por padrao, alem de metadata,
+  CSVs, tabelas por feature e trilhas de missing merge quando disponiveis.
+- A galeria Reveal.js do docs-site inclui uma apresentacao RiskBands Overview.
 - `standard` e o nome canonico do score historico; `legacy` segue como alias
   compativel.
 - pandas e PySpark seguem suportados, com PySpark opcional via
-  `riskbands[spark]` e restrito a `pyspark>=3.5,<4`.
-- bundles antigos seguem carregando como `standard` quando nao possuem os novos
-  campos de missing policy ou missing merge.
+  `riskbands[spark]` e restrito a `pyspark>=3.5.2,<4`.
 
-Fora do escopo desta versao: `temporal_stable`, `monotonic_neighbor`, PySpark
-merge completo, criterios adicionais de merge, imputacao inteligente opaca e um
-backend Spark distribuido completo para fitting.
+Fora do escopo desta versao: Spark-native full fit para missing merge, Spark
+`return_woe=True`, `temporal_stable`, `monotonic_neighbor`, criterios adicionais
+de merge, imputacao inteligente opaca, PDF nativo do audit report e garantia de
+conformidade regulatoria.
 
 ## Export auditavel e supply chain
 
