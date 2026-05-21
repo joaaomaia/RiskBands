@@ -189,6 +189,11 @@ export default defineConfig({
           label: 'Projeto',
           translations: { en: 'Project' },
           items: [
+            {
+              label: 'Apresentações',
+              translations: { en: 'Presentations' },
+              slug: 'presentations',
+            },
             { label: 'Release Notes', slug: 'reference/release-notes' },
             {
               label: 'Evolução após v1.0.0',
