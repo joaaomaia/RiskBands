@@ -3,6 +3,30 @@ title: "Release Notes"
 description: "Marcos de release em alto nível para o pacote público e para a documentação oficial."
 ---
 
+## v2.4.0
+
+Type: compatible minor release preparation.
+
+Main points:
+
+- Spark transform supports `missing_policy="merge"` when a merge decision was learned, using native Spark expressions and `return_woe=False`
+- Spark fit with missing merge uses a controlled sampled-to-pandas path and records that the merge decision was learned on the sample
+- Spark validation/reporting adds `source_profile_`, sample-vs-source diagnostics, and `missing_sampling_diagnostics`
+- metadata, bundle outputs, and `audit_report.html` carry sampling caveats for Spark sampled fit
+- `audit_report.html` is a narrative standalone HTML report with embedded CSS, print-friendly layout, missing policy explanations, bundle inventory, validation alerts, and limitations
+- `export_bundle(...)` includes `audit_report.html` by default
+- docs-site includes a Reveal.js presentation gallery and RiskBands overview deck
+- pt-BR/en docs and examples cover missing policy, audit bundle/reporting, and Spark missing merge behavior
+
+Notes:
+
+- `missing_policy="standard"` remains the default
+- Spark-native full fit is not part of this release target
+- Spark `return_woe=True` is still not supported
+- no `temporal_stable`, `monotonic_neighbor`, custom merge criteria, opaque imputation, or PySpark 4.x support is added
+- the audit report supports review, but it does not replace independent formal validation or guarantee regulatory compliance
+- `joblib/PYSEC-2024-277` is handled as a documented `pip-audit` exception with no fixed version available; only that advisory is ignored, and the decision is recorded in `docs/security/pip_audit_exceptions.md`
+
 ## v2.3.0
 
 Type: compatible minor release.

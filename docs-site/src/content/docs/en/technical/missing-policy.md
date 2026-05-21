@@ -60,6 +60,12 @@ and the learned routing map is stored in `missing_merge_map_`. `transform(...)`
 uses only the fit-time decision; it does not learn a new rule from application
 data.
 
+In Spark, v2.4.0 supports the controlled sampled-to-pandas `fit` path and
+applies the learned decision during `transform` with native Spark expressions
+and `return_woe=False`. This is not Spark-native full fit: review the sampling
+metadata, `source_profile_`, and `missing_sampling_diagnostics_` when using
+`fit(validate=True)`.
+
 Compare merge against `separate_bin` before accepting the decision. The
 [`missing_policy_comparison_demo.py`](https://github.com/joaaomaia/RiskBands/blob/main/examples/missing_policy/missing_policy_comparison_demo.py)
 script builds a table with IV, number of bins, missing event rate, action,
@@ -125,9 +131,11 @@ It uses:
 - `spark.sql.shuffle.partitions=2`;
 - a small synthetic dataset;
 - `missing_policy="separate_bin"`;
+- the Spark sampled-to-pandas path for `missing_policy="merge"` when the Spark
+  extra is available;
 - `transform(validate=True)`;
 - `missing_policy="forbid"` producing a clear error;
-- an explicit boundary for `missing_policy="merge"` in PySpark;
+- sampling caveats for Spark missing merge;
 - no UDF.
 
 ```bash
@@ -147,6 +155,8 @@ After `fit(...)`, look at:
 - `missing_decision_log_`
 - `fit_profile_`, `reference_profile_`, and `application_profile_` when
   validation is enabled.
+- `source_profile_` and `missing_sampling_diagnostics_` when Spark fit with
+  missing merge uses sampled-to-pandas.
 
 `missing_profile_` shows volume, share, events, event rate, backend, context,
 and whether the row represents a missing bin. `missing_decision_log_` records
@@ -164,6 +174,8 @@ the action taken per variable.
 - `missing_merge_fallback`
 - `missing_merge_candidates`
 - `missing_merge_map`
+- `missing_sampling_diagnostics` when Spark sampled-to-pandas creates sampling
+  diagnostics
 
 ```python
 from riskbands.reporting import load_bundle
@@ -184,7 +196,8 @@ This page documents the current contract. There are not yet:
 - `temporal_stable` as a merge criterion;
 - `monotonic_neighbor` as a merge criterion;
 - merge criteria beyond `nearest_event_rate` and `nearest_woe`;
-- complete PySpark merge support;
+- Spark-native full fit for missing merge;
+- Spark `return_woe=True`;
 - intelligent imputation inside RiskBands;
 - fully distributed statistical fitting in Spark.
 

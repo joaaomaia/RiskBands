@@ -15,7 +15,7 @@ from riskbands import (
 
 Current version:
 
-- `2.3.0`
+- `2.4.0`
 
 ## `RiskBands` / `Binner`
 
@@ -92,7 +92,7 @@ Missing policy semantics:
 - `standard`: preserves the current missing-value behavior and is the default.
 - `separate_bin`: creates an explicit, auditable `Missing` bin.
 - `forbid`: raises a clear error in `fit` or `transform` when selected features contain missing values.
-- `merge`: learns a fit-time destination for the missing group and routes missing values to the selected regular bin during pandas transform.
+- `merge`: learns a fit-time destination for the missing group and routes missing values to the selected regular bin during pandas transform or supported Spark transform.
 
 For `merge`, use one supported criterion:
 
@@ -101,7 +101,13 @@ For `merge`, use one supported criterion:
 
 The decision is learned only during `fit(...)`; `transform(...)` does not use application target values, application event rates, application WoE, or out-of-time distributions to retarget missing values.
 
-No opaque missing-value imputation is added. The v2.3.0 merge contract does not include `temporal_stable`, `monotonic_neighbor`, custom criteria, or full PySpark merge routing.
+Spark support for `merge` is deliberately narrow. Spark fit uses a controlled
+sampled-to-pandas path and records that the merge decision was learned on the
+sample, not on a Spark-native full-data fit. Spark transform applies learned
+merge decisions with native Spark expressions and currently supports
+`return_woe=False` only. No opaque missing-value imputation is added. The
+v2.4.0 merge contract does not include `temporal_stable`, `monotonic_neighbor`,
+custom criteria, Spark-native full fit, or Spark `return_woe=True`.
 
 For user guidance and runnable examples, see
 [`docs/missing_policy_user_guide.md`](missing_policy_user_guide.md) and:
@@ -142,6 +148,7 @@ Main attributes after `fit`:
 - `transform_validation_report_` when `transform(validate=True)` was requested
 - `validation_report_` as the latest validation report compatibility alias
 - `fit_profile_`, `source_profile_`, and `reference_profile_` when available
+- `missing_sampling_diagnostics_` when Spark sampled-to-pandas fit creates sampling diagnostics
 - `missing_policy_`, `effective_missing_policy_`, `missing_profile_`, and `missing_decision_log_`
 - `missing_merge_criterion_`, `missing_merge_fallback_`, `missing_merge_candidates_`, and `missing_merge_map_` when merge is enabled
 - `iv_`
@@ -210,11 +217,17 @@ Main attributes after `fit`:
 - `audit_report.html` by default, unless `include_audit_report=False`
 - per-feature tables under `feature_tables/`
 - parquet artifacts when the environment has parquet support available
+- sampling metadata and `missing_sampling_diagnostics` when Spark sampled-to-pandas fit is used
 
 `export_audit_report(path, title=None, dataset_name=None)` creates a standalone
 HTML narrative report with embedded CSS and no external assets. It explains the
 model configuration, variables, missing policies, missing merge decisions,
 merge candidates, validation alerts, bundle inventory, and known limitations.
+
+When Spark sampled-to-pandas fit is used for missing merge, the report and
+bundle metadata carry the sampling caveat, source/sample row counts when
+available, and diagnostics that help reviewers see whether source missing values
+were represented in the sample.
 
 The report is print-friendly and can be exported to PDF by the browser. Native
 PDF export is not part of the public API in this release. The report organizes

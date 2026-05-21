@@ -61,6 +61,11 @@ the selected destination bin, the criterion (`nearest_event_rate` or
 the learned decision instead of recalculating event rate or WoE on application
 data.
 
+For Spark sampled-to-pandas fit, the report also surfaces the sampling caveat,
+source/sample row counts when available, source profile status, and
+`missing_sampling_diagnostics`. These fields help reviewers distinguish a merge
+decision learned on the sample from evidence observed on the full Spark source.
+
 ## Bundle Inventory
 
 The report explains common bundle files, including:
@@ -75,6 +80,7 @@ The report explains common bundle files, including:
 - `missing_profile.csv`;
 - `missing_decision_log.csv`;
 - `missing_merge_candidates.csv`;
+- sampling diagnostics when Spark sampled-to-pandas fit produced them;
 - `feature_tables/`;
 - `audit_report.html`.
 

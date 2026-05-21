@@ -101,7 +101,9 @@ G1B adds tests that inspect the direct Spark transform methods and block acciden
 
 Collection remains allowed only in named aggregate/profile helpers, such as missing-count aggregation for fallback `raise` and bounded validation profile collection.
 
-## Next steps
+## Release boundary
 
-- G3: decide whether Spark-native missing merge fit or reconstructed callable estimators from bundle are required.
-- G4: update public docs and release notes only after functional gates are accepted.
+The v2.4.0 release-prep documents this as supported Spark missing merge
+behavior with the limits above. Spark-native full fit, Spark `return_woe=True`,
+and callable estimator reconstruction from `load_bundle(...)` remain outside
+the current public contract.

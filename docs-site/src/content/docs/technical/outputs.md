@@ -80,7 +80,8 @@ manter o bundle sem o HTML narrativo.
 Bundles também persistem a trilha de missing values quando disponível:
 `missing_policy`, `effective_missing_policy`, `missing_profile`,
 `missing_decision_log`, `missing_merge_criterion`, `missing_merge_fallback`,
-`missing_merge_candidates` e `missing_merge_map`.
+`missing_merge_candidates`, `missing_merge_map` e, em Spark sampled-to-pandas,
+`missing_sampling_diagnostics`.
 
 Esses campos registram a decisão de tratamento de missing values. Eles não
 representam imputação opaca.
@@ -91,6 +92,11 @@ variável. Use `missing_decision_log_` para ver se a ação foi preservar
 rotear missing com `merge`. Para merge, use `missing_merge_candidates_` para
 revisar candidatos e distâncias e `missing_merge_map_` para ver o destino
 aprendido.
+
+Em Spark sampled-to-pandas, revise também `source_profile_`,
+`reference_profile_`, `fit_validation_report_["sample_representativeness"]` e
+`missing_sampling_diagnostics_` para entender a distância entre a amostra usada
+no fit e a fonte Spark.
 
 Guia dedicado: [Missing policy](../missing-policy/).
 

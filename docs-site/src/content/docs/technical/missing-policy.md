@@ -59,6 +59,12 @@ candidatos ficam em `missing_merge_candidates_`, e o mapa aprendido fica em
 `missing_merge_map_`. O `transform(...)` usa apenas essa decisao aprendida no
 fit; ele nao aprende regra nova com a base de aplicacao.
 
+Em Spark, a v2.4.0 suporta o caminho controlado sampled-to-pandas para `fit` e
+aplica a decisao aprendida no `transform` com expressoes Spark nativas e
+`return_woe=False`. Isso nao e Spark-native full fit: revise os metadados de
+amostragem, `source_profile_` e `missing_sampling_diagnostics_` quando usar
+`fit(validate=True)`.
+
 Compare merge contra `separate_bin` antes de aceitar a decisao. O script
 [`missing_policy_comparison_demo.py`](https://github.com/joaaomaia/RiskBands/blob/main/examples/missing_policy/missing_policy_comparison_demo.py)
 gera uma tabela com IV, numero de bins, evento do missing, acao tomada, bin
@@ -125,9 +131,11 @@ Ele usa:
 - `spark.sql.shuffle.partitions=2`;
 - dataset sintetico pequeno;
 - `missing_policy="separate_bin"`;
+- caminho Spark sampled-to-pandas para `missing_policy="merge"` quando o extra
+  Spark esta disponivel;
 - `transform(validate=True)`;
 - `missing_policy="forbid"` gerando erro claro;
-- boundary explicito para `missing_policy="merge"` em PySpark;
+- caveats de amostragem para missing merge em Spark;
 - nenhum UDF.
 
 ```bash
@@ -147,6 +155,8 @@ Apos `fit(...)`, olhe:
 - `missing_decision_log_`
 - `fit_profile_`, `reference_profile_` e `application_profile_` quando houver
   validacao.
+- `source_profile_` e `missing_sampling_diagnostics_` quando Spark fit com
+  missing merge usa sampled-to-pandas.
 
 `missing_profile_` mostra volume, share, eventos, event rate, backend, contexto
 e se a linha representa bin missing. `missing_decision_log_` registra a acao
@@ -164,6 +174,8 @@ tomada por variavel.
 - `missing_merge_fallback`
 - `missing_merge_candidates`
 - `missing_merge_map`
+- `missing_sampling_diagnostics` quando Spark sampled-to-pandas gera
+  diagnosticos de amostragem
 
 ```python
 from riskbands.reporting import load_bundle
@@ -184,7 +196,8 @@ Esta pagina documenta o contrato atual. Ainda nao existem:
 - `temporal_stable` como criterio de merge;
 - `monotonic_neighbor` como criterio de merge;
 - criterios de merge alem de `nearest_event_rate` e `nearest_woe`;
-- PySpark merge completo;
+- Spark-native full fit para missing merge;
+- Spark `return_woe=True`;
 - imputacao inteligente dentro do RiskBands;
 - fitting estatistico totalmente distribuido em Spark.
 

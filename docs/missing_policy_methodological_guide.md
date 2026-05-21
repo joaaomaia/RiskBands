@@ -1,7 +1,7 @@
 # Missing policy methodological guide
 
 This guide helps reviewers choose among the RiskBands missing-value policies in
-v2.3.0. It is methodological guidance, not a regulatory certification. Every
+v2.4.0. It is methodological guidance, not a regulatory certification. Every
 choice should still be reviewed against the project data, controls, sampling
 design, and model-governance process.
 
@@ -85,11 +85,17 @@ production contract, not convenience.
 
 ## PySpark boundary
 
-In v2.3.0, full PySpark merge is intentionally not implemented. PySpark fit or
-transform with `missing_policy="merge"` raises an explicit
-`NotImplementedError`. PySpark remains available for supported policies such as
-`standard`, `separate_bin`, and `forbid`, including validation paths covered by
-the test suite.
+In v2.4.0, PySpark missing merge is supported only through the narrow audited
+path documented in the Spark design notes. Spark fit uses controlled
+sampled-to-pandas fitting and records that the merge decision was learned on
+the sample, not through Spark-native full-data learning. Spark transform applies
+learned merge decisions with native Spark expressions and `return_woe=False`.
+
+Review `source_profile_`, `fit_validation_report_["sample_representativeness"]`,
+`missing_sampling_diagnostics_`, bundle metadata, and `audit_report.html`
+sampling caveats before accepting a sampled Spark merge decision. Warnings such
+as source missing values not seen in the sample are review signals, not
+automatic approvals or failures.
 
 ## Not implemented in this release
 
@@ -98,8 +104,8 @@ available behavior:
 
 - `temporal_stable`;
 - `monotonic_neighbor`;
-- full PySpark missing merge.
+- Spark-native full-data missing merge fit.
 
 Use the current audit artifacts to compare policies today. Do not infer that
 future criteria already exist, and do not create local policy names outside the
-public v2.3.0 contract.
+public v2.4.0 contract.

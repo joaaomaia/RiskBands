@@ -23,7 +23,7 @@ Para usar os caminhos opcionais de fit/transform com PySpark:
 pip install "riskbands[spark]"
 ```
 
-O pacote base nao instala PySpark. O extra `spark` usa `pyspark>=3.5,<4`.
+O pacote base não instala PySpark. O extra `spark` usa `pyspark>=3.5.2,<4`.
 
 ## Ambiente de desenvolvimento
 

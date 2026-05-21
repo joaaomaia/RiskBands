@@ -27,12 +27,20 @@ Entry point for the project documentation.
   Methodological guidance for choosing missing policies and reviewing merge decisions.
 - [docs/audit_bundle_narrative_report.md](audit_bundle_narrative_report.md)
   Guide for the standalone narrative audit report generated as `audit_report.html`.
+- [docs/releases/2.4.0.md](releases/2.4.0.md)
+  v2.4.0 release-prep notes for Spark missing merge, audit bundle reporting, public docs, examples, and the Reveal.js gallery.
 - [docs/releases/2.3.0.md](releases/2.3.0.md)
   v2.3.0 release-prep notes for auditable missing merge policies.
 - [docs/missing_merge_nearest_event_rate_design.md](missing_merge_nearest_event_rate_design.md)
   Internal design note for `missing_merge_criterion="nearest_event_rate"`.
 - [docs/missing_merge_nearest_woe_design.md](missing_merge_nearest_woe_design.md)
   Internal design note for `missing_merge_criterion="nearest_woe"`.
+- [docs/pyspark_missing_merge_transform_design.md](pyspark_missing_merge_transform_design.md)
+  Design note for Spark transform with learned missing merge decisions.
+- [docs/pyspark_missing_merge_sampled_fit_design.md](pyspark_missing_merge_sampled_fit_design.md)
+  Design note for Spark sampled-to-pandas fit with missing merge.
+- [docs/pyspark_missing_merge_validation_reporting_design.md](pyspark_missing_merge_validation_reporting_design.md)
+  Design note for Spark sampled-fit validation, reporting, and caveats.
 - [docs/migration.md](migration.md)
   Breaking migration guide for users coming from `NASABinning`.
 - [examples/README.md](../examples/README.md)
